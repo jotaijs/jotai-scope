@@ -1,0 +1,1 @@
+export { createIsolation } from './createIsolation';
