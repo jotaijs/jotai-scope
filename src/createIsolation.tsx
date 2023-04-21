@@ -14,21 +14,6 @@ type InitialValues = Parameters<typeof useHydrateAtoms>[0];
 export function createIsolation() {
   const StoreContext = createContext<Store | null>(null);
 
-  const HydrateAtoms = ({
-    initialValues,
-    children,
-  }: {
-    initialValues: InitialValues;
-    children: ReactNode;
-  }) => {
-    const store = useContext(StoreContext);
-    if (!store) {
-      throw new Error('Missing Provider from createIsolation');
-    }
-    useHydrateAtoms(initialValues, { store });
-    return children as any;
-  };
-
   const Provider = ({
     store,
     initialValues = [],
@@ -42,9 +27,10 @@ export function createIsolation() {
     if (!storeRef.current) {
       storeRef.current = createStore();
     }
+    useHydrateAtoms(initialValues, { store: storeRef.current });
     return (
       <StoreContext.Provider value={storeRef.current}>
-        <HydrateAtoms initialValues={initialValues}>{children}</HydrateAtoms>
+        {children}
       </StoreContext.Provider>
     );
   };
