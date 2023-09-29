@@ -1,8 +1,8 @@
 export { createIsolation } from './createIsolation';
 export {
   createScope as INTERNAL_createScope,
-  ScopeProvider,
-  useScopeAtom,
-  useScopeAtomValue,
-  useScopeSetAtom,
+  Provider,
+  useAtom,
+  useAtomValue,
+  useSetAtom,
 } from './createScope';

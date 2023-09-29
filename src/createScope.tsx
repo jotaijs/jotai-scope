@@ -1,7 +1,11 @@
 import { createContext, useContext, useRef } from 'react';
 import type { ReactNode } from 'react';
-import { useAtom, useAtomValue, useSetAtom } from 'jotai/react';
 import { createStore } from 'jotai/vanilla';
+import {
+  useAtom as useAtomOrig,
+  useAtomValue as useAtomValueOrig,
+  useSetAtom as useSetAtomOrig,
+} from 'jotai/react';
 import type { Atom } from 'jotai';
 
 type Store = ReturnType<typeof createStore>;
@@ -10,7 +14,7 @@ type AnyAtom = Atom<unknown>;
 export function createScope() {
   const ScopeContext = createContext<Map<AnyAtom, Store>>(new Map());
 
-  const ScopeProvider = ({
+  const Provider = ({
     atoms,
     children,
   }: {
@@ -32,30 +36,25 @@ export function createScope() {
     );
   };
 
-  const useScopeAtom = ((anAtom: any, options?: any) => {
+  const useAtom = ((anAtom: any, options?: any) => {
     const map = useContext(ScopeContext);
     const store = map.get(anAtom);
-    return useAtom(anAtom, { store, ...options });
-  }) as typeof useAtom;
+    return useAtomOrig(anAtom, { store, ...options });
+  }) as typeof useAtomOrig;
 
-  const useScopeAtomValue = ((anAtom: any, options?: any) => {
+  const useAtomValue = ((anAtom: any, options?: any) => {
     const map = useContext(ScopeContext);
     const store = map.get(anAtom);
-    return useAtomValue(anAtom, { store, ...options });
-  }) as typeof useAtomValue;
+    return useAtomValueOrig(anAtom, { store, ...options });
+  }) as typeof useAtomValueOrig;
 
-  const useScopeSetAtom = ((anAtom: any, options?: any) => {
+  const useSetAtom = ((anAtom: any, options?: any) => {
     const map = useContext(ScopeContext);
     const store = map.get(anAtom);
-    return useSetAtom(anAtom, { store, ...options });
-  }) as typeof useSetAtom;
+    return useSetAtomOrig(anAtom, { store, ...options });
+  }) as typeof useSetAtomOrig;
 
-  return { ScopeProvider, useScopeAtom, useScopeAtomValue, useScopeSetAtom };
+  return { Provider, useAtom, useAtomValue, useSetAtom };
 }
 
-export const {
-  ScopeProvider,
-  useScopeAtom,
-  useScopeAtomValue,
-  useScopeSetAtom,
-} = createScope();
+export const { Provider, useAtom, useAtomValue, useSetAtom } = createScope();
