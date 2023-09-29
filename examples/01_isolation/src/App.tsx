@@ -1,7 +1,7 @@
 import { atom, useAtom } from 'jotai';
 import { createIsolation } from 'jotai-scope';
 
-const { Provider: ScopedProvider, useAtom: useScopedAtom } = createIsolation();
+const { Provider: MyProvider, useAtom: useMyAtom } = createIsolation();
 
 const countAtom = atom(0);
 
@@ -18,7 +18,7 @@ const Counter = () => {
 };
 
 const ScopedCounter = () => {
-  const [count, setCount] = useScopedAtom(countAtom);
+  const [count, setCount] = useMyAtom(countAtom);
   return (
     <div>
       <span>scoped count: {count}</span>
@@ -33,15 +33,15 @@ const App = () => {
   return (
     <div>
       <h1>First Provider</h1>
-      <ScopedProvider>
+      <MyProvider>
         <Counter />
         <ScopedCounter />
-      </ScopedProvider>
+      </MyProvider>
       <h1>Second Provider</h1>
-      <ScopedProvider>
+      <MyProvider>
         <Counter />
         <ScopedCounter />
-      </ScopedProvider>
+      </MyProvider>
     </div>
   );
 };
