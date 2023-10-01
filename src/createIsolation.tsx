@@ -16,7 +16,7 @@ export function createIsolation() {
 
   const Provider = ({
     store,
-    initialValues = [],
+    initialValues = [] as unknown as InitialValues,
     children,
   }: {
     store?: Store;

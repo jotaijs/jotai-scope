@@ -12,6 +12,8 @@
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "jsx": "react-jsx",
+    "jsxFactory": "",
+    "jsxFragmentFactory": "",
     "baseUrl": ".",
     "paths": {
       "jotai-scope": ["./src"]
