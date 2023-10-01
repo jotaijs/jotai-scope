@@ -1,6 +1,8 @@
 # Change Log
 
 ## [Unreleased]
+
+## [0.2.0] - 2023-10-01
 ### Added
 - new scope util #2
 
