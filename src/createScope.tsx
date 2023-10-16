@@ -1,18 +1,18 @@
-import { createContext, useContext, useRef } from 'react';
+import { createContext, useContext } from 'react';
 import type { ReactNode } from 'react';
-import { createStore } from 'jotai/vanilla';
 import {
   useAtom as useAtomOrig,
   useAtomValue as useAtomValueOrig,
   useSetAtom as useSetAtomOrig,
 } from 'jotai/react';
-import type { Atom } from 'jotai';
+import type { Atom, WritableAtom } from 'jotai';
 
-type Store = ReturnType<typeof createStore>;
 type AnyAtom = Atom<unknown>;
+type AnyWritableAtom = WritableAtom<unknown, unknown[], unknown>;
+type GetScopedAtom = <T extends AnyAtom>(anAtom: T) => T;
 
 export function createScope() {
-  const ScopeContext = createContext<Map<AnyAtom, Store>>(new Map());
+  const ScopeContext = createContext<GetScopedAtom>((a) => a);
 
   const Provider = ({
     atoms,
@@ -21,37 +21,74 @@ export function createScope() {
     atoms: Iterable<AnyAtom>;
     children: ReactNode;
   }) => {
-    const storeRef = useRef<Store>();
-    if (!storeRef.current) {
-      storeRef.current = createStore();
-    }
-    const store = storeRef.current;
-    const parentMap = useContext(ScopeContext);
-    const map = new Map(parentMap);
-    Array.from(atoms).forEach((anAtom) => {
-      map.set(anAtom, store);
-    });
+    const getParentScopedAtom = useContext(ScopeContext);
+    const mapping = new WeakMap<AnyAtom, AnyAtom>();
+    const atomSet = new Set(atoms);
+
+    const createScopedAtom = <T extends AnyAtom>(
+      anAtom: T,
+      delegate: boolean,
+    ): T => {
+      const scopedAtom = Object.assign({}, anAtom) as typeof anAtom;
+      const getAtom = <A extends AnyAtom>(thisArg: unknown, target: A) => {
+        if (target === thisArg) {
+          return delegate ? getParentScopedAtom(target) : target;
+        }
+        return getScopedAtom(target);
+      };
+      if ('read' in scopedAtom) {
+        scopedAtom.read = function read(get, opts) {
+          return anAtom.read.call(this, (a) => get(getAtom(this, a)), opts);
+        };
+      }
+      if ('write' in scopedAtom) {
+        (scopedAtom as unknown as AnyWritableAtom).write = function write(
+          get,
+          set,
+          ...args
+        ) {
+          return (anAtom as unknown as AnyWritableAtom).write.call(
+            this,
+            (a) => get(getAtom(this, a)),
+            (a, ...v) => set(getAtom(this, a), ...v),
+            ...args,
+          );
+        };
+      }
+      return scopedAtom;
+    };
+
+    const getScopedAtom: GetScopedAtom = (anAtom) => {
+      let scopedAtom = mapping.get(anAtom) as typeof anAtom | undefined;
+      if (!scopedAtom) {
+        scopedAtom = atomSet.has(anAtom)
+          ? createScopedAtom(anAtom, false)
+          : createScopedAtom(anAtom, true);
+        mapping.set(anAtom, scopedAtom);
+      }
+      return scopedAtom;
+    };
+
     return (
-      <ScopeContext.Provider value={map}>{children}</ScopeContext.Provider>
+      <ScopeContext.Provider value={getScopedAtom}>
+        {children}
+      </ScopeContext.Provider>
     );
   };
 
   const useAtom = ((anAtom: any, options?: any) => {
-    const map = useContext(ScopeContext);
-    const store = map.get(anAtom);
-    return useAtomOrig(anAtom, { store, ...options });
+    const getScopedAtom = useContext(ScopeContext);
+    return useAtomOrig(getScopedAtom(anAtom), options);
   }) as typeof useAtomOrig;
 
   const useAtomValue = ((anAtom: any, options?: any) => {
-    const map = useContext(ScopeContext);
-    const store = map.get(anAtom);
-    return useAtomValueOrig(anAtom, { store, ...options });
+    const getScopedAtom = useContext(ScopeContext);
+    return useAtomValueOrig(getScopedAtom(anAtom), options);
   }) as typeof useAtomValueOrig;
 
   const useSetAtom = ((anAtom: any, options?: any) => {
-    const map = useContext(ScopeContext);
-    const store = map.get(anAtom);
-    return useSetAtomOrig(anAtom, { store, ...options });
+    const getScopedAtom = useContext(ScopeContext);
+    return useSetAtomOrig(getScopedAtom(anAtom), options);
   }) as typeof useSetAtomOrig;
 
   return { Provider, useAtom, useAtomValue, useSetAtom };
