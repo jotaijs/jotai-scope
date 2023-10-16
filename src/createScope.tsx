@@ -25,48 +25,46 @@ export function createScope() {
     const mapping = new WeakMap<AnyAtom, AnyAtom>();
     const atomSet = new Set(atoms);
 
-    const createScopedAtom = <T extends AnyAtom>(
+    const createScopedAtom = <T extends AnyWritableAtom>(
       anAtom: T,
       delegate: boolean,
     ): T => {
-      const scopedAtom = Object.assign({}, anAtom) as typeof anAtom;
       const getAtom = <A extends AnyAtom>(thisArg: unknown, target: A) => {
         if (target === thisArg) {
           return delegate ? getParentScopedAtom(target) : target;
         }
         return getScopedAtom(target);
       };
-      if ('read' in scopedAtom) {
-        scopedAtom.read = function read(get, opts) {
-          return anAtom.read.call(this, (a) => get(getAtom(this, a)), opts);
-        };
-      }
-      if ('write' in scopedAtom) {
-        (scopedAtom as unknown as AnyWritableAtom).write = function write(
-          get,
-          set,
-          ...args
-        ) {
-          return (anAtom as unknown as AnyWritableAtom).write.call(
-            this,
-            (a) => get(getAtom(this, a)),
-            (a, ...v) => set(getAtom(this, a), ...v),
-            ...args,
-          );
-        };
-      }
+      const scopedAtom: typeof anAtom = {
+        ...anAtom,
+        ...('read' in anAtom && {
+          read(get, opts) {
+            return anAtom.read.call(this, (a) => get(getAtom(this, a)), opts);
+          },
+        }),
+        ...('write' in anAtom && {
+          write(get, set, ...args) {
+            return anAtom.write.call(
+              this,
+              (a) => get(getAtom(this, a)),
+              (a, ...v) => set(getAtom(this, a), ...v),
+              ...args,
+            );
+          },
+        }),
+      };
       return scopedAtom;
     };
 
     const getScopedAtom: GetScopedAtom = (anAtom) => {
-      let scopedAtom = mapping.get(anAtom) as typeof anAtom | undefined;
+      let scopedAtom = mapping.get(anAtom);
       if (!scopedAtom) {
         scopedAtom = atomSet.has(anAtom)
-          ? createScopedAtom(anAtom, false)
-          : createScopedAtom(anAtom, true);
+          ? createScopedAtom(anAtom as unknown as AnyWritableAtom, false)
+          : createScopedAtom(anAtom as unknown as AnyWritableAtom, true);
         mapping.set(anAtom, scopedAtom);
       }
-      return scopedAtom;
+      return scopedAtom as typeof anAtom;
     };
 
     return (
