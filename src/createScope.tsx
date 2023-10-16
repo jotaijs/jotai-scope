@@ -14,7 +14,7 @@ type GetScopedAtom = <T extends AnyAtom>(anAtom: T) => T;
 export function createScope() {
   const ScopeContext = createContext<GetScopedAtom>((a) => a);
 
-  const Provider = ({
+  const ScopeProvider = ({
     atoms,
     children,
   }: {
@@ -89,7 +89,8 @@ export function createScope() {
     return useSetAtomOrig(getScopedAtom(anAtom), options);
   }) as typeof useSetAtomOrig;
 
-  return { Provider, useAtom, useAtomValue, useSetAtom };
+  return { ScopeProvider, useAtom, useAtomValue, useSetAtom };
 }
 
-export const { Provider, useAtom, useAtomValue, useSetAtom } = createScope();
+export const { ScopeProvider, useAtom, useAtomValue, useSetAtom } =
+  createScope();
