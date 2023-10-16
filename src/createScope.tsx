@@ -29,9 +29,13 @@ export function createScope() {
       anAtom: T,
       delegate: boolean,
     ): T => {
-      const getAtom = <A extends AnyAtom>(thisArg: unknown, target: A) => {
+      const getAtom = <A extends AnyAtom>(
+        thisArg: AnyAtom,
+        orig: AnyAtom,
+        target: A,
+      ): A => {
         if (target === thisArg) {
-          return delegate ? getParentScopedAtom(target) : target;
+          return delegate ? getParentScopedAtom(orig as A) : target;
         }
         return getScopedAtom(target);
       };
@@ -39,15 +43,19 @@ export function createScope() {
         ...anAtom,
         ...('read' in anAtom && {
           read(get, opts) {
-            return anAtom.read.call(this, (a) => get(getAtom(this, a)), opts);
+            return anAtom.read.call(
+              this,
+              (a) => get(getAtom(this, anAtom, a)),
+              opts,
+            );
           },
         }),
         ...('write' in anAtom && {
           write(get, set, ...args) {
             return anAtom.write.call(
               this,
-              (a) => get(getAtom(this, a)),
-              (a, ...v) => set(getAtom(this, a), ...v),
+              (a) => get(getAtom(this, anAtom, a)),
+              (a, ...v) => set(getAtom(this, anAtom, a), ...v),
               ...args,
             );
           },
