@@ -1,12 +1,12 @@
 import { createContext, useContext } from 'react';
 import type { ReactNode } from 'react';
-import type { Atom, WritableAtom } from 'jotai';
 import {
   useAtom as useAtomOrig,
   useAtomValue as useAtomValueOrig,
   useSetAtom as useSetAtomOrig,
 } from 'jotai/react';
 import { useHydrateAtoms as useHydrateAtomsOrig } from 'jotai/react/utils';
+import type { Atom, WritableAtom } from 'jotai/vanilla';
 
 type AnyAtom = Atom<unknown>;
 type AnyWritableAtom = WritableAtom<unknown, unknown[], unknown>;
