@@ -1,6 +1,8 @@
 # Change Log
 
 ## [Unreleased]
+
+## [0.3.0] - 2023-10-23
 ### Added
 - feat(scope): new implementation scoping atoms instead of store #5
 
