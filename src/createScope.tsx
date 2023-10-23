@@ -1,11 +1,12 @@
 import { createContext, useContext } from 'react';
 import type { ReactNode } from 'react';
+import type { Atom, WritableAtom } from 'jotai';
 import {
   useAtom as useAtomOrig,
   useAtomValue as useAtomValueOrig,
   useSetAtom as useSetAtomOrig,
 } from 'jotai/react';
-import type { Atom, WritableAtom } from 'jotai';
+import { useHydrateAtoms as useHydrateAtomsOrig } from 'jotai/react/utils';
 
 type AnyAtom = Atom<unknown>;
 type AnyWritableAtom = WritableAtom<unknown, unknown[], unknown>;
@@ -81,17 +82,28 @@ export const ScopeProvider = ({
   );
 };
 
-export const useAtom = ((anAtom: any, options?: any) => {
+export const useScopedAtom = <T extends Atom<any>>(anAtom: T): T => {
   const getScopedAtom = useContext(ScopeContext);
-  return useAtomOrig(getScopedAtom(anAtom), options);
-}) as typeof useAtomOrig;
+  return getScopedAtom(anAtom);
+};
 
-export const useAtomValue = ((anAtom: any, options?: any) => {
-  const getScopedAtom = useContext(ScopeContext);
-  return useAtomValueOrig(getScopedAtom(anAtom), options);
-}) as typeof useAtomValueOrig;
+export const useAtom = ((anAtom: AnyAtom, ...args: any[]) =>
+  useAtomOrig(useScopedAtom(anAtom), ...args)) as typeof useAtomOrig;
 
-export const useSetAtom = ((anAtom: any, options?: any) => {
+export const useAtomValue = ((anAtom: AnyAtom, ...args: any[]) =>
+  useAtomValueOrig(useScopedAtom(anAtom), ...args)) as typeof useAtomValueOrig;
+
+export const useSetAtom = ((anAtom: AnyWritableAtom, ...args: any[]) =>
+  useSetAtomOrig(useScopedAtom(anAtom), ...args)) as typeof useSetAtomOrig;
+
+export const useHydrateAtoms = ((
+  values: Iterable<readonly [AnyAtom, unknown]>,
+  ...args: any[]
+) => {
   const getScopedAtom = useContext(ScopeContext);
-  return useSetAtomOrig(getScopedAtom(anAtom), options);
-}) as typeof useSetAtomOrig;
+  const scopedValues = new Map();
+  for (const [atom, value] of values) {
+    scopedValues.set(getScopedAtom(atom), value);
+  }
+  return useHydrateAtomsOrig(scopedValues, ...args);
+}) as typeof useHydrateAtomsOrig;
