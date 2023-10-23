@@ -1,15 +1,12 @@
-import { atom, useAtom } from 'jotai';
-import {
-  Provider as ScopedProvider,
-  useAtom as useScopedAtom,
-} from 'jotai-scope';
+import { atom } from 'jotai';
+import { ScopeProvider, useAtom } from 'jotai-scope';
 
 const countAtom = atom(0);
 const anotherCountAtom = atom(0);
 
 const Counter = () => {
   const [count, setCount] = useAtom(countAtom);
-  const [anotherCount, setAnotherCount] = useScopedAtom(anotherCountAtom);
+  const [anotherCount, setAnotherCount] = useAtom(anotherCountAtom);
   return (
     <>
       <div>
@@ -32,13 +29,13 @@ const App = () => {
   return (
     <div>
       <h1>First Provider</h1>
-      <ScopedProvider atoms={[anotherCountAtom]}>
+      <ScopeProvider atoms={[anotherCountAtom]}>
         <Counter />
-      </ScopedProvider>
+      </ScopeProvider>
       <h1>Second Provider</h1>
-      <ScopedProvider atoms={[anotherCountAtom]}>
+      <ScopeProvider atoms={[anotherCountAtom]}>
         <Counter />
-      </ScopedProvider>
+      </ScopeProvider>
     </div>
   );
 };

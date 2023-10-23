@@ -1,6 +1,8 @@
 # Change Log
 
 ## [Unreleased]
+### Added
+- feat(scope): new implementation scoping atoms instead of store #5
 
 ## [0.2.0] - 2023-10-01
 ### Added

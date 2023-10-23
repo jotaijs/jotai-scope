@@ -1,60 +1,97 @@
-import { createContext, useContext, useRef } from 'react';
+import { createContext, useContext } from 'react';
 import type { ReactNode } from 'react';
-import { createStore } from 'jotai/vanilla';
 import {
   useAtom as useAtomOrig,
   useAtomValue as useAtomValueOrig,
   useSetAtom as useSetAtomOrig,
 } from 'jotai/react';
-import type { Atom } from 'jotai';
+import type { Atom, WritableAtom } from 'jotai';
 
-type Store = ReturnType<typeof createStore>;
 type AnyAtom = Atom<unknown>;
+type AnyWritableAtom = WritableAtom<unknown, unknown[], unknown>;
+type GetScopedAtom = <T extends AnyAtom>(anAtom: T) => T;
 
-export function createScope() {
-  const ScopeContext = createContext<Map<AnyAtom, Store>>(new Map());
+const ScopeContext = createContext<GetScopedAtom>((a) => a);
 
-  const Provider = ({
-    atoms,
-    children,
-  }: {
-    atoms: Iterable<AnyAtom>;
-    children: ReactNode;
-  }) => {
-    const storeRef = useRef<Store>();
-    if (!storeRef.current) {
-      storeRef.current = createStore();
-    }
-    const store = storeRef.current;
-    const parentMap = useContext(ScopeContext);
-    const map = new Map(parentMap);
-    Array.from(atoms).forEach((anAtom) => {
-      map.set(anAtom, store);
-    });
-    return (
-      <ScopeContext.Provider value={map}>{children}</ScopeContext.Provider>
-    );
+export const ScopeProvider = ({
+  atoms,
+  children,
+}: {
+  atoms: Iterable<AnyAtom>;
+  children: ReactNode;
+}) => {
+  const getParentScopedAtom = useContext(ScopeContext);
+  const mapping = new WeakMap<AnyAtom, AnyAtom>();
+  const atomSet = new Set(atoms);
+
+  const createScopedAtom = <T extends AnyWritableAtom>(
+    anAtom: T,
+    delegate: boolean,
+  ): T => {
+    const getAtom = <A extends AnyAtom>(
+      thisArg: AnyAtom,
+      orig: AnyAtom,
+      target: A,
+    ): A => {
+      if (target === thisArg) {
+        return delegate ? getParentScopedAtom(orig as A) : target;
+      }
+      return getScopedAtom(target);
+    };
+    const scopedAtom: typeof anAtom = {
+      ...anAtom,
+      ...('read' in anAtom && {
+        read(get, opts) {
+          return anAtom.read.call(
+            this,
+            (a) => get(getAtom(this, anAtom, a)),
+            opts,
+          );
+        },
+      }),
+      ...('write' in anAtom && {
+        write(get, set, ...args) {
+          return anAtom.write.call(
+            this,
+            (a) => get(getAtom(this, anAtom, a)),
+            (a, ...v) => set(getAtom(this, anAtom, a), ...v),
+            ...args,
+          );
+        },
+      }),
+    };
+    return scopedAtom;
   };
 
-  const useAtom = ((anAtom: any, options?: any) => {
-    const map = useContext(ScopeContext);
-    const store = map.get(anAtom);
-    return useAtomOrig(anAtom, { store, ...options });
-  }) as typeof useAtomOrig;
+  const getScopedAtom: GetScopedAtom = (anAtom) => {
+    let scopedAtom = mapping.get(anAtom);
+    if (!scopedAtom) {
+      scopedAtom = atomSet.has(anAtom)
+        ? createScopedAtom(anAtom as unknown as AnyWritableAtom, false)
+        : createScopedAtom(anAtom as unknown as AnyWritableAtom, true);
+      mapping.set(anAtom, scopedAtom);
+    }
+    return scopedAtom as typeof anAtom;
+  };
 
-  const useAtomValue = ((anAtom: any, options?: any) => {
-    const map = useContext(ScopeContext);
-    const store = map.get(anAtom);
-    return useAtomValueOrig(anAtom, { store, ...options });
-  }) as typeof useAtomValueOrig;
+  return (
+    <ScopeContext.Provider value={getScopedAtom}>
+      {children}
+    </ScopeContext.Provider>
+  );
+};
 
-  const useSetAtom = ((anAtom: any, options?: any) => {
-    const map = useContext(ScopeContext);
-    const store = map.get(anAtom);
-    return useSetAtomOrig(anAtom, { store, ...options });
-  }) as typeof useSetAtomOrig;
+export const useAtom = ((anAtom: any, options?: any) => {
+  const getScopedAtom = useContext(ScopeContext);
+  return useAtomOrig(getScopedAtom(anAtom), options);
+}) as typeof useAtomOrig;
 
-  return { Provider, useAtom, useAtomValue, useSetAtom };
-}
+export const useAtomValue = ((anAtom: any, options?: any) => {
+  const getScopedAtom = useContext(ScopeContext);
+  return useAtomValueOrig(getScopedAtom(anAtom), options);
+}) as typeof useAtomValueOrig;
 
-export const { Provider, useAtom, useAtomValue, useSetAtom } = createScope();
+export const useSetAtom = ((anAtom: any, options?: any) => {
+  const getScopedAtom = useContext(ScopeContext);
+  return useSetAtomOrig(getScopedAtom(anAtom), options);
+}) as typeof useSetAtomOrig;
