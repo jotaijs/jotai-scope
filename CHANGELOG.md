@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.4.0] - 2023-10-24
+### Added
+- feat(scope): patch store to avoid patching hooks #9
+
 ## [0.3.1] - 2023-10-24
 ### Changed
 - fix(scope): useScopedAtom and useHydrateAtoms #7
