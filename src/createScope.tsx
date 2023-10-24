@@ -7,7 +7,9 @@ type AnyAtom = Atom<unknown>;
 type AnyWritableAtom = WritableAtom<unknown, unknown[], unknown>;
 type GetScopedAtom = <T extends AnyAtom>(anAtom: T) => T;
 
-const ScopeContext = createContext<GetScopedAtom>((a) => a);
+export const ScopeContext = createContext<
+  readonly [GetScopedAtom, Set<AnyAtom>]
+>([(a) => a, new Set()]);
 
 export const ScopeProvider = ({
   atoms,
@@ -16,7 +18,7 @@ export const ScopeProvider = ({
   atoms: Iterable<AnyAtom>;
   children: ReactNode;
 }) => {
-  const getParentScopedAtom = useContext(ScopeContext);
+  const [getParentScopedAtom] = useContext(ScopeContext);
   const mapping = new WeakMap<AnyAtom, AnyAtom>();
   const atomSet = new Set(atoms);
 
@@ -79,13 +81,8 @@ export const ScopeProvider = ({
   };
 
   return (
-    <ScopeContext.Provider value={getScopedAtom}>
+    <ScopeContext.Provider value={[getScopedAtom, atomSet]}>
       <Provider store={patchedStore}>{children}</Provider>
     </ScopeContext.Provider>
   );
-};
-
-export const useScopedAtom = <T extends Atom<any>>(anAtom: T): T => {
-  const getScopedAtom = useContext(ScopeContext);
-  return getScopedAtom(anAtom);
 };

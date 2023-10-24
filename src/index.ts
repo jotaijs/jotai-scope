@@ -1,2 +1,5 @@
 export { createIsolation } from './createIsolation';
-export { ScopeProvider, useScopedAtom } from './createScope';
+export {
+  ScopeContext as INTERNAL_ScopeContext,
+  ScopeProvider,
+} from './createScope';
