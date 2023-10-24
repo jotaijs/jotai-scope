@@ -1,5 +1,5 @@
-import { atom } from 'jotai';
-import { ScopeProvider, useAtom } from 'jotai-scope';
+import { atom, useAtom } from 'jotai';
+import { ScopeProvider } from 'jotai-scope';
 
 const countAtom = atom(0);
 const anotherCountAtom = atom(0);
