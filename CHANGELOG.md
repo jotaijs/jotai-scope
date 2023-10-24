@@ -1,6 +1,8 @@
 # Change Log
 
 ## [Unreleased]
+### Changed
+- fix(scope): useScopedAtom and useHydrateAtoms #7
 
 ## [0.3.0] - 2023-10-23
 ### Added
