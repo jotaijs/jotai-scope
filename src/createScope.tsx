@@ -1,18 +1,15 @@
 import { createContext, useContext } from 'react';
 import type { ReactNode } from 'react';
-import {
-  useAtom as useAtomOrig,
-  useAtomValue as useAtomValueOrig,
-  useSetAtom as useSetAtomOrig,
-} from 'jotai/react';
-import { useHydrateAtoms as useHydrateAtomsOrig } from 'jotai/react/utils';
+import { Provider, useStore } from 'jotai/react';
 import type { Atom, WritableAtom } from 'jotai/vanilla';
 
 type AnyAtom = Atom<unknown>;
 type AnyWritableAtom = WritableAtom<unknown, unknown[], unknown>;
 type GetScopedAtom = <T extends AnyAtom>(anAtom: T) => T;
 
-const ScopeContext = createContext<GetScopedAtom>((a) => a);
+export const ScopeContext = createContext<
+  readonly [GetScopedAtom, Set<AnyAtom>]
+>([(a) => a, new Set()]);
 
 export const ScopeProvider = ({
   atoms,
@@ -21,7 +18,7 @@ export const ScopeProvider = ({
   atoms: Iterable<AnyAtom>;
   children: ReactNode;
 }) => {
-  const getParentScopedAtom = useContext(ScopeContext);
+  const [getParentScopedAtom] = useContext(ScopeContext);
   const mapping = new WeakMap<AnyAtom, AnyAtom>();
   const atomSet = new Set(atoms);
 
@@ -75,35 +72,17 @@ export const ScopeProvider = ({
     return scopedAtom as typeof anAtom;
   };
 
+  const store = useStore();
+  const patchedStore: typeof store = {
+    ...store,
+    get: (anAtom, ...args) => store.get(getScopedAtom(anAtom), ...args),
+    set: (anAtom, ...args) => store.set(getScopedAtom(anAtom), ...args),
+    sub: (anAtom, ...args) => store.sub(getScopedAtom(anAtom), ...args),
+  };
+
   return (
-    <ScopeContext.Provider value={getScopedAtom}>
-      {children}
+    <ScopeContext.Provider value={[getScopedAtom, atomSet]}>
+      <Provider store={patchedStore}>{children}</Provider>
     </ScopeContext.Provider>
   );
 };
-
-export const useScopedAtom = <T extends Atom<any>>(anAtom: T): T => {
-  const getScopedAtom = useContext(ScopeContext);
-  return getScopedAtom(anAtom);
-};
-
-export const useAtom = ((anAtom: AnyAtom, ...args: any[]) =>
-  useAtomOrig(useScopedAtom(anAtom), ...args)) as typeof useAtomOrig;
-
-export const useAtomValue = ((anAtom: AnyAtom, ...args: any[]) =>
-  useAtomValueOrig(useScopedAtom(anAtom), ...args)) as typeof useAtomValueOrig;
-
-export const useSetAtom = ((anAtom: AnyWritableAtom, ...args: any[]) =>
-  useSetAtomOrig(useScopedAtom(anAtom), ...args)) as typeof useSetAtomOrig;
-
-export const useHydrateAtoms = ((
-  values: Iterable<readonly [AnyAtom, unknown]>,
-  ...args: any[]
-) => {
-  const getScopedAtom = useContext(ScopeContext);
-  const scopedValues = new Map();
-  for (const [atom, value] of values) {
-    scopedValues.set(getScopedAtom(atom), value);
-  }
-  return useHydrateAtomsOrig(scopedValues, ...args);
-}) as typeof useHydrateAtomsOrig;
