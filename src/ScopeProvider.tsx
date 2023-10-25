@@ -7,9 +7,7 @@ type AnyAtom = Atom<unknown>;
 type AnyWritableAtom = WritableAtom<unknown, unknown[], unknown>;
 type GetScopedAtom = <T extends AnyAtom>(anAtom: T) => T;
 
-export const ScopeContext = createContext<
-  readonly [GetScopedAtom, Set<AnyAtom>]
->([(a) => a, new Set()]);
+export const ScopeContext = createContext<GetScopedAtom>((a) => a);
 
 export const ScopeProvider = ({
   atoms,
@@ -18,11 +16,10 @@ export const ScopeProvider = ({
   atoms: Iterable<AnyAtom>;
   children: ReactNode;
 }) => {
-  const [getParentScopedAtom, parentScopedAtoms] = useContext(ScopeContext);
-  const getScopedAtomAndScopedAtoms = useMemo(() => {
+  const getParentScopedAtom = useContext(ScopeContext);
+  const getScopedAtom = useMemo(() => {
     const mapping = new WeakMap<AnyAtom, AnyAtom>();
     const atomSet = new Set(atoms);
-    const scopedAtoms = new Set([...parentScopedAtoms, ...atoms] as AnyAtom[]);
     const createScopedAtom = <T extends AnyWritableAtom>(
       anAtom: T,
       delegate: boolean,
@@ -33,13 +30,9 @@ export const ScopeProvider = ({
         target: A,
       ): A => {
         if (target === thisArg) {
-          return delegate
-            ? scopedAtoms.has(orig)
-              ? getParentScopedAtom(orig as A)
-              : orig
-            : target;
+          return delegate ? getParentScopedAtom(orig as A) : target;
         }
-        return scopedAtoms.has(target) ? getScopedAtom(target) : target;
+        return getScopedAtom(target);
       };
       const scopedAtom: typeof anAtom = {
         ...anAtom,
@@ -77,10 +70,9 @@ export const ScopeProvider = ({
       return scopedAtom as typeof anAtom;
     };
 
-    return [getScopedAtom, scopedAtoms] as const;
-  }, [getParentScopedAtom, parentScopedAtoms, atoms]);
+    return getScopedAtom;
+  }, [getParentScopedAtom, atoms]);
 
-  const [getScopedAtom] = getScopedAtomAndScopedAtoms;
   const store = useStore();
   const patchedStore: typeof store = {
     ...store,
@@ -90,7 +82,7 @@ export const ScopeProvider = ({
   };
 
   return (
-    <ScopeContext.Provider value={getScopedAtomAndScopedAtoms}>
+    <ScopeContext.Provider value={getScopedAtom}>
       <Provider store={patchedStore}>{children}</Provider>
     </ScopeContext.Provider>
   );
