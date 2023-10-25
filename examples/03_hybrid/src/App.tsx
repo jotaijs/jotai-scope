@@ -92,31 +92,31 @@ type InferAtoms<T extends Iterable<AtomTuple>> = {
     : never;
 };
 
-function ScopeProviderWithInitializer<T extends Iterable<AtomTuple>>({
+const ScopeProviderWithInitializer = <T extends Iterable<AtomTuple>>({
   atomValues,
   children,
 }: PropsWithChildren<{
   atomValues: InferAtoms<T>;
-}>) {
+}>) => {
   const atoms = Array.from(atomValues, ([anAtom]) => anAtom);
   return (
     <ScopeProvider atoms={atoms}>
       <AtomsHydrator atomValues={atomValues}>{children}</AtomsHydrator>
     </ScopeProvider>
   );
-}
+};
 
-function AtomsHydrator<T extends Iterable<AtomTuple>>({
+const AtomsHydrator = <T extends Iterable<AtomTuple>>({
   atomValues,
   children,
 }: PropsWithChildren<{
   atomValues: InferAtoms<T>;
-}>) {
+}>) => {
   useHydrateAtoms(atomValues);
-  return <>{children}</>;
-}
+  return children;
+};
 
-export default function App() {
+const App = () => {
   return (
     <div>
       <h1>Global</h1>
@@ -148,4 +148,6 @@ export default function App() {
       </ScopeProvider>
     </div>
   );
-}
+};
+
+export default App;
