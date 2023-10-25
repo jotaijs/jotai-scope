@@ -71,7 +71,7 @@ export const ScopeProvider = ({
     };
 
     return getScopedAtom;
-  }, [getParentScopedAtom, atoms]);
+  }, [getParentScopedAtom, ...atoms]);
 
   const store = useStore();
   const patchedStore: typeof store = {
