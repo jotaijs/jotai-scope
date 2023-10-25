@@ -1,4 +1,4 @@
-import { atom, useAtom } from 'jotai';
+import { WritableAtom, atom, useAtom } from 'jotai';
 import { ScopeProvider } from 'jotai-scope';
 import { useHydrateAtoms } from 'jotai/react/utils';
 import { PropsWithChildren } from 'react';
@@ -81,11 +81,22 @@ const Counter2 = () => {
   );
 };
 
-function ScopeProviderWithInitializer({
+// Copied from useHydrateAtoms type signature
+type AnyWritableAtom = WritableAtom<unknown, any[], any>;
+type AtomTuple<A = AnyWritableAtom, V = unknown> = readonly [A, V];
+type InferAtoms<T extends Iterable<AtomTuple>> = {
+  [K in keyof T]: T[K] extends AtomTuple<infer A>
+    ? A extends AnyWritableAtom
+      ? AtomTuple<A, ReturnType<A['read']>>
+      : T[K]
+    : never;
+};
+
+function ScopeProviderWithInitializer<T extends Iterable<AtomTuple>>({
   atomValues,
   children,
 }: PropsWithChildren<{
-  atomValues: Parameters<typeof useHydrateAtoms>[0];
+  atomValues: InferAtoms<T>;
 }>) {
   const atoms = Array.from(atomValues, ([anAtom]) => anAtom);
   return (
@@ -95,11 +106,11 @@ function ScopeProviderWithInitializer({
   );
 }
 
-function AtomsHydrator({
+function AtomsHydrator<T extends Iterable<AtomTuple>>({
   atomValues,
   children,
 }: PropsWithChildren<{
-  atomValues: Parameters<typeof useHydrateAtoms>[0];
+  atomValues: InferAtoms<T>;
 }>) {
   useHydrateAtoms(atomValues);
   return <>{children}</>;
@@ -119,13 +130,7 @@ export default function App() {
         <Counter1 />
       </ScopeProvider>
       <h1>Provider with initial value 10</h1>
-      <ScopeProviderWithInitializer
-        atomValues={
-          [[scopedAtom1, 10]] as unknown as Parameters<
-            typeof useHydrateAtoms
-          >[0]
-        }
-      >
+      <ScopeProviderWithInitializer atomValues={[[scopedAtom1, 10]]}>
         <Counter1 />
       </ScopeProviderWithInitializer>
       <h1>Nested Provider</h1>
