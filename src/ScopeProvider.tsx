@@ -17,7 +17,9 @@ export const ScopeProvider = ({
   children: ReactNode;
 }) => {
   const getParentScopedAtom = useContext(ScopeContext);
-  const getScopedAtom = useMemo(() => {
+  const store = useStore();
+
+  const memorizedBody = useMemo(() => {
     const mapping = new WeakMap<AnyAtom, AnyAtom>();
     const atomSet = new Set(atoms);
     const createScopedAtom = <T extends AnyWritableAtom>(
@@ -70,16 +72,17 @@ export const ScopeProvider = ({
       return scopedAtom as typeof anAtom;
     };
 
-    return getScopedAtom;
-  }, [getParentScopedAtom, ...atoms]);
+    const patchedStore: typeof store = {
+      ...store,
+      get: (anAtom, ...args) => store.get(getScopedAtom(anAtom), ...args),
+      set: (anAtom, ...args) => store.set(getScopedAtom(anAtom), ...args),
+      sub: (anAtom, ...args) => store.sub(getScopedAtom(anAtom), ...args),
+    };
 
-  const store = useStore();
-  const patchedStore: typeof store = {
-    ...store,
-    get: (anAtom, ...args) => store.get(getScopedAtom(anAtom), ...args),
-    set: (anAtom, ...args) => store.set(getScopedAtom(anAtom), ...args),
-    sub: (anAtom, ...args) => store.sub(getScopedAtom(anAtom), ...args),
-  };
+    return [patchedStore, getScopedAtom] as const;
+  }, [store, getParentScopedAtom, ...atoms]);
+
+  const [patchedStore, getScopedAtom] = memorizedBody;
 
   return (
     <ScopeContext.Provider value={getScopedAtom}>
