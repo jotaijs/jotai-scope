@@ -18,5 +18,6 @@
     "paths": {
       "jotai-scope": ["./src"]
     }
-  }
+  },
+  "include": ["src/**/*"]
 }
