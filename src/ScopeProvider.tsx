@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { Provider, useStore } from 'jotai/react';
 import type { Atom, WritableAtom } from 'jotai/vanilla';
@@ -6,6 +6,16 @@ import type { Atom, WritableAtom } from 'jotai/vanilla';
 type AnyAtom = Atom<unknown>;
 type AnyWritableAtom = WritableAtom<unknown, unknown[], unknown>;
 type GetScopedAtom = <T extends AnyAtom>(anAtom: T) => T;
+
+function usePrevious<T>(state: T): T | undefined {
+  const ref = useRef<T>();
+
+  useEffect(() => {
+    ref.current = state;
+  }, [state]);
+
+  return ref.current;
+}
 
 export const ScopeContext = createContext<GetScopedAtom>((a) => a);
 
@@ -18,6 +28,22 @@ export const ScopeProvider = ({
 }) => {
   const getParentScopedAtom = useContext(ScopeContext);
   const store = useStore();
+
+  if (import.meta.env?.MODE !== 'production') {
+    const prevChildren = usePrevious(children);
+    const prevAtomSet = new Set(usePrevious(atoms));
+    const atomArray = Array.from(atoms);
+    if (
+      prevChildren === children &&
+      atomArray.length === prevAtomSet.size &&
+      atomArray.every((anAtom) => prevAtomSet.has(anAtom))
+    ) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `ScopeProvider re-renders when children and atoms prop have not changed. Consider wrap atoms prop with useMemo to avoid re-render`,
+      );
+    }
+  }
 
   const memorizedBody = useMemo(() => {
     const mapping = new WeakMap<AnyAtom, AnyAtom>();
@@ -80,7 +106,7 @@ export const ScopeProvider = ({
     };
 
     return [patchedStore, getScopedAtom] as const;
-  }, [store, getParentScopedAtom, ...atoms]);
+  }, [store, getParentScopedAtom, atoms]);
 
   const [patchedStore, getScopedAtom] = memorizedBody;
 
