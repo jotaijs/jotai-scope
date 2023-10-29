@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useRef } from 'react';
+import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Provider, useStore } from 'jotai/react';
 import type { Atom, WritableAtom } from 'jotai/vanilla';
@@ -7,15 +7,8 @@ type AnyAtom = Atom<unknown>;
 type AnyWritableAtom = WritableAtom<unknown, unknown[], unknown>;
 type GetScopedAtom = <T extends AnyAtom>(anAtom: T) => T;
 
-function usePrevious<T>(state: T): T | undefined {
-  const ref = useRef<T>();
-
-  useEffect(() => {
-    ref.current = state;
-  }, [state]);
-
-  return ref.current;
-}
+const isEqualSet = (a: Set<unknown>, b: Set<unknown>) =>
+  a === b || (a.size === b.size && Array.from(a).every((v) => b.has(v)));
 
 export const ScopeContext = createContext<GetScopedAtom>((a) => a);
 
@@ -26,28 +19,12 @@ export const ScopeProvider = ({
   atoms: Iterable<AnyAtom>;
   children: ReactNode;
 }) => {
-  const getParentScopedAtom = useContext(ScopeContext);
   const store = useStore();
+  const getParentScopedAtom = useContext(ScopeContext);
+  const atomSet = new Set(atoms);
 
-  if (import.meta.env?.MODE !== 'production') {
-    const prevChildren = usePrevious(children);
-    const prevAtomSet = new Set(usePrevious(atoms));
-    const atomArray = Array.from(atoms);
-    if (
-      prevChildren === children &&
-      atomArray.length === prevAtomSet.size &&
-      atomArray.every((anAtom) => prevAtomSet.has(anAtom))
-    ) {
-      // eslint-disable-next-line no-console
-      console.warn(
-        `ScopeProvider re-renders when children and atoms prop have not changed. Consider wrap atoms prop with useMemo to avoid re-render`,
-      );
-    }
-  }
-
-  const memorizedBody = useMemo(() => {
+  const initialize = () => {
     const mapping = new WeakMap<AnyAtom, AnyAtom>();
-    const atomSet = new Set(atoms);
     const createScopedAtom = <T extends AnyWritableAtom>(
       anAtom: T,
       delegate: boolean,
@@ -105,10 +82,24 @@ export const ScopeProvider = ({
       sub: (anAtom, ...args) => store.sub(getScopedAtom(anAtom), ...args),
     };
 
-    return [patchedStore, getScopedAtom] as const;
-  }, [store, getParentScopedAtom, atoms]);
+    return [
+      patchedStore,
+      getScopedAtom,
+      store,
+      getParentScopedAtom,
+      atomSet,
+    ] as const;
+  };
 
-  const [patchedStore, getScopedAtom] = memorizedBody;
+  const [state, setState] = useState(initialize);
+  if (
+    store !== state[2] ||
+    getParentScopedAtom !== state[3] ||
+    !isEqualSet(atomSet, state[4])
+  ) {
+    setState(initialize);
+  }
+  const [patchedStore, getScopedAtom] = state;
 
   return (
     <ScopeContext.Provider value={getScopedAtom}>
