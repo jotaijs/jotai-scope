@@ -4,7 +4,7 @@
     "target": "esnext",
     "downlevelIteration": true,
     "esModuleInterop": true,
-    "module": "esnext",
+    "module": "es2015",
     "moduleResolution": "node",
     "allowJs": true,
     "noUnusedLocals": true,
@@ -18,6 +18,5 @@
     "paths": {
       "jotai-scope": ["./src"]
     }
-  },
-  "include": ["src/**/*"]
+  }
 }
