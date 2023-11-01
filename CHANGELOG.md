@@ -1,6 +1,8 @@
 # Change Log
 
 ## [Unreleased]
+### Changed
+- feat(scope): Avoid extra re-renders with memoization #10
 
 ## [0.4.0] - 2023-10-24
 ### Added

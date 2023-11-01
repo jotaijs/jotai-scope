@@ -1,4 +1,4 @@
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Provider, useStore } from 'jotai/react';
 import type { Atom, WritableAtom } from 'jotai/vanilla';
@@ -7,9 +7,10 @@ type AnyAtom = Atom<unknown>;
 type AnyWritableAtom = WritableAtom<unknown, unknown[], unknown>;
 type GetScopedAtom = <T extends AnyAtom>(anAtom: T) => T;
 
-export const ScopeContext = createContext<
-  readonly [GetScopedAtom, Set<AnyAtom>]
->([(a) => a, new Set()]);
+const isEqualSet = (a: Set<unknown>, b: Set<unknown>) =>
+  a === b || (a.size === b.size && Array.from(a).every((v) => b.has(v)));
+
+export const ScopeContext = createContext<GetScopedAtom>((a) => a);
 
 export const ScopeProvider = ({
   atoms,
@@ -18,70 +19,90 @@ export const ScopeProvider = ({
   atoms: Iterable<AnyAtom>;
   children: ReactNode;
 }) => {
-  const [getParentScopedAtom] = useContext(ScopeContext);
-  const mapping = new WeakMap<AnyAtom, AnyAtom>();
+  const store = useStore();
+  const getParentScopedAtom = useContext(ScopeContext);
   const atomSet = new Set(atoms);
 
-  const createScopedAtom = <T extends AnyWritableAtom>(
-    anAtom: T,
-    delegate: boolean,
-  ): T => {
-    const getAtom = <A extends AnyAtom>(
-      thisArg: AnyAtom,
-      orig: AnyAtom,
-      target: A,
-    ): A => {
-      if (target === thisArg) {
-        return delegate ? getParentScopedAtom(orig as A) : target;
+  const initialize = () => {
+    const mapping = new WeakMap<AnyAtom, AnyAtom>();
+    const createScopedAtom = <T extends AnyWritableAtom>(
+      anAtom: T,
+      delegate: boolean,
+    ): T => {
+      const getAtom = <A extends AnyAtom>(
+        thisArg: AnyAtom,
+        orig: AnyAtom,
+        target: A,
+      ): A => {
+        if (target === thisArg) {
+          return delegate ? getParentScopedAtom(orig as A) : target;
+        }
+        return getScopedAtom(target);
+      };
+      const scopedAtom: typeof anAtom = {
+        ...anAtom,
+        ...('read' in anAtom && {
+          read(get, opts) {
+            return anAtom.read.call(
+              this,
+              (a) => get(getAtom(this, anAtom, a)),
+              opts,
+            );
+          },
+        }),
+        ...('write' in anAtom && {
+          write(get, set, ...args) {
+            return anAtom.write.call(
+              this,
+              (a) => get(getAtom(this, anAtom, a)),
+              (a, ...v) => set(getAtom(this, anAtom, a), ...v),
+              ...args,
+            );
+          },
+        }),
+      };
+      return scopedAtom;
+    };
+
+    const getScopedAtom: GetScopedAtom = (anAtom) => {
+      let scopedAtom = mapping.get(anAtom);
+      if (!scopedAtom) {
+        scopedAtom = atomSet.has(anAtom)
+          ? createScopedAtom(anAtom as unknown as AnyWritableAtom, false)
+          : createScopedAtom(anAtom as unknown as AnyWritableAtom, true);
+        mapping.set(anAtom, scopedAtom);
       }
-      return getScopedAtom(target);
+      return scopedAtom as typeof anAtom;
     };
-    const scopedAtom: typeof anAtom = {
-      ...anAtom,
-      ...('read' in anAtom && {
-        read(get, opts) {
-          return anAtom.read.call(
-            this,
-            (a) => get(getAtom(this, anAtom, a)),
-            opts,
-          );
-        },
-      }),
-      ...('write' in anAtom && {
-        write(get, set, ...args) {
-          return anAtom.write.call(
-            this,
-            (a) => get(getAtom(this, anAtom, a)),
-            (a, ...v) => set(getAtom(this, anAtom, a), ...v),
-            ...args,
-          );
-        },
-      }),
+
+    const patchedStore: typeof store = {
+      ...store,
+      get: (anAtom, ...args) => store.get(getScopedAtom(anAtom), ...args),
+      set: (anAtom, ...args) => store.set(getScopedAtom(anAtom), ...args),
+      sub: (anAtom, ...args) => store.sub(getScopedAtom(anAtom), ...args),
     };
-    return scopedAtom;
+
+    return [
+      patchedStore,
+      getScopedAtom,
+      store,
+      getParentScopedAtom,
+      atomSet,
+    ] as const;
   };
 
-  const getScopedAtom: GetScopedAtom = (anAtom) => {
-    let scopedAtom = mapping.get(anAtom);
-    if (!scopedAtom) {
-      scopedAtom = atomSet.has(anAtom)
-        ? createScopedAtom(anAtom as unknown as AnyWritableAtom, false)
-        : createScopedAtom(anAtom as unknown as AnyWritableAtom, true);
-      mapping.set(anAtom, scopedAtom);
-    }
-    return scopedAtom as typeof anAtom;
-  };
-
-  const store = useStore();
-  const patchedStore: typeof store = {
-    ...store,
-    get: (anAtom, ...args) => store.get(getScopedAtom(anAtom), ...args),
-    set: (anAtom, ...args) => store.set(getScopedAtom(anAtom), ...args),
-    sub: (anAtom, ...args) => store.sub(getScopedAtom(anAtom), ...args),
-  };
+  const [state, setState] = useState(initialize);
+  if (
+    store !== state[2] ||
+    getParentScopedAtom !== state[3] ||
+    !isEqualSet(atomSet, state[4])
+  ) {
+    setState(initialize);
+  }
+  const [patchedStore, getScopedAtom] = state;
 
   return (
-    <ScopeContext.Provider value={[getScopedAtom, atomSet]}>
+    <ScopeContext.Provider value={getScopedAtom}>
       <Provider store={patchedStore}>{children}</Provider>
     </ScopeContext.Provider>
   );
