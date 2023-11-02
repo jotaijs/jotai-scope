@@ -17,7 +17,7 @@ const Counter = () => {
   );
 };
 
-const ScopedCounter = () => {
+const MyCounter = () => {
   const [count, setCount] = useMyAtom(countAtom);
   return (
     <div>
@@ -35,12 +35,12 @@ const App = () => {
       <h1>First Provider</h1>
       <MyProvider>
         <Counter />
-        <ScopedCounter />
+        <MyCounter />
       </MyProvider>
       <h1>Second Provider</h1>
-      <MyProvider>
+      <MyProvider initialValues={[[countAtom, 1]]}>
         <Counter />
-        <ScopedCounter />
+        <MyCounter />
       </MyProvider>
     </div>
   );

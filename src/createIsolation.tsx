@@ -1,6 +1,7 @@
 import { createContext, useContext, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { createStore } from 'jotai/vanilla';
+import type { WritableAtom } from 'jotai/vanilla';
 import {
   useAtom as useAtomOrig,
   useAtomValue as useAtomValueOrig,
@@ -9,25 +10,25 @@ import {
 import { useHydrateAtoms } from 'jotai/react/utils';
 
 type Store = ReturnType<typeof createStore>;
-type InitialValues = Parameters<typeof useHydrateAtoms>[0];
+type AnyWritableAtom = WritableAtom<unknown, any[], any>;
 
 export function createIsolation() {
   const StoreContext = createContext<Store | null>(null);
 
   const Provider = ({
     store,
-    initialValues = [] as unknown as InitialValues,
+    initialValues = [],
     children,
   }: {
     store?: Store;
-    initialValues?: InitialValues;
+    initialValues?: Iterable<readonly [AnyWritableAtom, unknown]>;
     children: ReactNode;
   }) => {
     const storeRef = useRef(store);
     if (!storeRef.current) {
       storeRef.current = createStore();
     }
-    useHydrateAtoms(initialValues, { store: storeRef.current });
+    useHydrateAtoms(initialValues as any, { store: storeRef.current });
     return (
       <StoreContext.Provider value={storeRef.current}>
         {children}
