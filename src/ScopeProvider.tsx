@@ -25,13 +25,8 @@ export const ScopeProvider = ({
 
   const initialize = () => {
     const mapping = new WeakMap<AnyAtom, AnyAtom>();
-    const createScopedAtom = <T extends AnyWritableAtom>(
-      anAtom: T,
-    ): T => {
-      const getAtom = <A extends AnyAtom>(
-        thisArg: AnyAtom,
-        target: A,
-      ): A => {
+    const createScopedAtom = <T extends AnyWritableAtom>(anAtom: T): T => {
+      const getAtom = <A extends AnyAtom>(thisArg: AnyAtom, target: A): A => {
         return target === thisArg ? target : getScopedAtom(target);
       };
 
@@ -39,16 +34,11 @@ export const ScopeProvider = ({
         ...anAtom,
         ...('read' in anAtom && {
           read(get, opts) {
-            return anAtom.read.call(
-              this,
-              (a) => get(getAtom(this, a)),
-              opts,
-            );
+            return anAtom.read.call(this, (a) => get(getAtom(this, a)), opts);
           },
         }),
         ...('write' in anAtom && {
           write(get, set, ...args) {
-            console.log('write', { get, set, args })
             return anAtom.write.call(
               this,
               (a) => get(getAtom(this, a)),
@@ -61,8 +51,8 @@ export const ScopeProvider = ({
       return scopedAtom;
     };
     const getInheritedAtom = <T extends AnyWritableAtom>(anAtom: T) => {
-      return getParentScopedAtom(anAtom)
-    }
+      return getParentScopedAtom(anAtom);
+    };
 
     const getScopedAtom: GetScopedAtom = (anAtom) => {
       let scopedAtom = mapping.get(anAtom);

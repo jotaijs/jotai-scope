@@ -1,17 +1,17 @@
-import { useAtom } from "jotai";
-import { atomWithReducer } from "jotai/utils";
-import { ScopeProvider } from "jotai-scope";
+import { useAtom } from 'jotai';
+import { atomWithReducer } from 'jotai/utils';
+import { ScopeProvider } from 'jotai-scope';
 
 function createCountAtom() {
   type State = number;
-  type Action = "+1" | "-1";
+  type Action = '+1';
 
   const reducer = (prev: State, action: Action) => {
     switch (action) {
-      case "+1":
+      case '+1':
         return prev + 1;
-      case "-1":
-        return prev - 1;
+      default:
+        return prev;
     }
   };
 
@@ -28,13 +28,13 @@ const Counter = () => {
     <>
       <div>
         <span>count: {count}</span>
-        <button type="button" onClick={() => dispath("+1")}>
+        <button type="button" onClick={() => dispath('+1')}>
           increment
         </button>
       </div>
       <div>
         <span>another count: {anotherCount}</span>
-        <button type="button" onClick={() => dispathAnother("+1")}>
+        <button type="button" onClick={() => dispathAnother('+1')}>
           increment
         </button>
       </div>
