@@ -3,10 +3,12 @@ import { ScopeProvider } from 'jotai-scope';
 
 const countAtom = atom(0);
 const anotherCountAtom = atom(0);
+const doubledAnotherCountAtom = atom((get) => get(anotherCountAtom) * 2);
 
 const Counter = () => {
   const [count, setCount] = useAtom(countAtom);
   const [anotherCount, setAnotherCount] = useAtom(anotherCountAtom);
+  const [doubledAnotherCount] = useAtom(doubledAnotherCountAtom);
   return (
     <>
       <div>
@@ -16,7 +18,9 @@ const Counter = () => {
         </button>
       </div>
       <div>
-        <span>another count: {anotherCount}</span>
+        <span>
+          another count: {anotherCount} (doubled: {doubledAnotherCount})
+        </span>
         <button type="button" onClick={() => setAnotherCount((c) => c + 1)}>
           increment
         </button>
