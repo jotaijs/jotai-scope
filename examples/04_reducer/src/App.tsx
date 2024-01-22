@@ -53,7 +53,7 @@ const App = () => {
       <ScopeProvider atoms={[anotherCountAtom]}>
         <Counter />
 
-        <h1>Thrid Provider</h1>
+        <h1>Third Provider</h1>
         <ScopeProvider atoms={[anotherCountAtom]}>
           <Counter />
         </ScopeProvider>
