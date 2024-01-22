@@ -27,37 +27,74 @@ export const ScopeProvider = ({
 
   const initialize = () => {
     const mapping = new WeakMap<AnyAtom, AnyAtom>();
+
+    const [getParentScopedAtomToRead, getParentScopedAtomToWrite] =
+      getParentScopedAtom;
+
+    /**
+     * Create a copy of originalAtom, then intercept its read/write function
+     * to guarantee it accesses the correct value.
+     * @param originalAtom
+     * @param notMarkedAsScoped Whether the atom is NOT marked as scoped.
+     * @returns A copy of originalAtom.
+     */
     const createScopedAtom = <T extends AnyWritableAtom>(
-      anAtom: T,
-      delegate: boolean,
+      originalAtom: T,
+      notMarkedAsScoped: boolean,
     ): T => {
+      /**
+       * When an scoped atom call get(anotherAtom) or set(anotherAtom, value), we ensure `anotherAtom` be
+       * scoped by calling this function.
+       * @param thisArg The scoped atom.
+       * @param orig The unscoped original atom of this scoped atom.
+       * @param target The `anotherAtom` that this atom is accessing.
+       * @returns The scoped target if needed.
+       *
+       * Check the example below, when calling useAtomValue, jotai-scope first finds the anonymous
+       * scoped atom of `anAtom` (we call it `anAtomScoped`). Then, `anAtomScoped.read(dependencyAtom)`
+       * becomes `getAtom(anAtomScoped, anAtom, dependencyAtom)`
+       * @example
+       * const anAtom = atom(get => get(dependencyAtom))
+       * const Component = () => {
+       *  useAtomValue(anAtom);
+       * }
+       * const App = () => {
+       *   return (
+       *    <ScopeProvider atoms={[anAtom]}>
+       *      <Component />
+       *    </ScopeProvider>
+       *   );
+       * }
+       */
       const getAtom = <A extends AnyAtom>(
         thisArg: AnyAtom,
         orig: AnyAtom,
         target: A,
       ): A => {
         if (target === thisArg) {
-          return delegate ? getParentScopedAtom[0](orig as A) : target;
+          return notMarkedAsScoped
+            ? getParentScopedAtomToRead(orig as A)
+            : target;
         }
         return getScopedAtomToRead(target);
       };
-      const scopedAtom: typeof anAtom = {
-        ...anAtom,
-        ...('read' in anAtom && {
+      const scopedAtom: typeof originalAtom = {
+        ...originalAtom,
+        ...('read' in originalAtom && {
           read(get, opts) {
-            return anAtom.read.call(
+            return originalAtom.read.call(
               this,
-              (a) => get(getAtom(this, anAtom, a)),
+              (a) => get(getAtom(this, originalAtom, a)),
               opts,
             );
           },
         }),
-        ...('write' in anAtom && {
+        ...('write' in originalAtom && {
           write(get, set, ...args) {
-            return anAtom.write.call(
+            return originalAtom.write.call(
               this,
-              (a) => get(getAtom(this, anAtom, a)),
-              (a, ...v) => set(getAtom(this, anAtom, a), ...v),
+              (a) => get(getAtom(this, originalAtom, a)),
+              (a, ...v) => set(getAtom(this, originalAtom, a), ...v),
               ...args,
             );
           },
@@ -66,30 +103,45 @@ export const ScopeProvider = ({
       return scopedAtom;
     };
 
-    const getScopedAtomToRead: GetScopedAtom = (anAtom) => {
-      let scopedAtom = mapping.get(anAtom);
+    /**
+     * When reading/subscribing an atom, always create a copy in each scope
+     * for each atom, no matter it is marked as scoped or not. Then
+     * intercept its read/write function to guarantee it accesses the
+     * correct value.
+     * @param originalAtom The atom to access.
+     * @returns The copy of originalAtom.
+     */
+    const getScopedAtomToRead: GetScopedAtom = (originalAtom) => {
+      let scopedAtom = mapping.get(originalAtom);
       if (!scopedAtom) {
-        scopedAtom = atomSet.has(anAtom)
-          ? createScopedAtom(anAtom as unknown as AnyWritableAtom, false)
-          : createScopedAtom(anAtom as unknown as AnyWritableAtom, true);
-        mapping.set(anAtom, scopedAtom);
+        scopedAtom = atomSet.has(originalAtom)
+          ? createScopedAtom(originalAtom as unknown as AnyWritableAtom, false)
+          : createScopedAtom(originalAtom as unknown as AnyWritableAtom, true);
+        mapping.set(originalAtom, scopedAtom);
       }
-      return scopedAtom as typeof anAtom;
+      return scopedAtom as typeof originalAtom;
     };
 
-    const getScopedAtomToWrite: GetScopedAtom = (anAtom) => {
-      if (atomSet.has(anAtom)) {
-        let scopedAtom = mapping.get(anAtom);
+    /**
+     * When writing an atom, directly check if the atom is marked as scoped or not.
+     * If marked as scoped, return its scoped copy. Otherwise, return the original
+     * one.
+     * @param originalAtom The atom to access.
+     * @returns The copy of originalAtom, or originalAtom itself.
+     */
+    const getScopedAtomToWrite: GetScopedAtom = (originalAtom) => {
+      if (atomSet.has(originalAtom)) {
+        let scopedAtom = mapping.get(originalAtom);
         if (!scopedAtom) {
           scopedAtom = createScopedAtom(
-            anAtom as unknown as AnyWritableAtom,
+            originalAtom as unknown as AnyWritableAtom,
             false,
           );
-          mapping.set(anAtom, scopedAtom);
+          mapping.set(originalAtom, scopedAtom);
         }
-        return scopedAtom as typeof anAtom;
+        return scopedAtom as typeof originalAtom;
       }
-      return anAtom;
+      return originalAtom;
     };
 
     const patchedStore: typeof store = {
