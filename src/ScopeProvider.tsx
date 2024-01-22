@@ -10,7 +10,9 @@ type GetScopedAtom = <T extends AnyAtom>(anAtom: T) => T;
 const isEqualSet = (a: Set<unknown>, b: Set<unknown>) =>
   a === b || (a.size === b.size && Array.from(a).every((v) => b.has(v)));
 
-export const ScopeContext = createContext<GetScopedAtom>((a) => a);
+export const ScopeContext = createContext<
+  readonly [read: GetScopedAtom, write: GetScopedAtom]
+>([(a) => a, (a) => a]);
 
 export const ScopeProvider = ({
   atoms,
@@ -35,9 +37,9 @@ export const ScopeProvider = ({
         target: A,
       ): A => {
         if (target === thisArg) {
-          return delegate ? getParentScopedAtom(orig as A) : target;
+          return delegate ? getParentScopedAtom[0](orig as A) : target;
         }
-        return getScopedAtom(target);
+        return getScopedAtomToRead(target);
       };
       const scopedAtom: typeof anAtom = {
         ...anAtom,
@@ -64,7 +66,7 @@ export const ScopeProvider = ({
       return scopedAtom;
     };
 
-    const getScopedAtom: GetScopedAtom = (anAtom) => {
+    const getScopedAtomToRead: GetScopedAtom = (anAtom) => {
       let scopedAtom = mapping.get(anAtom);
       if (!scopedAtom) {
         scopedAtom = atomSet.has(anAtom)
@@ -75,16 +77,32 @@ export const ScopeProvider = ({
       return scopedAtom as typeof anAtom;
     };
 
+    const getScopedAtomToWrite: GetScopedAtom = (anAtom) => {
+      if (atomSet.has(anAtom)) {
+        let scopedAtom = mapping.get(anAtom);
+        if (!scopedAtom) {
+          scopedAtom = createScopedAtom(
+            anAtom as unknown as AnyWritableAtom,
+            false,
+          );
+          mapping.set(anAtom, scopedAtom);
+        }
+        return scopedAtom as typeof anAtom;
+      }
+      return anAtom;
+    };
+
     const patchedStore: typeof store = {
       ...store,
-      get: (anAtom, ...args) => store.get(getScopedAtom(anAtom), ...args),
-      set: (anAtom, ...args) => store.set(getScopedAtom(anAtom), ...args),
-      sub: (anAtom, ...args) => store.sub(getScopedAtom(anAtom), ...args),
+      get: (anAtom, ...args) => store.get(getScopedAtomToRead(anAtom), ...args),
+      set: (anAtom, ...args) =>
+        store.set(getScopedAtomToWrite(anAtom), ...args),
+      sub: (anAtom, ...args) => store.sub(getScopedAtomToRead(anAtom), ...args),
     };
 
     return [
       patchedStore,
-      getScopedAtom,
+      [getScopedAtomToRead, getScopedAtomToWrite],
       store,
       getParentScopedAtom,
       atomSet,
