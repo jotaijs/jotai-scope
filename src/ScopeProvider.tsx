@@ -5,13 +5,11 @@ import { Atom, WritableAtom, getDefaultStore } from 'jotai/vanilla';
 
 type AnyAtom = Atom<unknown>;
 type AnyWritableAtom = WritableAtom<unknown, unknown[], unknown>;
-type InterceptedAtomCopy<T extends AnyAtom> = T & { original?: T };
 type GetInterceptedAtomCopy = <T extends AnyAtom>(anAtom: T) => T;
 type GetStoreKey = <T extends AnyAtom>(anAtom: T) => T;
 
 const isSelfAtom = (atom: AnyAtom, a: AnyAtom) =>
-  atom.is ? atom.is(a) : a === atom;
-const getOriginalOfCopy = (a: InterceptedAtomCopy<AnyAtom>) => a.original ?? a;
+  atom.unstable_is ? atom.unstable_is(a) : a === atom;
 const isEqualSet = (a: Set<unknown>, b: Set<unknown>) =>
   a === b || (a.size === b.size && Array.from(a).every((v) => b.has(v)));
 type Store = ReturnType<typeof getDefaultStore>;
@@ -72,10 +70,7 @@ export const ScopeProvider = ({
        *   );
        * }
        */
-      const getAtom = <A extends AnyAtom>(
-        orig: AnyAtom,
-        target: InterceptedAtomCopy<A>,
-      ): A => {
+      const getAtom = <A extends AnyAtom>(orig: AnyAtom, target: A): A => {
         // If a target is got/set by itself, then it is derived.
         // Target could be an intercepted copy, so target is on the left.
         if (isSelfAtom(target, orig)) {
@@ -92,7 +87,7 @@ export const ScopeProvider = ({
         return getInterceptedAtomCopy(target);
       };
 
-      const interceptedAtomCopy: InterceptedAtomCopy<typeof originalAtom> = {
+      const interceptedAtomCopy: typeof originalAtom = {
         ...originalAtom,
         ...('read' in originalAtom && {
           read(get, opts) {
@@ -111,7 +106,8 @@ export const ScopeProvider = ({
             );
           },
         }),
-        is: (a: InterceptedAtomCopy<AnyAtom>) => isSelfAtom(a, originalAtom),
+        // eslint-disable-next-line camelcase
+        unstable_is: (a: AnyAtom) => isSelfAtom(a, originalAtom),
       };
       return interceptedAtomCopy;
     };
