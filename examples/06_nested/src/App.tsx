@@ -1,11 +1,12 @@
-import { atom, useAtom, useSetAtom } from 'jotai';
+import { atom, useAtom } from 'jotai';
 import { ScopeProvider } from 'jotai-scope';
 import { atomWithReducer } from 'jotai/vanilla/utils';
 
 const countAtom = atomWithReducer(0, (v) => v + 1);
 const anotherCountAtom = atomWithReducer(0, (v) => v + 1);
 const doubledAnotherCountAtom = atom((get) => get(anotherCountAtom) * 2);
-const proxyAtom = atom(undefined, (_get, set) => {
+const proxyAtom = atom(0, (_get, set, v: number) => {
+  set(proxyAtom, v);
   set(countAtom);
   set(anotherCountAtom);
 });
@@ -14,7 +15,7 @@ const Counter = () => {
   const [count, setCount] = useAtom(countAtom);
   const [anotherCount, setAnotherCount] = useAtom(anotherCountAtom);
   const [doubledAnotherCount] = useAtom(doubledAnotherCountAtom);
-  const setViaProxy = useSetAtom(proxyAtom);
+  const [proxy, setProxy] = useAtom(proxyAtom);
   return (
     <>
       <div>
@@ -32,7 +33,8 @@ const Counter = () => {
         </button>
       </div>
       <div>
-        <button type="button" onClick={() => setViaProxy()}>
+        <span>proxy: {proxy}</span>
+        <button type="button" onClick={() => setProxy(proxy + 1)}>
           increment both via proxy
         </button>
       </div>

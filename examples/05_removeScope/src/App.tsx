@@ -44,11 +44,9 @@ const Wrapper = ({ children }: PropsWithChildren) => {
 const ScopeButton = () => {
   const [shouldHaveScope, setShouldHaveScope] = useAtom(shouldHaveScopeAtom);
   return (
-    shouldHaveScope && (
-      <button type="button" onClick={() => setShouldHaveScope(false)}>
-        Disable Scope
-      </button>
-    )
+    <button type="button" onClick={() => setShouldHaveScope((prev) => !prev)}>
+      {shouldHaveScope ? 'Disable' : 'Enable'} Scope
+    </button>
   );
 };
 
