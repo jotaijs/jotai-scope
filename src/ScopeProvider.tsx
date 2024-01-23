@@ -1,6 +1,6 @@
 import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Provider } from 'jotai/react';
+import { Provider, useStore } from 'jotai/react';
 import { Atom, WritableAtom, getDefaultStore } from 'jotai/vanilla';
 
 type AnyAtom = Atom<unknown>;
@@ -13,10 +13,9 @@ const isSelfAtom = (atom: AnyAtom, a: AnyAtom) =>
 const isEqualSet = (a: Set<unknown>, b: Set<unknown>) =>
   a === b || (a.size === b.size && Array.from(a).every((v) => b.has(v)));
 type Store = ReturnType<typeof getDefaultStore>;
-export const ScopeContext = createContext<readonly [GetStoreKey, Store]>([
-  (a) => a,
-  getDefaultStore(),
-]);
+export const ScopeContext = createContext<
+  readonly [GetStoreKey, Store | undefined]
+>([(a) => a, undefined]);
 export const ScopeProvider = ({
   atoms,
   children,
@@ -26,10 +25,12 @@ export const ScopeProvider = ({
 }) => {
   const parentScopeContext = useContext(ScopeContext);
   const atomSet = new Set(atoms);
+  const [getParentStoreKey, storeOrUndefined] = parentScopeContext;
+  const parentStore = useStore();
+  const store = storeOrUndefined ?? parentStore;
 
   const initialize = () => {
     const mapping = new WeakMap<AnyAtom, AnyAtom>();
-    const [getParentStoreKey, store] = parentScopeContext;
 
     /**
      * Create a copy of originalAtom, then intercept its read/write function
