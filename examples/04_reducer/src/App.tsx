@@ -50,11 +50,11 @@ const App = () => {
       <h1>First Provider</h1>
       <Counter />
       <h1>Second Provider</h1>
-      <ScopeProvider atoms={[anotherCountAtom]} tag="abc">
+      <ScopeProvider atoms={[anotherCountAtom]}>
         <Counter />
 
         <h1>Third Provider</h1>
-        <ScopeProvider atoms={[anotherCountAtom]} tag="def">
+        <ScopeProvider atoms={[anotherCountAtom]}>
           <Counter />
         </ScopeProvider>
       </ScopeProvider>
