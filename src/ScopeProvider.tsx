@@ -1,18 +1,20 @@
 import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Provider, useStore } from 'jotai/react';
-import type { Atom, WritableAtom } from 'jotai/vanilla';
+import { Provider } from 'jotai/react';
+import { Atom, WritableAtom, getDefaultStore } from 'jotai/vanilla';
 
 type AnyAtom = Atom<unknown>;
 type AnyWritableAtom = WritableAtom<unknown, unknown[], unknown>;
-type GetScopedAtom = <T extends AnyAtom>(anAtom: T) => T;
+type GetInterceptedAtomCopy = <T extends AnyAtom>(anAtom: T) => T;
+type GetStoreKey = <T extends AnyAtom>(anAtom: T) => T;
 
 const isEqualSet = (a: Set<unknown>, b: Set<unknown>) =>
   a === b || (a.size === b.size && Array.from(a).every((v) => b.has(v)));
-
-export const ScopeContext = createContext<
-  readonly [read: GetScopedAtom, write: GetScopedAtom]
->([(a) => a, (a) => a]);
+type Store = ReturnType<typeof getDefaultStore>;
+export const ScopeContext = createContext<readonly [GetStoreKey, Store]>([
+  (a) => a,
+  getDefaultStore(),
+]);
 
 export const ScopeProvider = ({
   atoms,
@@ -21,38 +23,39 @@ export const ScopeProvider = ({
   atoms: Iterable<AnyAtom>;
   children: ReactNode;
 }) => {
-  const store = useStore();
-  const getParentScopedAtom = useContext(ScopeContext);
+  const parentScopeContext = useContext(ScopeContext);
   const atomSet = new Set(atoms);
 
   const initialize = () => {
     const mapping = new WeakMap<AnyAtom, AnyAtom>();
-
-    const [getParentScopedAtomToRead, getParentScopedAtomToWrite] =
-      getParentScopedAtom;
+    const [getParentStoreKey, store] = parentScopeContext;
 
     /**
      * Create a copy of originalAtom, then intercept its read/write function
      * to guarantee it accesses the correct value.
      * @param originalAtom
-     * @param notMarkedAsScoped Whether the atom is NOT marked as scoped.
+     * @param markedAsScoped Whether the atom is marked as scoped.
      * @returns A copy of originalAtom.
      */
-    const createScopedAtom = <T extends AnyWritableAtom>(
+    const interceptAtom = <T extends AnyWritableAtom>(
       originalAtom: T,
-      notMarkedAsScoped: boolean,
+      markedAsScoped: boolean,
     ): T => {
       /**
-       * When an scoped atom call get(anotherAtom) or set(anotherAtom, value), we ensure `anotherAtom` be
-       * scoped by calling this function.
-       * @param thisArg The scoped atom.
+       * This is the core mechanism of how an intercepted atom finds the correct
+       * atom to read/write.
+       *
+       * When an scoped atom call get(anotherAtom) or set(anotherAtom, value), this
+       * function is called to "route" `anotherAtom` to the correct atom.
        * @param orig The unscoped original atom of this scoped atom.
        * @param target The `anotherAtom` that this atom is accessing.
-       * @returns The scoped target if needed.
+       * @returns The actual atom to access. If the atom is scoped, return an
+       * interceptedAtomCopy. Otherwise, return the unscoped original atom.
        *
-       * Check the example below, when calling useAtomValue, jotai-scope first finds the anonymous
-       * scoped atom of `anAtom` (we call it `anAtomScoped`). Then, `anAtomScoped.read(dependencyAtom)`
-       * becomes `getAtom(anAtomScoped, anAtom, dependencyAtom)`
+       * Check the example below, when calling useAtomValue, jotai-scope will first
+       * find its intercepted copy (lets call it `anAtomIntercepted`). Then,
+       * `anAtom.read(get => get(dependencyAtom))` becomes
+       * `anAtomIntercepted.read(get => get(getAtom(anAtom, dependencyAtom)))`
        * @example
        * const anAtom = atom(get => get(dependencyAtom))
        * const Component = () => {
@@ -66,113 +69,119 @@ export const ScopeProvider = ({
        *   );
        * }
        */
-      const getAtom = <A extends AnyAtom>(
-        thisArg: AnyAtom,
-        orig: AnyAtom,
-        target: A,
-      ): A => {
-        if (target === thisArg) {
-          return notMarkedAsScoped
-            ? getParentScopedAtomToRead(orig as A)
-            : target;
+      const getAtom = <A extends AnyAtom>(orig: AnyAtom, target: A): A => {
+        // If a target is got/set by itself, then it is derived.
+        if (orig === target) {
+          // Since it is not derived, we check if it is marked as scoped.
+          return markedAsScoped
+            ? // If it is scoped, then current scope's intercepted copy is the store key
+              getInterceptedAtomCopy(target)
+            : // Otherwise, find the correct store key in the parent's scope.
+              // Check `getStoreKey` for details.
+              getParentStoreKey(target);
         }
-        return getScopedAtomToRead(target);
+        // If a target is got/set by another atom, route the access to the
+        // target's intercepted copy, then repeat the procedure.
+        return getInterceptedAtomCopy(target);
       };
-      const scopedAtom: typeof originalAtom = {
+
+      const interceptedAtomCopy: typeof originalAtom = {
         ...originalAtom,
         ...('read' in originalAtom && {
           read(get, opts) {
-            return originalAtom.read.call(
-              this,
-              (a) => get(getAtom(this, originalAtom, a)),
+            return originalAtom.read(
+              (a) => get(getAtom(originalAtom, a)),
               opts,
             );
           },
         }),
         ...('write' in originalAtom && {
           write(get, set, ...args) {
-            return originalAtom.write.call(
-              this,
-              (a) => get(getAtom(this, originalAtom, a)),
-              (a, ...v) => set(getAtom(this, originalAtom, a), ...v),
+            return originalAtom.write(
+              (a) => get(getAtom(originalAtom, a)),
+              (a, ...v) => set(getAtom(originalAtom, a), ...v),
               ...args,
             );
           },
         }),
+        // We hack jotai's core mechanism with this property to allow
+        // an intercepted copy set itself/another intercepted copy with
+        // the same scopedOriginal.
+        scopedOriginal: originalAtom.scopedOriginal ?? originalAtom,
       };
-      return scopedAtom;
+      return interceptedAtomCopy;
     };
 
     /**
-     * When reading/subscribing an atom, always create a copy in each scope
-     * for each atom, no matter it is marked as scoped or not. Then
-     * intercept its read/write function to guarantee it accesses the
-     * correct value.
+     * Always create a copy in each scope for each atom, no matter it is marked as
+     * scoped or not. Then intercept its read/write function to guarantee it accesses
+     * the correct value.
      * @param originalAtom The atom to access.
      * @returns The copy of originalAtom.
      */
-    const getScopedAtomToRead: GetScopedAtom = (originalAtom) => {
-      let scopedAtom = mapping.get(originalAtom);
-      if (!scopedAtom) {
-        scopedAtom = atomSet.has(originalAtom)
-          ? createScopedAtom(originalAtom as unknown as AnyWritableAtom, false)
-          : createScopedAtom(originalAtom as unknown as AnyWritableAtom, true);
-        mapping.set(originalAtom, scopedAtom);
+    const getInterceptedAtomCopy: GetInterceptedAtomCopy = (originalAtom) => {
+      let interceptedAtomCopy = mapping.get(originalAtom);
+      if (!interceptedAtomCopy) {
+        interceptedAtomCopy = atomSet.has(originalAtom)
+          ? interceptAtom(originalAtom as unknown as AnyWritableAtom, true)
+          : interceptAtom(originalAtom as unknown as AnyWritableAtom, false);
+        mapping.set(originalAtom, interceptedAtomCopy);
       }
-      return scopedAtom as typeof originalAtom;
+      return interceptedAtomCopy as typeof originalAtom;
     };
 
     /**
-     * When writing an atom, directly check if the atom is marked as scoped or not.
-     * If marked as scoped, return its scoped copy. Otherwise, return the original
-     * one.
+     * When a child scope's intercepted atom try to find the correct
+     * atom as the store key, this function is called. If the atom
+     * is marked as scoped in this scope, return its intercepted copy.
+     * Otherwise, recursively find the key in the parent scope.
      * @param originalAtom The atom to access.
-     * @returns The copy of originalAtom, or originalAtom itself.
+     * @returns An intercepted copy if this atom is marked as scoped
+     * in this scope. Otherwise, recursively call this function in the
+     * parent scope.
      */
-    const getScopedAtomToWrite: GetScopedAtom = (originalAtom) => {
+    const getStoreKey: GetStoreKey = (originalAtom) => {
       if (atomSet.has(originalAtom)) {
-        let scopedAtom = mapping.get(originalAtom);
-        if (!scopedAtom) {
-          scopedAtom = createScopedAtom(
+        let interceptedAtomCopy = mapping.get(originalAtom);
+        if (!interceptedAtomCopy) {
+          interceptedAtomCopy = interceptAtom(
             originalAtom as unknown as AnyWritableAtom,
             false,
           );
-          mapping.set(originalAtom, scopedAtom);
+          mapping.set(originalAtom, interceptedAtomCopy);
         }
-        return scopedAtom as typeof originalAtom;
+        return interceptedAtomCopy as typeof originalAtom;
       }
-      return originalAtom;
+      return getParentStoreKey(originalAtom);
     };
 
+    /**
+     * When an atom is accessed via useAtomValue/useSetAtom, the access should
+     * be handled by their intercepted copy.
+     */
     const patchedStore: typeof store = {
       ...store,
-      get: (anAtom, ...args) => store.get(getScopedAtomToRead(anAtom), ...args),
+      get: (anAtom, ...args) =>
+        store.get(getInterceptedAtomCopy(anAtom), ...args),
       set: (anAtom, ...args) =>
-        store.set(getScopedAtomToWrite(anAtom), ...args),
-      sub: (anAtom, ...args) => store.sub(getScopedAtomToRead(anAtom), ...args),
+        store.set(getInterceptedAtomCopy(anAtom), ...args),
+      sub: (anAtom, ...args) =>
+        store.sub(getInterceptedAtomCopy(anAtom), ...args),
     };
 
-    return [
-      patchedStore,
-      [getScopedAtomToRead, getScopedAtomToWrite],
-      store,
-      getParentScopedAtom,
-      atomSet,
-    ] as const;
+    const scopeContext = [getStoreKey, store] as const;
+
+    return [patchedStore, scopeContext, parentScopeContext, atomSet] as const;
   };
 
   const [state, setState] = useState(initialize);
-  if (
-    store !== state[2] ||
-    getParentScopedAtom !== state[3] ||
-    !isEqualSet(atomSet, state[4])
-  ) {
+  if (parentScopeContext !== state[2] || !isEqualSet(atomSet, state[3])) {
     setState(initialize);
   }
-  const [patchedStore, getScopedAtom] = state;
+  const [patchedStore, scopeContext] = state;
 
   return (
-    <ScopeContext.Provider value={getScopedAtom}>
+    <ScopeContext.Provider value={scopeContext}>
       <Provider store={patchedStore}>{children}</Provider>
     </ScopeContext.Provider>
   );
