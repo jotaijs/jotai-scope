@@ -1,6 +1,7 @@
 import { WritableAtom, atom, useAtom } from 'jotai';
 import { ScopeProvider } from 'jotai-scope';
 import { useHydrateAtoms } from 'jotai/react/utils';
+import { INTERNAL_InferAtomTuples } from 'jotai/react/utils/useHydrateAtoms';
 import { PropsWithChildren } from 'react';
 
 const primitiveAtom = atom(0);
@@ -81,22 +82,15 @@ const Counter2 = () => {
   );
 };
 
-// Copied from useHydrateAtoms type signature
 type AnyWritableAtom = WritableAtom<unknown, any[], any>;
-type AtomTuple<A = AnyWritableAtom, V = unknown> = readonly [A, V];
-type InferAtoms<T extends Iterable<AtomTuple>> = {
-  [K in keyof T]: T[K] extends AtomTuple<infer A>
-    ? A extends AnyWritableAtom
-      ? AtomTuple<A, ReturnType<A['read']>>
-      : T[K]
-    : never;
-};
 
-const ScopeProviderWithInitializer = <T extends Iterable<AtomTuple>>({
+const ScopeProviderWithInitializer = <
+  T extends Iterable<readonly [AnyWritableAtom, unknown]>,
+>({
   atomValues,
   children,
 }: PropsWithChildren<{
-  atomValues: InferAtoms<T>;
+  atomValues: INTERNAL_InferAtomTuples<T>;
 }>) => {
   const atoms = Array.from(atomValues, ([anAtom]) => anAtom);
   return (
@@ -106,11 +100,13 @@ const ScopeProviderWithInitializer = <T extends Iterable<AtomTuple>>({
   );
 };
 
-const AtomsHydrator = <T extends Iterable<AtomTuple>>({
+const AtomsHydrator = <
+  T extends Iterable<readonly [AnyWritableAtom, unknown]>,
+>({
   atomValues,
   children,
 }: PropsWithChildren<{
-  atomValues: InferAtoms<T>;
+  atomValues: INTERNAL_InferAtomTuples<T>;
 }>) => {
   useHydrateAtoms(atomValues);
   return children;
