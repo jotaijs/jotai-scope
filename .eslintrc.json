@@ -16,6 +16,9 @@
     "import/resolver": {
       "node": {
         "extensions": [".js", ".ts", ".tsx"]
+      },
+      "typescript": {
+        "project": ["./tsconfig.json"]
       }
     }
   },
