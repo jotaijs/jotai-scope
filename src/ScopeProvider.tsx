@@ -73,7 +73,7 @@ export const ScopeProvider = ({
        * }
        */
       const getAtom = <A extends AnyAtom>(orig: AnyAtom, target: A): A => {
-        // If a target is got/set by itself, then it is derived.
+        // If a target is got/set by itself, then it is not derived.
         // Target could be an intercepted copy, so target is on the left.
         if (isSelfAtom(target, orig)) {
           // Since it is not derived, we check if it is marked as scoped.
