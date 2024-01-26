@@ -1,7 +1,8 @@
 import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Provider, useStore } from 'jotai/react';
-import { Atom, WritableAtom, getDefaultStore } from 'jotai/vanilla';
+import { getDefaultStore } from 'jotai/vanilla';
+import type { Atom, WritableAtom } from 'jotai/vanilla';
 
 type AnyAtom = Atom<unknown>;
 type AnyWritableAtom = WritableAtom<unknown, unknown[], unknown>;
