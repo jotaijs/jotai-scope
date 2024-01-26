@@ -16,7 +16,8 @@
     "import/resolver": {
       "node": {
         "extensions": [".js", ".ts", ".tsx"]
-      }
+      },
+      "typescript": true
     }
   },
   "rules": {
