@@ -17,9 +17,7 @@
       "node": {
         "extensions": [".js", ".ts", ".tsx"]
       },
-      "typescript": {
-        "project": ["./tsconfig.json"]
-      }
+      "typescript": true
     }
   },
   "rules": {
