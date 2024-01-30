@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.5.0] - 2024-01-26
+### Changed
+- feat(scope): A complete rewrite of ScopeProvider #20
+
 ## [0.4.1] - 2023-11-01
 ### Changed
 - feat(scope): Avoid extra re-renders with memoization #10
