@@ -1,6 +1,8 @@
 # Change Log
 
 ## [Unreleased]
+### Changed
+- fix(isolation): fix prop types #15
 
 ## [0.5.0] - 2024-01-26
 ### Changed
