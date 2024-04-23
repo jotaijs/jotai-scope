@@ -40,7 +40,7 @@ export function createIsolation() {
   const useStore = ((options?: any) => {
     const store = useContext(StoreContext);
     if (!store) throw new Error('Missing Provider from createIsolation');
-    return options?.store || store || getDefaultStore();
+    return options?.store || store;
   }) as typeof useStoreOrig;
 
   const useAtom = ((anAtom: any, options?: any) => {
