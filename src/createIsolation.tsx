@@ -1,11 +1,12 @@
 import { createContext, useContext, useRef } from 'react';
 import type { ReactNode } from 'react';
-import { createStore } from 'jotai/vanilla';
+import { createStore, getDefaultStore } from 'jotai/vanilla';
 import type { WritableAtom } from 'jotai/vanilla';
 import {
   useAtom as useAtomOrig,
   useAtomValue as useAtomValueOrig,
   useSetAtom as useSetAtomOrig,
+  useStore as useStoreOrig,
 } from 'jotai/react';
 import { useHydrateAtoms } from 'jotai/react/utils';
 
@@ -36,11 +37,11 @@ export function createIsolation() {
     );
   };
 
-  const useStore = () => {
+  const useStore = ((options?: any) => {
     const store = useContext(StoreContext);
     if (!store) throw new Error('Missing Provider from createIsolation');
-    return store;
-  };
+    return options?.store || store || getDefaultStore();
+  }) as typeof useStoreOrig;
 
   const useAtom = ((anAtom: any, options?: any) => {
     const store = useStore();
