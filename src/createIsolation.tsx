@@ -39,7 +39,6 @@ export function createIsolation() {
   const useStore = () => {
     const store = useContext(StoreContext);
     if (!store) throw new Error('Missing Provider from createIsolation');
-
     return store;
   };
 
