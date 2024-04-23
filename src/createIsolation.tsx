@@ -1,6 +1,6 @@
 import { createContext, useContext, useRef } from 'react';
 import type { ReactNode } from 'react';
-import { createStore, getDefaultStore } from 'jotai/vanilla';
+import { createStore } from 'jotai/vanilla';
 import type { WritableAtom } from 'jotai/vanilla';
 import {
   useAtom as useAtomOrig,
