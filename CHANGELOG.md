@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.5.2] - 2024-04-30
+### Changed
+- feat(isolation): export useStore hook using the isolated context (#27)
+
 ## [0.5.1] - 2024-01-30
 ### Changed
 - fix(isolation): fix prop types #15
