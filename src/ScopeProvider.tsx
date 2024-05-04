@@ -6,7 +6,8 @@ import type { Atom, WritableAtom } from 'jotai/vanilla';
 
 type AnyAtom = Atom<unknown>;
 type AnyWritableAtom = WritableAtom<unknown, unknown[], unknown>;
-type GetInterceptedAtomCopy = <T extends AnyAtom>(anAtom: T) => T;
+type GetRouterAtom = <T extends AnyAtom>(anAtom: T) => T;
+type GetScopedAtom = <T extends AnyAtom>(anAtom: T) => T;
 type GetStoreKey = <T extends AnyAtom>(anAtom: T) => T;
 
 const isSelfAtom = (atom: AnyAtom, a: AnyAtom) =>
@@ -31,7 +32,8 @@ export const ScopeProvider = ({
   const store = storeOrUndefined ?? parentStore;
 
   const initialize = () => {
-    const mapping = new WeakMap<AnyAtom, AnyAtom>();
+    const routerAtoms = new WeakMap<AnyAtom, AnyAtom>();
+    const scopedAtoms = new WeakMap<AnyAtom, AnyAtom>();
 
     /**
      * Create a copy of originalAtom, then intercept its read/write function
@@ -40,9 +42,9 @@ export const ScopeProvider = ({
      * @param markedAsScoped Whether the atom is marked as scoped.
      * @returns A copy of originalAtom.
      */
-    const interceptAtom = <T extends AnyWritableAtom>(
+    const createRouterAtom = <T extends AnyWritableAtom>(
       originalAtom: T,
-      markedAsScoped: boolean,
+      isScoped: boolean,
     ): T => {
       /**
        * This is the core mechanism of how an intercepted atom finds the correct
@@ -73,23 +75,30 @@ export const ScopeProvider = ({
        * }
        */
       const getAtom = <A extends AnyAtom>(orig: AnyAtom, target: A): A => {
-        // If a target is got/set by itself, then it is not derived.
-        // Target could be an intercepted copy, so target is on the left.
-        if (isSelfAtom(target, orig)) {
-          // Since it is not derived, we check if it is marked as scoped.
-          return markedAsScoped
-            ? // If it is scoped, then current scope's intercepted copy is the store key
-              getInterceptedAtomCopy(target)
-            : // Otherwise, find the correct store key in the parent's scope.
-              // Check `getStoreKey` for details.
-              getParentStoreKey(target);
+        if (isScoped) {
+          return getScopedAtom(target);
         }
-        // If a target is got/set by another atom, route the access to the
-        // target's intercepted copy, then repeat the procedure.
-        return getInterceptedAtomCopy(target);
+        if (isSelfAtom(target, orig)) {
+          return getParentStoreKey(target);
+        }
+        return getRouterAtom(target);
+        // // If a target is got/set by itself, then it is not derived.
+        // // Target could be an intercepted copy, so target is on the left.
+        // if (isSelfAtom(target, orig)) {
+        //   // Since it is not derived, we check if it is marked as scoped.
+        //   return isScoped
+        //     ? // If it is scoped, then current scope's intercepted copy is the store key
+        //       getScopedAtom(target)
+        //     : // Otherwise, find the correct store key in the parent's scope.
+        //       // Check `getStoreKey` for details.
+        //       getParentStoreKey(target);
+        // }
+        // // If a target is got/set by another atom, route the access to the
+        // // target's intercepted copy, then repeat the procedure.
+        // return getRouterAtom(target);
       };
 
-      const interceptedAtomCopy: typeof originalAtom = {
+      const routerAtom: typeof originalAtom = {
         ...originalAtom,
         ...('read' in originalAtom && {
           read(get, opts) {
@@ -111,7 +120,32 @@ export const ScopeProvider = ({
         // eslint-disable-next-line camelcase
         unstable_is: (a: AnyAtom) => isSelfAtom(a, originalAtom),
       };
-      return interceptedAtomCopy;
+      return routerAtom;
+    };
+
+    const createScopedAtom = <T extends AnyWritableAtom>(
+      originalAtom: T,
+    ): T => {
+      const routerAtom: typeof originalAtom = {
+        ...originalAtom,
+        ...('read' in originalAtom && {
+          read(get, opts) {
+            return originalAtom.read((a) => get(getScopedAtom(a)), opts);
+          },
+        }),
+        ...('write' in originalAtom && {
+          write(get, set, ...args) {
+            return originalAtom.write(
+              (a) => get(getScopedAtom(a)),
+              (a, ...v) => set(getScopedAtom(a), ...v),
+              ...args,
+            );
+          },
+        }),
+        // eslint-disable-next-line camelcase
+        unstable_is: (a: AnyAtom) => isSelfAtom(a, originalAtom),
+      };
+      return routerAtom;
     };
 
     /**
@@ -121,15 +155,27 @@ export const ScopeProvider = ({
      * @param originalAtom The atom to access.
      * @returns The copy of originalAtom.
      */
-    const getInterceptedAtomCopy: GetInterceptedAtomCopy = (originalAtom) => {
-      let interceptedAtomCopy = mapping.get(originalAtom);
-      if (!interceptedAtomCopy) {
-        interceptedAtomCopy = atomSet.has(originalAtom)
-          ? interceptAtom(originalAtom as unknown as AnyWritableAtom, true)
-          : interceptAtom(originalAtom as unknown as AnyWritableAtom, false);
-        mapping.set(originalAtom, interceptedAtomCopy);
+    const getRouterAtom: GetRouterAtom = (originalAtom) => {
+      let routerAtom = routerAtoms.get(originalAtom);
+      if (!routerAtom) {
+        routerAtom = createRouterAtom(
+          originalAtom as unknown as AnyWritableAtom,
+          atomSet.has(originalAtom),
+        );
+        routerAtoms.set(originalAtom, routerAtom);
       }
-      return interceptedAtomCopy as typeof originalAtom;
+      return routerAtom as typeof originalAtom;
+    };
+
+    const getScopedAtom: GetScopedAtom = (originalAtom) => {
+      let scopedAtom = scopedAtoms.get(originalAtom);
+      if (!scopedAtom) {
+        scopedAtom = createScopedAtom(
+          originalAtom as unknown as AnyWritableAtom,
+        );
+        scopedAtoms.set(originalAtom, scopedAtom);
+      }
+      return scopedAtom as typeof originalAtom;
     };
 
     /**
@@ -144,15 +190,7 @@ export const ScopeProvider = ({
      */
     const getStoreKey: GetStoreKey = (originalAtom) => {
       if (atomSet.has(originalAtom)) {
-        let interceptedAtomCopy = mapping.get(originalAtom);
-        if (!interceptedAtomCopy) {
-          interceptedAtomCopy = interceptAtom(
-            originalAtom as unknown as AnyWritableAtom,
-            false,
-          );
-          mapping.set(originalAtom, interceptedAtomCopy);
-        }
-        return interceptedAtomCopy as typeof originalAtom;
+        return getScopedAtom(originalAtom);
       }
       return getParentStoreKey(originalAtom);
     };
@@ -163,12 +201,9 @@ export const ScopeProvider = ({
      */
     const patchedStore: typeof store = {
       ...store,
-      get: (anAtom, ...args) =>
-        store.get(getInterceptedAtomCopy(anAtom), ...args),
-      set: (anAtom, ...args) =>
-        store.set(getInterceptedAtomCopy(anAtom), ...args),
-      sub: (anAtom, ...args) =>
-        store.sub(getInterceptedAtomCopy(anAtom), ...args),
+      get: (anAtom, ...args) => store.get(getRouterAtom(anAtom), ...args),
+      set: (anAtom, ...args) => store.set(getRouterAtom(anAtom), ...args),
+      sub: (anAtom, ...args) => store.sub(getRouterAtom(anAtom), ...args),
     };
 
     const scopeContext = [getStoreKey, store] as const;
