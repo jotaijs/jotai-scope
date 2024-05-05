@@ -1,34 +1,44 @@
 import { atom, useAtom } from 'jotai';
 import { ScopeProvider } from 'jotai-scope';
 
-function customAtom<T>(initialValue: T) {
-  const valueAtom = atom<T>(initialValue);
-  return atom(
-    (get) => get(valueAtom),
-    (_get, set, update: T) => set(valueAtom, update),
-  );
-}
+const baseAtom = atom(0);
+const derivedAtom1 = atom(
+  (get) => get(baseAtom),
+  (get, set) => {
+    set(baseAtom, get(baseAtom) + 1);
+  },
+);
 
-const anotherCountAtom = atom(0);
-const someCustomAtom = customAtom(0);
+const derivedAtom2 = atom(
+  (get) => get(baseAtom),
+  (get, set) => {
+    set(baseAtom, get(baseAtom) + 1);
+  },
+);
+
+derivedAtom1.debugLabel = 'label';
 
 const Counter = () => {
-  const [anotherCount, setAnotherCount] = useAtom(anotherCountAtom);
-  const [someCustomCount, setCustomCount] = useAtom(someCustomAtom);
+  const [base, setBase] = useAtom(baseAtom);
+  const [derived1, setDerived1] = useAtom(derivedAtom1);
+  const [derived2, setDerived2] = useAtom(derivedAtom2);
   return (
     <>
       <div>
-        <span>another count: {anotherCount}</span>
-        <button type="button" onClick={() => setAnotherCount((c) => c + 1)}>
+        <span>base count: {base}</span>
+        <button type="button" onClick={() => setBase((c) => c + 1)}>
           increment
         </button>
       </div>
       <div>
-        <span>custom atom count: {someCustomCount}</span>
-        <button
-          type="button"
-          onClick={() => setCustomCount(someCustomCount + 1)}
-        >
+        <span>derived1 count: {derived1}</span>
+        <button type="button" onClick={() => setDerived1()}>
+          increment
+        </button>
+      </div>
+      <div>
+        <span>derived2 count: {derived2}</span>
+        <button type="button" onClick={() => setDerived2()}>
           increment
         </button>
       </div>
@@ -39,13 +49,28 @@ const Counter = () => {
 const App = () => {
   return (
     <div>
-      <h1>First Provider</h1>
-      <ScopeProvider atoms={[anotherCountAtom, someCustomAtom]}>
+      <h1>Only base is scoped</h1>
+      <p>derived1 and derived2 should also be scoped</p>
+      <ScopeProvider atoms={[baseAtom]}>
         <Counter />
       </ScopeProvider>
-      <h1>Second Provider</h1>
-      <ScopeProvider atoms={[anotherCountAtom, someCustomAtom]}>
+      <h1>Both derived1 an derived2 are scoped</h1>
+      <p>base should be global, derived1 and derived2 are shared</p>
+      <ScopeProvider atoms={[derivedAtom1, derivedAtom2]}>
         <Counter />
+      </ScopeProvider>
+      <h1>Layer1: Only derived1 is scoped</h1>
+      <p>base and derived2 should be global</p>
+      <ScopeProvider atoms={[derivedAtom1]}>
+        <Counter />
+        <h2>Layer2: Only derived2 is scoped</h2>
+        <p>
+          derived1 should use layer1&apos;s atom, base is global, derived2 is
+          layer 2 scoped
+        </p>
+        <ScopeProvider atoms={[derivedAtom2]}>
+          <Counter />
+        </ScopeProvider>
       </ScopeProvider>
     </div>
   );
