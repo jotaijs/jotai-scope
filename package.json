@@ -33,16 +33,16 @@
     "jest": "jest",
     "tsc-test": "tsc --project . --noEmit",
     "examples:01_isolation": "DIR=01_isolation EXT=tsx webpack serve",
-    "examples:02_scope": "DIR=02_scope EXT=tsx webpack serve",
-    "examples:03_hybrid": "DIR=03_hybrid EXT=tsx webpack serve",
-    "examples:04_reducer": "DIR=04_reducer EXT=tsx webpack serve",
-    "examples:05_removeScope": "DIR=05_removeScope EXT=tsx webpack serve",
-    "examples:06_nested": "DIR=06_nested EXT=tsx webpack serve",
-    "examples:07_derived": "DIR=07_derived EXT=tsx webpack serve"
+    "examples:02_removeScope": "DIR=02_removeScope EXT=tsx webpack serve",
+    "examples:03_nested": "DIR=03_nested EXT=tsx webpack serve",
+    "examples:04_derived": "DIR=04_derived EXT=tsx webpack serve"
   },
   "jest": {
     "testEnvironment": "jsdom",
-    "preset": "ts-jest/presets/js-with-ts"
+    "preset": "ts-jest/presets/js-with-ts",
+    "testPathIgnorePatterns": [
+      "utils.ts"
+    ]
   },
   "keywords": [
     "jotai",
