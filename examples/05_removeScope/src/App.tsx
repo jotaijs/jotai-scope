@@ -55,11 +55,7 @@ const App = () => {
     <div>
       <h1>Unscoped</h1>
       <Counter />
-      <h1>First Provider</h1>
-      <Wrapper>
-        <Counter />
-      </Wrapper>
-      <h1>Second Provider</h1>
+      <h1>Scoped Provider</h1>
       <Wrapper>
         <Counter />
       </Wrapper>
