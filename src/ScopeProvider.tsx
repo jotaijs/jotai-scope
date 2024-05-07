@@ -7,8 +7,9 @@ import type { Atom, WritableAtom } from 'jotai/vanilla';
 type AnyAtom = Atom<unknown>;
 type AnyWritableAtom = WritableAtom<unknown, unknown[], unknown>;
 type GetRouterAtom = <T extends AnyAtom>(anAtom: T) => T;
-type GetScopedAtom = <T extends AnyAtom>(anAtom: T) => T;
-type RouteAtomInScope = <T extends AnyAtom>(anAtom: T) => T;
+type TryGetScopedRouterAtomInCurrentScope = <T extends AnyAtom>(
+  anAtom: T,
+) => [anAtomOrScoped: T, isScoped: boolean];
 
 const isSelfAtom = (atom: AnyAtom, a: AnyAtom) =>
   atom.unstable_is ? atom.unstable_is(a) : a === atom;
@@ -17,8 +18,8 @@ const isEqualSet = (a: Set<unknown>, b: Set<unknown>) =>
 type Store = ReturnType<typeof getDefaultStore>;
 
 export const ScopeContext = createContext<
-  readonly [RouteAtomInScope, Store | undefined]
->([(a) => a, undefined]);
+  readonly [TryGetScopedRouterAtomInCurrentScope, Store | undefined]
+>([(a) => [a, false], undefined]);
 export const ScopeProvider = ({
   atoms,
   children,
@@ -28,38 +29,44 @@ export const ScopeProvider = ({
 }) => {
   const parentScopeContext = useContext(ScopeContext);
   const atomSet = new Set(atoms);
-  const [routeAtomInParentScope, storeOrUndefined] = parentScopeContext;
+  const [tryGetScopedRouterAtomInParentScope, storeOrUndefined] =
+    parentScopeContext;
   const parentStore = useStore();
   const store = storeOrUndefined ?? parentStore;
 
   const initialize = () => {
-    const routerAtoms = new WeakMap<AnyAtom, AnyAtom>();
-    const scopedAtoms = new WeakMap<AnyAtom, AnyAtom>();
+    const commonRouterAtoms = new WeakMap<AnyAtom, AnyAtom>();
+    const scopedRouterAtoms = new WeakMap<AnyAtom, AnyAtom>();
 
     /**
-     * Create a router copy of originalAtom. Router atom will NEVER act as a store key to access
-     * states, but it intercepts originalAtom's read/write function. If originalAtom is scoped, then
-     * it will finally routes to a scoped atom copy which owns its own state in the store. If
-     * originalAtom is not scoped, it will finally routes to the global unique atom (the
-     * originalAtom itself).
+     * Create a CommonRouterAtom copy of originalAtom. CommonRouterAtom will NEVER act as a store
+     * key to access states, but it intercepts originalAtom's read/write function. If some of
+     * originalAtom's dependencies are scoped, the read/write function will be intercepted to access the correct
+     * ScopedRouterAtom copy.
+     *
+     * NOTE: CommonRouterAtom is only used when originalAtom is not scoped in any scope. That logic
+     * is guaranteed by `getRouterAtom`.
+     *
+     * @see getRouterAtom
      * @param originalAtom
-     * @param isScoped Whether the atom is marked as scoped.
-     * @returns A copy of originalAtom which acts as a router.
+     * @returns A CommonRouterAtom of originalAtom.
      */
-    const createRouterAtom = <T extends AnyWritableAtom>(
+    const createCommonRouterAtom = <T extends AnyWritableAtom>(
       originalAtom: T,
-      isScoped: boolean,
     ): T => {
       /**
        * This is the core mechanism of how a router atom finds the correct atom to read/write.
        *
-       * When an router atom call get(anotherAtom) or set(anotherAtom, value), this
-       * function is called to route `anotherAtom` to another atom. That atom would be used as
+       * First, we know that originalAtom is not scoped in any scope, the logic is guaranteed by
+       * `getRouterAtom`.
+       *
+       * Then, when the CommonRouterAtom call get(targetAtom) or set(targetAtom, value), this
+       * function is called to route `targetAtom` to another atom. That atom would be used as
        * store key to access the globally shared / scoped state.
-       * @param orig The globally accessible original atom of this router atom.
-       * @param target The `anotherAtom` that this atom is accessing.
-       * @returns The actual atom to access. If the atom is scoped, return an
-       * scoped copy. Otherwise, return the unscoped original atom.
+       * @param target The `targetAtom` that this atom is accessing.
+       * @returns The actual atom to access. If the atom is originalAtom itself, return
+       * originalAtom. If the atom is scoped, return a ScopedRouterAtom copy. Otherwise, return the
+       * unscoped CommonRouterAtom copy.
        *
        * Check the example below, when calling useAtomValue, jotai-scope will first
        * find its router copy (lets call it `rAtom`). Then,
@@ -78,22 +85,14 @@ export const ScopeProvider = ({
        *   );
        * }
        */
-      const routeAtom = <A extends AnyAtom>(orig: AnyAtom, target: A): A => {
-        // If original atom is scoped, then itself and all of its dependencies are scoped. Route to
-        // the scoped atom copy.
-        if (isScoped) {
-          return getScopedAtom(target);
+      const routeAtom = <A extends AnyAtom>(target: A): A => {
+        // The target is got/set by itself. Since we know originalAtom is not scoped in any scope,
+        // directly return the originalAtom itself.
+        if (target === (originalAtom as unknown as A)) {
+          return target;
         }
 
-        // If original atom is not scoped
-
-        // The target is got/set by itself, but we do not know if it is scoped in parent scopes, so
-        // the parent scope will route to the correct atom.
-        if (isSelfAtom(target, orig)) {
-          return routeAtomInParentScope(target);
-        }
-
-        // The target is got/set by another atom, access the target's router recursively.
+        // The target is got/set by another atom, access the target's router atom.
         return getRouterAtom(target);
       };
 
@@ -101,17 +100,14 @@ export const ScopeProvider = ({
         ...originalAtom,
         ...('read' in originalAtom && {
           read(get, opts) {
-            return originalAtom.read(
-              (a) => get(routeAtom(originalAtom, a)),
-              opts,
-            );
+            return originalAtom.read((a) => get(routeAtom(a)), opts);
           },
         }),
         ...('write' in originalAtom && {
           write(get, set, ...args) {
             return originalAtom.write(
-              (a) => get(routeAtom(originalAtom, a)),
-              (a, ...v) => set(routeAtom(originalAtom, a), ...v),
+              (a) => get(routeAtom(a)),
+              (a, ...v) => set(routeAtom(a), ...v),
               ...args,
             );
           },
@@ -123,27 +119,27 @@ export const ScopeProvider = ({
     };
 
     /**
-     * Create a scoped copy of originalAtom. The scoped atom copy will act as a store key to access
-     * its own state. All of an scopedAtom's dependencies are also scoped, so their read/write
-     * functions will be intercepted to access the scoped copy.
+     * Create a ScopedRouterAtom copy of originalAtom. The ScopedRouterAtom will act as a store key
+     * to access its own state. All of a ScopedRouterAtom's dependencies are also scoped, so their
+     * read/write functions will be intercepted to access ScopedRouterAtom copy, too.
      * @param originalAtom
-     * @returns A copy of originalAtom which is scoped.
+     * @returns A ScopedRouterAtom copy of originalAtom.
      */
-    const createScopedAtom = <T extends AnyWritableAtom>(
+    const createScopedRouterAtom = <T extends AnyWritableAtom>(
       originalAtom: T,
     ): T => {
-      const routerAtom: typeof originalAtom = {
+      const scopedRouterAtom: typeof originalAtom = {
         ...originalAtom,
         ...('read' in originalAtom && {
           read(get, opts) {
-            return originalAtom.read((a) => get(getScopedAtom(a)), opts);
+            return originalAtom.read((a) => get(getScopedRouterAtom(a)), opts);
           },
         }),
         ...('write' in originalAtom && {
           write(get, set, ...args) {
             return originalAtom.write(
-              (a) => get(getScopedAtom(a)),
-              (a, ...v) => set(getScopedAtom(a), ...v),
+              (a) => get(getScopedRouterAtom(a)),
+              (a, ...v) => set(getScopedRouterAtom(a), ...v),
               ...args,
             );
           },
@@ -151,54 +147,68 @@ export const ScopeProvider = ({
         // eslint-disable-next-line camelcase
         unstable_is: (a: AnyAtom) => isSelfAtom(a, originalAtom),
       };
-      return routerAtom;
+      return scopedRouterAtom;
     };
 
     /**
      * For EVERY `useAtomValue` and `useSetAtom` call, since we don't know if the atom is scoped
      * or not, a router atom copy is always created to intercept the read/write function.
+     *
+     * It first check if originalAtom is scoped in any scope. If so, then route to
+     * `ScopedRouterAtom`. All of the atom's dependency will be scoped in that scope as well.
+     * If not, then the atom is globally unique, route to `CommonRouterAtom`. The atom's
+     * dependencies' scope status is not determined yet.
      */
     const getRouterAtom: GetRouterAtom = (originalAtom) => {
-      let routerAtom = routerAtoms.get(originalAtom);
-      if (!routerAtom) {
-        routerAtom = createRouterAtom(
-          originalAtom as unknown as AnyWritableAtom,
-          atomSet.has(originalAtom),
-        );
-        routerAtoms.set(originalAtom, routerAtom);
+      // Step 1: Check if the atom is scoped in current scope.
+      const [possiblyScoped, isScoped] =
+        tryGetScopedRouterAtomInCurrentScope(originalAtom);
+
+      // Step 2: If the atom is scoped, return the ScopedRouterAtom copy.
+      if (isScoped) {
+        return possiblyScoped;
       }
-      return routerAtom as typeof originalAtom;
+
+      // Step 3: If the atom is not scoped, return the CommonRouterAtom copy.
+      let commonRouterAtom = commonRouterAtoms.get(originalAtom);
+      if (!commonRouterAtom) {
+        commonRouterAtom = createCommonRouterAtom(
+          originalAtom as unknown as AnyWritableAtom,
+        );
+        commonRouterAtoms.set(originalAtom, commonRouterAtom);
+      }
+      return commonRouterAtom as typeof originalAtom;
     };
 
-    const getScopedAtom: GetScopedAtom = (originalAtom) => {
-      let scopedAtom = scopedAtoms.get(originalAtom);
-      if (!scopedAtom) {
-        scopedAtom = createScopedAtom(
+    const getScopedRouterAtom: GetRouterAtom = (originalAtom) => {
+      let scopedRouterAtom = scopedRouterAtoms.get(originalAtom);
+      if (!scopedRouterAtom) {
+        scopedRouterAtom = createScopedRouterAtom(
           originalAtom as unknown as AnyWritableAtom,
         );
-        scopedAtoms.set(originalAtom, scopedAtom);
+        scopedRouterAtoms.set(originalAtom, scopedRouterAtom);
       }
-      return scopedAtom as typeof originalAtom;
+      return scopedRouterAtom as typeof originalAtom;
     };
 
     /**
-     * When a child scope's router atom try to find the correct atom as the store key, this function
-     * is called. If the atom is scoped in current scope, return its scoped copy. Otherwise,
-     * recursively route to the correct atom in the parent scope.
-     * @param originalAtom The atom to route.
-     * @returns A scoped copy if this atom is marked as scoped in current scope. Otherwise,
-     * recursively call this function in the parent scope.
+     * If originalAtom is scoped in current scope, returns ScopedRouterAtom copy.
+     * Otherwise, recursively check if originalAtom is scoped in parent scope.
+     *
+     * If the atom is not scoped in any scope, return the originalAtom itself.
+     * The second return value indicates whether the atom is scoped in any scope.
      */
-    const routeAtomInCurrentScope: RouteAtomInScope = (originalAtom) => {
-      if (atomSet.has(originalAtom)) {
-        return getScopedAtom(originalAtom);
-      }
-      return routeAtomInParentScope(originalAtom);
-    };
+    const tryGetScopedRouterAtomInCurrentScope: TryGetScopedRouterAtomInCurrentScope =
+      (originalAtom) => {
+        if (atomSet.has(originalAtom)) {
+          return [getScopedRouterAtom(originalAtom), true];
+        }
+        return tryGetScopedRouterAtomInParentScope(originalAtom);
+      };
 
     /**
      * When an atom is accessed via useAtomValue/useSetAtom, the access should
-     * be handled by their router copy.
+     * be handled by a router atom copy.
      */
     const patchedStore: typeof store = {
       ...store,
@@ -207,7 +217,7 @@ export const ScopeProvider = ({
       sub: (anAtom, ...args) => store.sub(getRouterAtom(anAtom), ...args),
     };
 
-    const scopeContext = [routeAtomInCurrentScope, store] as const;
+    const scopeContext = [tryGetScopedRouterAtomInCurrentScope, store] as const;
 
     return [patchedStore, scopeContext, parentScopeContext, atomSet] as const;
   };
