@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.6.0] - 2024-05-07
+### Changed
+- feat(scope): support using derived atom in ScopeProvider (#30)
+
 ## [0.5.2] - 2024-04-30
 ### Changed
 - feat(isolation): export useStore hook using the isolated context (#27)
