@@ -63,12 +63,12 @@ const App = () => {
       <p>base and derived2 should be global</p>
       <ScopeProvider atoms={[derivedAtom1]}>
         <Counter />
-        <h2>Layer2: Only derived2 is scoped</h2>
+        <h2>Layer2: Base and derived2 are scoped</h2>
         <p>
-          derived1 should use layer1&apos;s atom, base is global, derived2 is
-          layer 2 scoped
+          derived1 should use layer1&apos;s atom, base and derived2 are layer 2
+          scoped
         </p>
-        <ScopeProvider atoms={[derivedAtom2]}>
+        <ScopeProvider atoms={[baseAtom, derivedAtom2]}>
           <Counter />
         </ScopeProvider>
       </ScopeProvider>
