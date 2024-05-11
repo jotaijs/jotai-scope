@@ -77,7 +77,7 @@ const App = () => {
         <Counter counterClass="layer1" />
         <h2>Layer2: Base and derived2 are scoped</h2>
         <p>
-          derived1 should use layer1&apos;s atom, base and derived2 are layer 2
+          derived1 should use layer2&apos;s atom, base and derived2 are layer 2
           scoped
         </p>
         <ScopeProvider atoms={[baseAtom, derivedAtom2]}>
@@ -121,210 +121,301 @@ describe('Counter', () => {
     const { container } = render(<App />);
 
     expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '0',
-      '0',
-      '0',
-      '0',
-      '0',
-      '0',
-      '0',
-      '0',
-      '0',
-      '0',
-      '0',
-      '0',
+      // case 1: baseAtom scoped
+      '0', // .case1.base
+      '0', // .case1.derived1
+      '0', // .case1.derived2
+
+      // case 2: derivedAtom1 and derivedAtom2 scoped
+      '0', // .case2.base
+      '0', // .case2.derived1
+      '0', // .case2.derived2
+
+      // layer1: derivedAtom1 scoped
+      '0', // .layer1.base
+      '0', // .layer1.derived1
+      '0', // .layer1.derived2
+
+      // layer2: baseAtom and derivedAtom2 scoped (nested in layer1)
+      '0', // .layer2.base
+      '0', // .layer2.derived1
+      '0', // .layer2.derived2
     ]);
 
     clickButton(container, increaseCase1Base);
     expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '1',
-      '1',
-      '1',
-      '0',
-      '0',
-      '0',
-      '0',
-      '0',
-      '0',
-      '0',
-      '0',
-      '0',
+      // case 1: baseAtom scoped
+      '1', // .case1.base
+      '1', // .case1.derived1
+      '1', // .case1.derived2
+
+      // case 2: derivedAtom1 and derivedAtom2 scoped
+      '0', // .case2.base
+      '0', // .case2.derived1
+      '0', // .case2.derived2
+
+      // layer1: derivedAtom1 scoped
+      '0', // .layer1.base
+      '0', // .layer1.derived1
+      '0', // .layer1.derived2
+
+      // layer2: baseAtom and derivedAtom2 scoped (nested in layer1)
+      '0', // .layer2.base
+      '0', // .layer2.derived1
+      '0', // .layer2.derived2
     ]);
 
     clickButton(container, increaseCase1Derived1);
     expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '2',
-      '2',
-      '2',
-      '0',
-      '0',
-      '0',
-      '0',
-      '0',
-      '0',
-      '0',
-      '0',
-      '0',
+      // case 1: baseAtom scoped
+      '2', // .case1.base
+      '2', // .case1.derived1
+      '2', // .case1.derived2
+
+      // case 2: derivedAtom1 and derivedAtom2 scoped
+      '0', // .case2.base
+      '0', // .case2.derived1
+      '0', // .case2.derived2
+
+      // layer1: derivedAtom1 scoped
+      '0', // .layer1.base
+      '0', // .layer1.derived1
+      '0', // .layer1.derived2
+
+      // layer2: baseAtom and derivedAtom2 scoped (nested in layer1)
+      '0', // .layer2.base
+      '0', // .layer2.derived1
+      '0', // .layer2.derived2
     ]);
 
     clickButton(container, increaseCase1Derived2);
     expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '3',
-      '3',
-      '3',
-      '0',
-      '0',
-      '0',
-      '0',
-      '0',
-      '0',
-      '0',
-      '0',
-      '0',
+      // case 1: baseAtom scoped
+      '3', // .case1.base
+      '3', // .case1.derived1
+      '3', // .case1.derived2
+
+      // case 2: derivedAtom1 and derivedAtom2 scoped
+      '0', // .case2.base
+      '0', // .case2.derived1
+      '0', // .case2.derived2
+
+      // layer1: derivedAtom1 scoped
+      '0', // .layer1.base
+      '0', // .layer1.derived1
+      '0', // .layer1.derived2
+
+      // layer2: baseAtom and derivedAtom2 scoped (nested in layer1)
+      '0', // .layer2.base
+      '0', // .layer2.derived1
+      '0', // .layer2.derived2
     ]);
 
     clickButton(container, increaseCase2Base);
     expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '3',
-      '3',
-      '3',
-      '1',
-      '0',
-      '0',
-      '1',
-      '0',
-      '1',
-      '0',
-      '0',
-      '0',
+      // case 1: baseAtom scoped
+      '3', // .case1.base
+      '3', // .case1.derived1
+      '3', // .case1.derived2
+
+      // case 2: derivedAtom1 and derivedAtom2 scoped
+      '1', // .case2.base
+      '0', // .case2.derived1
+      '0', // .case2.derived2
+
+      // layer1: derivedAtom1 scoped
+      '1', // .layer1.base
+      '0', // .layer1.derived1
+      '1', // .layer1.derived2
+
+      // layer2: baseAtom and derivedAtom2 scoped (nested in layer1)
+      '0', // .layer2.base
+      '0', // .layer2.derived1
+      '0', // .layer2.derived2
     ]);
 
     clickButton(container, increaseCase2Derived1);
     expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '3',
-      '3',
-      '3',
-      '1',
-      '1',
-      '1',
-      '1',
-      '0',
-      '1',
-      '0',
-      '0',
-      '0',
+      // case 1: baseAtom scoped
+      '3', // .case1.base
+      '3', // .case1.derived1
+      '3', // .case1.derived2
+
+      // case 2: derivedAtom1 and derivedAtom2 scoped
+      '1', // .case2.base
+      '1', // .case2.derived1
+      '1', // .case2.derived2
+
+      // layer1: derivedAtom1 scoped
+      '1', // .layer1.base
+      '0', // .layer1.derived1
+      '1', // .layer1.derived2
+
+      // layer2: baseAtom and derivedAtom2 scoped (nested in layer1)
+      '0', // .layer2.base
+      '0', // .layer2.derived1
+      '0', // .layer2.derived2
     ]);
 
     clickButton(container, increaseCase2Derived2);
     expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '3',
-      '3',
-      '3',
-      '1',
-      '2',
-      '2',
-      '1',
-      '0',
-      '1',
-      '0',
-      '0',
-      '0',
+      // case 1: baseAtom scoped
+      '3', // .case1.base
+      '3', // .case1.derived1
+      '3', // .case1.derived2
+
+      // case 2: derivedAtom1 and derivedAtom2 scoped
+      '1', // .case2.base
+      '2', // .case2.derived1
+      '2', // .case2.derived2
+
+      // layer1: derivedAtom1 scoped
+      '1', // .layer1.base
+      '0', // .layer1.derived1
+      '1', // .layer1.derived2
+
+      // layer2: baseAtom and derivedAtom2 scoped (nested in layer1)
+      '0', // .layer2.base
+      '0', // .layer2.derived1
+      '0', // .layer2.derived2
     ]);
 
     clickButton(container, increaseLayer1Base);
     expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '3',
-      '3',
-      '3',
-      '2',
-      '2',
-      '2',
-      '2',
-      '0',
-      '2',
-      '0',
-      '0',
-      '0',
+      // case 1: baseAtom scoped
+      '3', // .case1.base
+      '3', // .case1.derived1
+      '3', // .case1.derived2
+
+      // case 2: derivedAtom1 and derivedAtom2 scoped
+      '2', // .case2.base
+      '2', // .case2.derived1
+      '2', // .case2.derived2
+
+      // layer1: derivedAtom1 scoped
+      '2', // .layer1.base
+      '0', // .layer1.derived1
+      '2', // .layer1.derived2
+
+      // layer2: baseAtom and derivedAtom2 scoped (nested in layer1)
+      '0', // .layer2.base
+      '0', // .layer2.derived1
+      '0', // .layer2.derived2
     ]);
 
     clickButton(container, increaseLayer1Derived1);
     expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '3',
-      '3',
-      '3',
-      '2',
-      '2',
-      '2',
-      '2',
-      '1',
-      '2',
-      '0',
-      '1',
-      '0',
+      // case 1: baseAtom scoped
+      '3', // .case1.base
+      '3', // .case1.derived1
+      '3', // .case1.derived2
+
+      // case 2: derivedAtom1 and derivedAtom2 scoped
+      '2', // .case2.base
+      '2', // .case2.derived1
+      '2', // .case2.derived2
+
+      // layer1: derivedAtom1 scoped
+      '2', // .layer1.base
+      '1', // .layer1.derived1
+      '2', // .layer1.derived2
+
+      // layer2: baseAtom and derivedAtom2 scoped (nested in layer1)
+      '0', // .layer2.base
+      '0', // .layer2.derived1
+      '0', // .layer2.derived2
     ]);
 
     clickButton(container, increaseLayer1Derived2);
     expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '3',
-      '3',
-      '3',
-      '3',
-      '2',
-      '2',
-      '3',
-      '1',
-      '3',
-      '0',
-      '1',
-      '0',
+      // case 1: baseAtom scoped
+      '3', // .case1.base
+      '3', // .case1.derived1
+      '3', // .case1.derived2
+
+      // case 2: derivedAtom1 and derivedAtom2 scoped
+      '3', // .case2.base
+      '2', // .case2.derived1
+      '2', // .case2.derived2
+
+      // layer1: derivedAtom1 scoped
+      '3', // .layer1.base
+      '1', // .layer1.derived1
+      '3', // .layer1.derived2
+
+      // layer2: baseAtom and derivedAtom2 scoped (nested in layer1)
+      '0', // .layer2.base
+      '0', // .layer2.derived1
+      '0', // .layer2.derived2
     ]);
 
     clickButton(container, increaseLayer2Base);
     expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '3',
-      '3',
-      '3',
-      '3',
-      '2',
-      '2',
-      '3',
-      '1',
-      '3',
-      '1',
-      '1',
-      '1',
+      // case 1: baseAtom scoped
+      '3', // .case1.base
+      '3', // .case1.derived1
+      '3', // .case1.derived2
+
+      // case 2: derivedAtom1 and derivedAtom2 scoped
+      '3', // .case2.base
+      '2', // .case2.derived1
+      '2', // .case2.derived2
+
+      // layer1: derivedAtom1 scoped
+      '3', // .layer1.base
+      '1', // .layer1.derived1
+      '3', // .layer1.derived2
+
+      // layer2: baseAtom and derivedAtom2 scoped (nested in layer1)
+      '1', // .layer2.base
+      '1', // .layer2.derived1
+      '1', // .layer2.derived2
     ]);
 
     clickButton(container, increaseLayer2Derived1);
     expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '3',
-      '3',
-      '3',
-      '3',
-      '2',
-      '2',
-      '3',
-      '2',
-      '3',
-      '1',
-      '2',
-      '1',
+      // case 1: baseAtom scoped
+      '3', // .case1.base
+      '3', // .case1.derived1
+      '3', // .case1.derived2
+
+      // case 2: derivedAtom1 and derivedAtom2 scoped
+      '3', // .case2.base
+      '2', // .case2.derived1
+      '2', // .case2.derived2
+
+      // layer1: derivedAtom1 scoped
+      '3', // .layer1.base
+      '2', // .layer1.derived1
+      '3', // .layer1.derived2
+
+      // layer2: baseAtom and derivedAtom2 scoped (nested in layer1)
+      '2', // .layer2.base
+      '2', // .layer2.derived1
+      '2', // .layer2.derived2
     ]);
 
     clickButton(container, increaseLayer2Derived2);
     expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '3',
-      '3',
-      '3',
-      '3',
-      '2',
-      '2',
-      '3',
-      '2',
-      '3',
-      '2',
-      '2',
-      '2',
+      // case 1: baseAtom scoped
+      '3', // .case1.base
+      '3', // .case1.derived1
+      '3', // .case1.derived2
+
+      // case 2: derivedAtom1 and derivedAtom2 scoped
+      '3', // .case2.base
+      '2', // .case2.derived1
+      '2', // .case2.derived2
+
+      // layer1: derivedAtom1 scoped
+      '3', // .layer1.base
+      '2', // .layer1.derived1
+      '3', // .layer1.derived2
+
+      // layer2: baseAtom and derivedAtom2 scoped (nested in layer1)
+      '3', // .layer2.base
+      '3', // .layer2.derived1
+      '3', // .layer2.derived2
     ]);
   });
 });
