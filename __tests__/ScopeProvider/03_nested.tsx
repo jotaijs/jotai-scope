@@ -15,7 +15,7 @@ const writeProxyAtom = atom('unused', (get, set) => {
   set(baseAtom2);
 });
 
-const Counter = ({ counterClass }: { counterClass: string }) => {
+function Counter({ counterClass }: { counterClass: string }) {
   const [base1, increaseBase1] = useAtom(baseAtom1);
   const [base2, increaseBase2] = useAtom(baseAtom2);
   const base = useAtomValue(baseAtom);
@@ -54,9 +54,9 @@ const Counter = ({ counterClass }: { counterClass: string }) => {
       </button>
     </>
   );
-};
+}
 
-const App = () => {
+function App() {
   return (
     <div>
       <h1>Unscoped</h1>
@@ -76,7 +76,7 @@ const App = () => {
       </ScopeProvider>
     </div>
   );
-};
+}
 
 describe('Counter', () => {
   test('nested primitive atoms are correctly scoped', () => {

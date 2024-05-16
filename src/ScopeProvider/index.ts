@@ -1,1 +1,1 @@
-export { ScopeContext, ScopeProvider } from './ScopeProvider';
+export { ScopeProvider } from './ScopeProvider';

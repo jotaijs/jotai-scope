@@ -16,7 +16,7 @@ type AnyWritableAtom = WritableAtom<unknown, any[], any>;
 export function createIsolation() {
   const StoreContext = createContext<Store | null>(null);
 
-  const Provider = ({
+  function Provider({
     store,
     initialValues = [],
     children,
@@ -24,7 +24,7 @@ export function createIsolation() {
     store?: Store;
     initialValues?: Iterable<readonly [AnyWritableAtom, unknown]>;
     children: ReactNode;
-  }) => {
+  }) {
     const storeRef = useRef(store);
     if (!storeRef.current) {
       storeRef.current = createStore();
@@ -35,7 +35,7 @@ export function createIsolation() {
         {children}
       </StoreContext.Provider>
     );
-  };
+  }
 
   const useStore = ((options?: any) => {
     const store = useContext(StoreContext);

@@ -1,5 +1,4 @@
 import { render } from '@testing-library/react';
-
 import { atom, useAtom, useAtomValue } from 'jotai';
 import { atomWithReducer } from 'jotai/vanilla/utils';
 import { PropsWithChildren } from 'react';
@@ -10,7 +9,7 @@ const baseAtom1 = atomWithReducer(0, (v) => v + 1);
 const baseAtom2 = atomWithReducer(0, (v) => v + 1);
 const shouldHaveScopeAtom = atom(true);
 
-const Counter = ({ counterClass }: { counterClass: string }) => {
+function Counter({ counterClass }: { counterClass: string }) {
   const [base1, increaseBase1] = useAtom(baseAtom1);
   const [base2, increaseBase2] = useAtom(baseAtom2);
   return (
@@ -37,18 +36,18 @@ const Counter = ({ counterClass }: { counterClass: string }) => {
       </div>
     </>
   );
-};
+}
 
-const Wrapper = ({ children }: PropsWithChildren) => {
+function Wrapper({ children }: PropsWithChildren) {
   const shouldHaveScope = useAtomValue(shouldHaveScopeAtom);
   return shouldHaveScope ? (
     <ScopeProvider atoms={[baseAtom2]}>{children}</ScopeProvider>
   ) : (
     children
   );
-};
+}
 
-const ScopeButton = () => {
+function ScopeButton() {
   const [shouldHaveScope, setShouldHaveScope] = useAtom(shouldHaveScopeAtom);
   return (
     <button
@@ -59,9 +58,9 @@ const ScopeButton = () => {
       {shouldHaveScope ? 'Disable' : 'Enable'} Scope
     </button>
   );
-};
+}
 
-const App = () => {
+function App() {
   return (
     <div>
       <h1>Unscoped</h1>
@@ -73,7 +72,7 @@ const App = () => {
       <ScopeButton />
     </div>
   );
-};
+}
 
 describe('Counter', () => {
   test('atom get correct value when ScopeProvider is added/removed', () => {
