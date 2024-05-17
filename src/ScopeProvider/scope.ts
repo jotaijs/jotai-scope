@@ -91,7 +91,7 @@ export function createScope(
       inherited.set(anAtom, inheritedAtom);
       return inherited.get(anAtom) as T;
     }
-    // derived atoms should may need to access scoped atoms
+    // derived atoms may need to access scoped atoms
     if (!isPrimitiveAtom(anAtom) && !unscoped.has(anAtom)) {
       unscoped.set(anAtom, copyAtom(anAtom));
     }
