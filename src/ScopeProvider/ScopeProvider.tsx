@@ -13,13 +13,13 @@ export const ScopeContext = createContext<{
 
 const patchedStoreSymbol = Symbol();
 
-export function ScopeProvider({
+export const ScopeProvider = ({
   atoms,
   children,
 }: {
   atoms: Iterable<AnyAtom>;
   children: ReactNode;
-}) {
+}) => {
   const parentStore = useStore();
   let { scope: parentScope, baseStore = parentStore } =
     useContext(ScopeContext);
@@ -77,7 +77,7 @@ export function ScopeProvider({
       <Provider store={patchedStore}>{children}</Provider>
     </ScopeContext.Provider>
   );
-}
+};
 
 function isEqualSet(a: Set<unknown>, b: Set<unknown>) {
   return a === b || (a.size === b.size && Array.from(a).every((v) => b.has(v)));

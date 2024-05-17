@@ -7,7 +7,7 @@ const baseAtom1 = atomWithReducer(0, (v) => v + 1);
 const baseAtom2 = atomWithReducer(0, (v) => v + 1);
 const shouldHaveScopeAtom = atom(true);
 
-function Counter({ counterClass }: { counterClass: string }) {
+const Counter = ({ counterClass }: { counterClass: string }) => {
   const [base1, increaseBase1] = useAtom(baseAtom1);
   const [base2, increaseBase2] = useAtom(baseAtom2);
   return (
@@ -34,18 +34,18 @@ function Counter({ counterClass }: { counterClass: string }) {
       </div>
     </>
   );
-}
+};
 
-function Wrapper({ children }: PropsWithChildren) {
+const Wrapper = ({ children }: PropsWithChildren) => {
   const shouldHaveScope = useAtomValue(shouldHaveScopeAtom);
   return shouldHaveScope ? (
     <ScopeProvider atoms={[baseAtom2]}>{children}</ScopeProvider>
   ) : (
     children
   );
-}
+};
 
-function ScopeButton() {
+const ScopeButton = () => {
   const [shouldHaveScope, setShouldHaveScope] = useAtom(shouldHaveScopeAtom);
   return (
     <button
@@ -56,9 +56,9 @@ function ScopeButton() {
       {shouldHaveScope ? 'Disable' : 'Enable'} Scope
     </button>
   );
-}
+};
 
-function App() {
+const App = () => {
   return (
     <div>
       <h1>Unscoped</h1>
@@ -70,6 +70,6 @@ function App() {
       <ScopeButton />
     </div>
   );
-}
+};
 
 export default App;

@@ -12,7 +12,7 @@ const writeProxyAtom = atom('unused', (get, set) => {
   set(baseAtom2);
 });
 
-function Counter({ counterClass }: { counterClass: string }) {
+const Counter = ({ counterClass }: { counterClass: string }) => {
   const [base1, increaseBase1] = useAtom(baseAtom1);
   const [base2, increaseBase2] = useAtom(baseAtom2);
   const base = useAtomValue(baseAtom);
@@ -51,9 +51,9 @@ function Counter({ counterClass }: { counterClass: string }) {
       </button>
     </>
   );
-}
+};
 
-function App() {
+const App = () => {
   return (
     <div>
       <h1>Unscoped</h1>
@@ -73,6 +73,6 @@ function App() {
       </ScopeProvider>
     </div>
   );
-}
+};
 
 export default App;

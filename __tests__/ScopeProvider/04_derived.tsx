@@ -18,7 +18,7 @@ const derivedAtom2 = atom(
   },
 );
 
-function Counter({ counterClass }: { counterClass: string }) {
+const Counter = ({ counterClass }: { counterClass: string }) => {
   const [base, setBase] = useAtom(baseAtom);
   const [derived1, setDerived1] = useAtom(derivedAtom1);
   const [derived2, setDerived2] = useAtom(derivedAtom2);
@@ -56,9 +56,9 @@ function Counter({ counterClass }: { counterClass: string }) {
       </div>
     </>
   );
-}
+};
 
-function App() {
+const App = () => {
   return (
     <div>
       <h1>Only base is scoped</h1>
@@ -86,7 +86,7 @@ function App() {
       </ScopeProvider>
     </div>
   );
-}
+};
 
 describe('Counter', () => {
   test("parent scope's derived atom is prior to nested scope's scoped base", () => {

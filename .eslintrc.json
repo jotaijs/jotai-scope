@@ -46,7 +46,7 @@
     "camelcase": ["error", { "allow": ["^INTERNAL_"] }],
     "react/function-component-definition": [
       "error",
-      { "namedComponents": "function-declaration" }
+      { "namedComponents": "arrow-function" }
     ],
     "react/require-default-props": "off",
     "react/destructuring-assignment": "off",

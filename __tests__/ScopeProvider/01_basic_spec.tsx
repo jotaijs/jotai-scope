@@ -15,7 +15,7 @@ describe('Counter', () => {
   test('ScopeProvider provides isolation for scoped primitive atoms', () => {
     const baseAtom = atomWithReducer(0, (v) => v + 1);
 
-    function Counter({ counterClass }: { counterClass: string }) {
+    const Counter = ({ counterClass }: { counterClass: string }) => {
       const [base, increaseBase] = useAtom(baseAtom);
       return (
         <div>
@@ -29,9 +29,9 @@ describe('Counter', () => {
           </button>
         </div>
       );
-    }
+    };
 
-    function App() {
+    const App = () => {
       return (
         <div>
           <h1>Unscoped</h1>
@@ -42,7 +42,7 @@ describe('Counter', () => {
           </ScopeProvider>
         </div>
       );
-    }
+    };
     const { container } = render(<App />);
     const increaseUnscopedBase = '.unscoped.setBase';
     const increaseScopedBase = '.scoped.setBase';
@@ -67,7 +67,7 @@ describe('Counter', () => {
       },
     );
 
-    function Counter({ counterClass }: { counterClass: string }) {
+    const Counter = ({ counterClass }: { counterClass: string }) => {
       const [derived, increaseFromDerived] = useAtom(derivedAtom);
       return (
         <div>
@@ -81,9 +81,9 @@ describe('Counter', () => {
           </button>
         </div>
       );
-    }
+    };
 
-    function App() {
+    const App = () => {
       return (
         <div>
           <h1>Unscoped</h1>
@@ -94,7 +94,7 @@ describe('Counter', () => {
           </ScopeProvider>
         </div>
       );
-    }
+    };
     const { container } = render(<App />);
     const increaseUnscopedBase = '.unscoped.setBase';
     const increaseScopedBase = '.scoped.setBase';
@@ -118,7 +118,7 @@ describe('Counter', () => {
       notScoped: get(notScopedAtom),
     }));
 
-    function Counter({ counterClass }: { counterClass: string }) {
+    const Counter = ({ counterClass }: { counterClass: string }) => {
       const increaseBase = useSetAtom(baseAtom);
       const derived = useAtomValue(derivedAtom);
       return (
@@ -137,9 +137,9 @@ describe('Counter', () => {
           </button>
         </div>
       );
-    }
+    };
 
-    function IncreaseUnscoped() {
+    const IncreaseUnscoped = () => {
       const setNotScoped = useSetAtom(notScopedAtom);
       return (
         <button
@@ -150,9 +150,9 @@ describe('Counter', () => {
           increase unscoped
         </button>
       );
-    }
+    };
 
-    function App() {
+    const App = () => {
       return (
         <div>
           <h1>Unscoped</h1>
@@ -164,7 +164,7 @@ describe('Counter', () => {
           </ScopeProvider>
         </div>
       );
-    }
+    };
     const { container } = render(<App />);
     const increaseUnscopedBase = '.unscoped.setBase';
     const increaseScopedBase = '.scoped.setBase';
@@ -208,7 +208,7 @@ describe('Counter', () => {
     const baseAtom = atomWithReducer(0, (v) => v + 1);
     const derivedAtom = atom((get) => get(baseAtom));
 
-    function Counter({ counterClass }: { counterClass: string }) {
+    const Counter = ({ counterClass }: { counterClass: string }) => {
       const increaseBase = useSetAtom(baseAtom);
       const derived = useAtomValue(derivedAtom);
       return (
@@ -223,9 +223,9 @@ describe('Counter', () => {
           </button>
         </div>
       );
-    }
+    };
 
-    function App() {
+    const App = () => {
       return (
         <div>
           <h1>Unscoped</h1>
@@ -236,7 +236,7 @@ describe('Counter', () => {
           </ScopeProvider>
         </div>
       );
-    }
+    };
     const { container } = render(<App />);
     const increaseUnscopedBase = '.unscoped.setBase';
     const increaseScopedBase = '.scoped.setBase';
@@ -257,7 +257,7 @@ describe('Counter', () => {
     const derivedAtom1 = atom((get) => get(baseAtom));
     const derivedAtom2 = atom((get) => get(baseAtom));
 
-    function Counter({ counterClass }: { counterClass: string }) {
+    const Counter = ({ counterClass }: { counterClass: string }) => {
       const increaseBase = useSetAtom(baseAtom);
       const derived = useAtomValue(derivedAtom1);
       const derived2 = useAtomValue(derivedAtom2);
@@ -274,9 +274,9 @@ describe('Counter', () => {
           </button>
         </div>
       );
-    }
+    };
 
-    function App() {
+    const App = () => {
       return (
         <div>
           <h1>Unscoped</h1>
@@ -287,7 +287,7 @@ describe('Counter', () => {
           </ScopeProvider>
         </div>
       );
-    }
+    };
     const { container } = render(<App />);
     const increaseUnscopedBase = '.unscoped.setBase';
     const increaseScopedBase = '.scoped.setBase';
@@ -322,7 +322,7 @@ describe('Counter', () => {
   test('nested scopes provide isolation for primitive atoms at every level', () => {
     const baseAtom = atomWithReducer(0, (v) => v + 1);
 
-    function Counter({ counterClass }: { counterClass: string }) {
+    const Counter = ({ counterClass }: { counterClass: string }) => {
       const [base, increaseBase] = useAtom(baseAtom);
       return (
         <div>
@@ -336,9 +336,9 @@ describe('Counter', () => {
           </button>
         </div>
       );
-    }
+    };
 
-    function App() {
+    const App = () => {
       return (
         <div>
           <h1>Unscoped</h1>
@@ -352,7 +352,7 @@ describe('Counter', () => {
           </ScopeProvider>
         </div>
       );
-    }
+    };
     const { container } = render(<App />);
     const increaseUnscopedBase = '.level0.setBase';
     const increaseScopedBase = '.level1.setBase';
@@ -408,13 +408,13 @@ describe('Counter', () => {
       },
     );
 
-    function Counter({
+    const Counter = ({
       counterClass,
       baseAtom,
     }: {
       counterClass: string;
       baseAtom: WritableAtom<number, [SetStateAction<number>], void>;
-    }) {
+    }) => {
       const setBase = useSetAtom(baseAtom);
       const [{ base0, base1, base2 }, increaseAll] = useAtom(derivedAtom);
       return (
@@ -438,9 +438,9 @@ describe('Counter', () => {
           </button>
         </div>
       );
-    }
+    };
 
-    function App() {
+    const App = () => {
       return (
         <div>
           <h1>Unscoped</h1>
@@ -454,7 +454,7 @@ describe('Counter', () => {
           </ScopeProvider>
         </div>
       );
-    }
+    };
     const { container } = render(<App />);
     const increaseLevel0Base = '.level0.increaseBase';
     const increaseLevel1Base = '.level1.increaseBase';
@@ -583,7 +583,7 @@ describe('Counter', () => {
     );
     derivedAtom.debugLabel = 'derivedAtom';
 
-    function Counter({ counterClass }: { counterClass: string }) {
+    const Counter = ({ counterClass }: { counterClass: string }) => {
       const [{ base1, base2 }, increaseAll] = useAtom(derivedAtom);
       return (
         <div>
@@ -598,9 +598,9 @@ describe('Counter', () => {
           </button>
         </div>
       );
-    }
+    };
 
-    function App() {
+    const App = () => {
       return (
         <div>
           <h1>Unscoped</h1>
@@ -613,7 +613,7 @@ describe('Counter', () => {
           </ScopeProvider>
         </div>
       );
-    }
+    };
     const { container } = render(<App />);
     const increaseLevel1All = '.level1.increaseAll';
     const increaseLevel2All = '.level2.increaseAll';
