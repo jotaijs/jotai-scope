@@ -35,11 +35,11 @@ function App() {
     <>
       <h1>base component</h1>
       <p>derived1 should read itself from global scope</p>
-      <Component className="base" />
+      <Component className="unscoped" />
       <ScopeProvider atoms={[baseAtom]}>
         <h1>scoped component</h1>
         <p>derived1 should read itself from scoped scope</p>
-        <Component className="scoped" />
+        <Component className="scoped" initialValue={1} />
       </ScopeProvider>
     </>
   );
@@ -48,9 +48,10 @@ function App() {
 describe('Self', () => {
   test('derived dep scope is preserved in self reference', () => {
     const { container } = render(<App />);
-    expect(getTextContents(container, ['.base .read', '.base .write'])).toEqual(
-      ['0', '0'],
-    );
+    expect(
+      getTextContents(container, ['.unscoped .read', '.unscoped .write']),
+    ).toEqual(['0', '0']);
+
     expect(
       getTextContents(container, ['.scoped .read', '.scoped .write']),
     ).toEqual(['1', '1']);
