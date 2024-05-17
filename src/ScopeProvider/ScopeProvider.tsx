@@ -3,7 +3,7 @@ import { type ReactNode, createContext, useContext, useState } from 'react';
 import { createScope, type Scope } from './scope';
 import { AnyAtom, Store } from './types';
 
-const ScopeContext = createContext<{
+export const ScopeContext = createContext<{
   scope: Scope | undefined;
   baseStore: Store | undefined;
 }>({
