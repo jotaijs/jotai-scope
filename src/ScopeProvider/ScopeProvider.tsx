@@ -1,11 +1,5 @@
 import { Provider, useStore } from 'jotai/react';
-import {
-  type ReactNode,
-  createContext,
-  useContext,
-  useState,
-  useRef,
-} from 'react';
+import { type ReactNode, createContext, useContext, useState } from 'react';
 import { createScope, type Scope } from './scope';
 import { AnyAtom, Store } from './types';
 
@@ -22,15 +16,10 @@ const patchedStoreSymbol = Symbol();
 export function ScopeProvider({
   atoms,
   children,
-  className,
 }: {
   atoms: Iterable<AnyAtom>;
   children: ReactNode;
-  className?: string;
 }) {
-  const log = console.log.bind(console, className);
-  const renderCountRef = useRef(0);
-  log('ScopeProvider render', renderCountRef.current++);
   const parentStore = useStore();
   let { scope: parentScope, baseStore = parentStore } =
     useContext(ScopeContext);
@@ -44,33 +33,21 @@ export function ScopeProvider({
    */
   const atomSet = new Set(atoms);
 
-  const initializeCountRef = useRef(0);
   function initialize() {
-    console.log(
-      className,
-      'ScopeProvider initialize',
-      initializeCountRef.current++,
-    );
-    const scope = createScope(atoms, parentScope, className);
-    const patchedStore: Store & { [patchedStoreSymbol]: true } & {
-      name: string | undefined;
-    } = {
+    const scope = createScope(atoms, parentScope);
+    const patchedStore: Store & { [patchedStoreSymbol]: true } = {
       // TODO: update this patch to support devtools
       ...baseStore,
       get(anAtom) {
-        log(this.name, 'get', anAtom.debugLabel);
         return baseStore.get(scope.getAtom(anAtom));
       },
       set(anAtom, ...args) {
-        log(this.name, 'set', anAtom.debugLabel);
         return baseStore.set(scope.getAtom(anAtom), ...args);
       },
       sub(anAtom, ...args) {
-        log(this.name, 'sub', anAtom.debugLabel);
         return baseStore.sub(scope.getAtom(anAtom), ...args);
       },
       [patchedStoreSymbol]: true,
-      name: `${className}:store`,
     };
 
     return {
@@ -95,11 +72,6 @@ export function ScopeProvider({
   if (hasChanged({ parentScope, atomSet, baseStore })) {
     setState(initialize);
   }
-  console.log(
-    className,
-    'ScopeProvider return',
-    Array.from(atoms).map((a) => a.debugLabel),
-  );
   return (
     <ScopeContext.Provider value={scopeContext}>
       <Provider store={patchedStore}>{children}</Provider>

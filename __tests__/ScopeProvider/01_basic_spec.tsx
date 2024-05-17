@@ -456,12 +456,12 @@ describe('Counter', () => {
       );
     }
     const { container } = render(<App />);
-    // const increaseLevel0Base = '.level0.increaseBase';
-    // const increaseLevel1Base = '.level1.increaseBase';
-    // const increaseLevel2Base = '.level2.increaseBase';
-    // const increaseLevel0All = '.level0.increaseAll';
-    // const increaseLevel1All = '.level1.increaseAll';
-    // const increaseLevel2All = '.level2.increaseAll';
+    const increaseLevel0Base = '.level0.increaseBase';
+    const increaseLevel1Base = '.level1.increaseBase';
+    const increaseLevel2Base = '.level2.increaseBase';
+    const increaseLevel0All = '.level0.increaseAll';
+    const increaseLevel1All = '.level1.increaseAll';
+    const increaseLevel2All = '.level2.increaseAll';
 
     const atomValueSelectors = [
       '.level0.base0',
@@ -487,83 +487,83 @@ describe('Counter', () => {
       '0', // level2 base2
     ]);
 
-    // clickButton(container, increaseLevel0Base);
-    // expect(getTextContents(container, atomValueSelectors)).toEqual([
-    //   '1', // level0 base0
-    //   '0', // level0 base1
-    //   '0', // level0 base2
-    //   '1', // level1 base0
-    //   '0', // level1 base1
-    //   '0', // level1 base2
-    //   '1', // level2 base0
-    //   '0', // level2 base1
-    //   '0', // level2 base2
-    // ]);
+    clickButton(container, increaseLevel0Base);
+    expect(getTextContents(container, atomValueSelectors)).toEqual([
+      '1', // level0 base0
+      '0', // level0 base1
+      '0', // level0 base2
+      '1', // level1 base0
+      '0', // level1 base1
+      '0', // level1 base2
+      '1', // level2 base0
+      '0', // level2 base1
+      '0', // level2 base2
+    ]);
 
-    // clickButton(container, increaseLevel1Base);
-    // expect(getTextContents(container, atomValueSelectors)).toEqual([
-    //   '1', // level0 base0
-    //   '0', // level0 base1
-    //   '0', // level0 base2
-    //   '1', // level1 base0
-    //   '1', // level1 base1
-    //   '0', // level1 base2
-    //   '1', // level2 base0
-    //   '1', // level2 base1
-    //   '0', // level2 base2
-    // ]);
+    clickButton(container, increaseLevel1Base);
+    expect(getTextContents(container, atomValueSelectors)).toEqual([
+      '1', // level0 base0
+      '0', // level0 base1
+      '0', // level0 base2
+      '1', // level1 base0
+      '1', // level1 base1
+      '0', // level1 base2
+      '1', // level2 base0
+      '1', // level2 base1
+      '0', // level2 base2
+    ]);
 
-    // clickButton(container, increaseLevel2Base);
-    // expect(getTextContents(container, atomValueSelectors)).toEqual([
-    //   '1', // level0 base0
-    //   '0', // level0 base1
-    //   '0', // level0 base2
-    //   '1', // level1 base0
-    //   '1', // level1 base1
-    //   '0', // level1 base2
-    //   '1', // level2 base0
-    //   '1', // level2 base1
-    //   '1', // level2 base2
-    // ]);
+    clickButton(container, increaseLevel2Base);
+    expect(getTextContents(container, atomValueSelectors)).toEqual([
+      '1', // level0 base0
+      '0', // level0 base1
+      '0', // level0 base2
+      '1', // level1 base0
+      '1', // level1 base1
+      '0', // level1 base2
+      '1', // level2 base0
+      '1', // level2 base1
+      '1', // level2 base2
+    ]);
 
-    // clickButton(container, increaseLevel0All);
-    // expect(getTextContents(container, atomValueSelectors)).toEqual([
-    //   '2', // level0 base0
-    //   '1', // level0 base1
-    //   '1', // level0 base2
-    //   '2', // level1 base0
-    //   '1', // level1 base1
-    //   '0', // level1 base2
-    //   '2', // level2 base0
-    //   '1', // level2 base1
-    //   '1', // level2 base2
-    // ]);
+    clickButton(container, increaseLevel0All);
+    expect(getTextContents(container, atomValueSelectors)).toEqual([
+      '2', // level0 base0
+      '1', // level0 base1
+      '1', // level0 base2
+      '2', // level1 base0
+      '1', // level1 base1
+      '0', // level1 base2
+      '2', // level2 base0
+      '1', // level2 base1
+      '1', // level2 base2
+    ]);
 
-    // clickButton(container, increaseLevel1All);
-    // expect(getTextContents(container, atomValueSelectors)).toEqual([
-    //   '3', // level0 base0
-    //   '1', // level0 base1
-    //   '1', // level0 base2
-    //   '3', // level1 base0
-    //   '2', // level1 base1
-    //   '1', // level1 base2
-    //   '3', // level2 base0
-    //   '2', // level2 base1
-    //   '1', // level2 base2
-    // ]);
+    clickButton(container, increaseLevel1All);
+    expect(getTextContents(container, atomValueSelectors)).toEqual([
+      '3', // level0 base0
+      '1', // level0 base1
+      '1', // level0 base2
+      '3', // level1 base0
+      '2', // level1 base1
+      '1', // level1 base2
+      '3', // level2 base0
+      '2', // level2 base1
+      '1', // level2 base2
+    ]);
 
-    // clickButton(container, increaseLevel2All);
-    // expect(getTextContents(container, atomValueSelectors)).toEqual([
-    //   '4', // level0 base0
-    //   '1', // level0 base1
-    //   '1', // level0 base2
-    //   '4', // level1 base0
-    //   '3', // level1 base1
-    //   '1', // level1 base2
-    //   '4', // level2 base0
-    //   '3', // level2 base1
-    //   '2', // level2 base2
-    // ]);
+    clickButton(container, increaseLevel2All);
+    expect(getTextContents(container, atomValueSelectors)).toEqual([
+      '4', // level0 base0
+      '1', // level0 base1
+      '1', // level0 base2
+      '4', // level1 base0
+      '3', // level1 base1
+      '1', // level1 base2
+      '4', // level2 base0
+      '3', // level2 base1
+      '2', // level2 base2
+    ]);
   });
 
   test.skip('inherited scoped derived atoms can read and write to scoped primitive atoms at every nested level', () => {
@@ -583,16 +583,8 @@ describe('Counter', () => {
     );
     derivedAtom.debugLabel = 'derivedAtom';
 
-    let unscopedCount = 0;
-    let scopedCount = 0;
     function Counter({ counterClass }: { counterClass: string }) {
-      console.log(
-        counterClass,
-        'Counter render',
-        counterClass === 'level1' ? unscopedCount++ : scopedCount++,
-      );
       const [{ base1, base2 }, increaseAll] = useAtom(derivedAtom);
-      console.log(counterClass, 'Counter after useAtom');
       return (
         <div>
           level1: <span className={`${counterClass} base1`}>{base1}</span>
@@ -608,9 +600,7 @@ describe('Counter', () => {
       );
     }
 
-    let appCount = 0;
     function App() {
-      console.log('App render', appCount++);
       return (
         <div>
           <h1>Unscoped</h1>
