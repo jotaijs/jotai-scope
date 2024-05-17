@@ -1,7 +1,7 @@
 import { render } from '@testing-library/react';
 import { atom, useAtom } from 'jotai';
-import { clickButton, getTextContents } from './utils';
-import { ScopeProvider } from '../src/index';
+import { clickButton, getTextContents } from '../utils';
+import { ScopeProvider } from '../../src/index';
 
 const baseAtom = atom(0);
 const derivedAtom1 = atom(
