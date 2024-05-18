@@ -1,29 +1,29 @@
 import { Provider, useStore } from 'jotai/react';
-import { type ReactNode, createContext, useContext, useState } from 'react';
+import {
+  createContext,
+  useContext,
+  useState,
+  type PropsWithChildren,
+} from 'react';
 import { createScope, type Scope } from './scope';
-import { AnyAtom, Store } from './types';
+import type { AnyAtom, Store } from './types';
 
 export const ScopeContext = createContext<{
   scope: Scope | undefined;
   baseStore: Store | undefined;
-}>({
-  scope: undefined,
-  baseStore: undefined,
-});
-
-const patchedStoreSymbol = Symbol();
+}>({ scope: undefined, baseStore: undefined });
 
 export const ScopeProvider = ({
   atoms,
   children,
-}: {
-  atoms: Iterable<AnyAtom>;
-  children: ReactNode;
-}) => {
-  const parentStore = useStore();
+  debugName,
+}: PropsWithChildren<{ atoms: Iterable<AnyAtom>; debugName?: string }>) => {
+  const parentStore: Store = useStore();
   let { scope: parentScope, baseStore = parentStore } =
     useContext(ScopeContext);
-  if (!(patchedStoreSymbol in parentStore)) {
+  // if this scope is the first descendant scope under Provider then we don't want to inherit parentScope
+  // https://github.com/jotaijs/jotai-scope/pull/33#discussion_r1604268003
+  if (isTopLevelScope(parentStore)) {
     parentScope = undefined;
     baseStore = parentStore;
   }
@@ -34,20 +34,37 @@ export const ScopeProvider = ({
   const atomSet = new Set(atoms);
 
   function initialize() {
-    const scope = createScope(atoms, parentScope);
-    const patchedStore: Store & { [patchedStoreSymbol]: true } = {
-      // TODO: update this patch to support devtools
+    const scope = createScope(atoms, parentScope, debugName);
+
+    /**
+     * When an atom is accessed via useAtomValue/useSetAtom, the access should
+     * be handled by a router atom copy.
+     */
+    const patchedStore: PatchedStore = {
       ...baseStore,
-      get(anAtom) {
-        return baseStore.get(scope.getAtom(anAtom));
+      get(anAtom, ...args) {
+        const [scopedAtom] = scope.getAtom(anAtom);
+        return baseStore.get(scopedAtom, ...args);
       },
       set(anAtom, ...args) {
-        return baseStore.set(scope.getAtom(anAtom), ...args);
+        const [scopedAtom, implicitScope] = scope.getAtom(anAtom);
+        const restore = scope.prepareWriteAtom(
+          scopedAtom,
+          anAtom,
+          implicitScope,
+        );
+        try {
+          return baseStore.set(scopedAtom, ...args);
+        } finally {
+          restore?.();
+        }
       },
       sub(anAtom, ...args) {
-        return baseStore.sub(scope.getAtom(anAtom), ...args);
+        const [scopedAtom] = scope.getAtom(anAtom);
+        return baseStore.sub(scopedAtom, ...args);
       },
-      [patchedStoreSymbol]: true,
+      [isPatchedStore]: true,
+      // TODO: update this patch to support devtools
     };
 
     return {
@@ -82,3 +99,13 @@ export const ScopeProvider = ({
 function isEqualSet(a: Set<unknown>, b: Set<unknown>) {
   return a === b || (a.size === b.size && Array.from(a).every((v) => b.has(v)));
 }
+
+/**
+ * @returns true if the current scope is the first descendant scope under Provider
+ */
+function isTopLevelScope(parentStore: Store) {
+  return !(isPatchedStore in parentStore);
+}
+
+const isPatchedStore = Symbol();
+type PatchedStore = Store & { [isPatchedStore]: true };
