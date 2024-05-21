@@ -142,7 +142,7 @@ export function createScope(
   ) {
     const scopeKey = implicitScope ?? globalScopeKey;
     if (!inherited.has(scopeKey)) {
-      inherited.set(scopeKey, new Map());
+      inherited.set(scopeKey, new WeakMap());
     }
     inherited.get(scopeKey)!.set(
       originalAtom,

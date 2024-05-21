@@ -8,7 +8,7 @@ import {
 import { createScope, type Scope } from './scope';
 import type { AnyAtom, Store } from './types';
 
-export const ScopeContext = createContext<{
+const ScopeContext = createContext<{
   scope: Scope | undefined;
   baseStore: Store | undefined;
 }>({ scope: undefined, baseStore: undefined });
