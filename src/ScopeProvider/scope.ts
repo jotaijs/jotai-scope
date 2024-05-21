@@ -23,7 +23,20 @@ export type Scope = {
    * @debug
    */
   name?: string;
+
+  /**
+   * @debug
+   */
+  toString?: () => string;
 };
+
+const globalScopeKey: { name?: string } = {};
+if (process.env.NODE_ENV !== 'production') {
+  globalScopeKey.name = 'unscoped';
+  globalScopeKey.toString = toString;
+}
+
+type GlobalScopeKey = typeof globalScopeKey;
 
 export function createScope(
   atoms: Iterable<AnyAtom>,
@@ -32,7 +45,8 @@ export function createScope(
 ): Scope {
   const explicit = new WeakMap<AnyAtom, [AnyAtom, Scope?]>();
   const implicit = new WeakMap<AnyAtom, [AnyAtom, Scope?]>();
-  const inherited = new WeakMap<AnyAtom, [AnyAtom, Scope?]>();
+  type ScopeMap = WeakMap<AnyAtom, [AnyAtom, Scope?]>;
+  const inherited = new WeakMap<Scope | GlobalScopeKey, ScopeMap>();
 
   const currentScope: Scope = {
     getAtom,
@@ -64,6 +78,7 @@ export function createScope(
 
   if (scopeName && process.env.NODE_ENV !== 'production') {
     currentScope.name = scopeName;
+    currentScope.toString = toString;
   }
   // populate explicitly scoped atoms
   for (const anAtom of atoms) {
@@ -91,29 +106,51 @@ export function createScope(
       }
       return implicit.get(anAtom) as [T, Scope];
     }
+    const scopeKey = implicitScope ?? globalScopeKey;
     if (parentScope) {
       // inherited atoms are copied so they can access scoped atoms
       // but they are not explicitly scoped
       // dependencies of inherited atoms first check if they are explicitly scoped
       // otherwise they use their original scope's atom
-      if (!inherited.has(anAtom)) {
-        const [ancestorAtom, ...ancestorScope] = parentScope.getAtom(
+      if (!inherited.get(scopeKey)?.has(anAtom)) {
+        const [ancestorAtom, explicitScope] = parentScope.getAtom(
           anAtom,
           implicitScope,
         );
-        inherited.set(anAtom, [
-          inheritAtom(ancestorAtom, anAtom, ...ancestorScope),
-          ...ancestorScope,
-        ]);
+        setInheritedAtom(
+          inheritAtom(ancestorAtom, anAtom, explicitScope),
+          anAtom,
+          implicitScope,
+          explicitScope,
+        );
       }
-      return inherited.get(anAtom) as [T, Scope];
+      return inherited.get(scopeKey)!.get(anAtom) as [T, Scope];
     }
-    if (!inherited.has(anAtom)) {
+    if (!inherited.get(scopeKey)?.has(anAtom)) {
       // non-primitive atoms may need to access scoped atoms
       // so we need to create a copy of the atom
-      inherited.set(anAtom, [inheritAtom(anAtom, anAtom)]);
+      setInheritedAtom(inheritAtom(anAtom, anAtom), anAtom);
     }
-    return inherited.get(anAtom) as [T];
+    return inherited.get(scopeKey)!.get(anAtom) as [T, Scope?];
+  }
+
+  function setInheritedAtom<T extends AnyAtom>(
+    scopedAtom: T,
+    originalAtom: T,
+    implicitScope?: Scope,
+    explicitScope?: Scope,
+  ) {
+    const scopeKey = implicitScope ?? globalScopeKey;
+    if (!inherited.has(scopeKey)) {
+      inherited.set(scopeKey, new Map());
+    }
+    inherited.get(scopeKey)!.set(
+      originalAtom,
+      [
+        scopedAtom, //
+        explicitScope,
+      ].filter(Boolean) as [T, Scope?],
+    );
   }
 
   /**
@@ -211,3 +248,7 @@ function isWritableAtom(anAtom: AnyAtom): anAtom is AnyWritableAtom {
 }
 
 const { read: defaultRead, write: defaultWrite } = atom<unknown>(null);
+
+function toString(this: { name: string }) {
+  return this.name;
+}
