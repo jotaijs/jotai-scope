@@ -7,6 +7,7 @@ import {
 } from 'react';
 import { createScope, type Scope } from './scope';
 import type { AnyAtom, Store } from './types';
+import { createPatchedStore, isTopLevelScope } from './patchedStore';
 
 const ScopeContext = createContext<{
   scope: Scope | undefined;
@@ -21,54 +22,20 @@ export const ScopeProvider = ({
   const parentStore: Store = useStore();
   let { scope: parentScope, baseStore = parentStore } =
     useContext(ScopeContext);
-  // if this scope is the first descendant scope under Provider then we don't want to inherit parentScope
+  // if this ScopeProvider is the first descendant scope under Provider then it is the top level scope
   // https://github.com/jotaijs/jotai-scope/pull/33#discussion_r1604268003
   if (isTopLevelScope(parentStore)) {
     parentScope = undefined;
     baseStore = parentStore;
   }
 
-  /**
-   * atomSet is used to detect if the atoms prop has changed.
-   */
+  // atomSet is used to detect if the atoms prop has changed.
   const atomSet = new Set(atoms);
 
   function initialize() {
     const scope = createScope(atoms, parentScope, debugName);
-
-    /**
-     * When an atom is accessed via useAtomValue/useSetAtom, the access should
-     * be handled by a router atom copy.
-     */
-    const patchedStore: PatchedStore = {
-      ...baseStore,
-      get(anAtom, ...args) {
-        const [scopedAtom] = scope.getAtom(anAtom);
-        return baseStore.get(scopedAtom, ...args);
-      },
-      set(anAtom, ...args) {
-        const [scopedAtom, implicitScope] = scope.getAtom(anAtom);
-        const restore = scope.prepareWriteAtom(
-          scopedAtom,
-          anAtom,
-          implicitScope,
-        );
-        try {
-          return baseStore.set(scopedAtom, ...args);
-        } finally {
-          restore?.();
-        }
-      },
-      sub(anAtom, ...args) {
-        const [scopedAtom] = scope.getAtom(anAtom);
-        return baseStore.sub(scopedAtom, ...args);
-      },
-      [isPatchedStore]: true,
-      // TODO: update this patch to support devtools
-    };
-
     return {
-      patchedStore,
+      patchedStore: createPatchedStore(baseStore, scope),
       scopeContext: { scope, baseStore },
       hasChanged(current: {
         baseStore: Store;
@@ -99,13 +66,3 @@ export const ScopeProvider = ({
 function isEqualSet(a: Set<unknown>, b: Set<unknown>) {
   return a === b || (a.size === b.size && Array.from(a).every((v) => b.has(v)));
 }
-
-/**
- * @returns true if the current scope is the first descendant scope under Provider
- */
-function isTopLevelScope(parentStore: Store) {
-  return !(isPatchedStore in parentStore);
-}
-
-const isPatchedStore = Symbol();
-type PatchedStore = Store & { [isPatchedStore]: true };
