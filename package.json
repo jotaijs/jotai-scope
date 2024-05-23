@@ -3,6 +3,10 @@
   "description": "👻🔭",
   "version": "0.6.0",
   "author": "Daishi Kato",
+  "contributors": [
+    "yf-yang (https://github.com/yf-yang)",
+    "David Maskasky (https://github.com/dmaskasky)"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/jotaijs/jotai-scope.git"
