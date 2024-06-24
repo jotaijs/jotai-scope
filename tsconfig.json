@@ -1,22 +1,19 @@
 {
   "compilerOptions": {
     "strict": true,
-    "target": "esnext",
+    "target": "es2018",
     "downlevelIteration": true,
     "esModuleInterop": true,
-    "module": "es2015",
-    "moduleResolution": "node",
+    "module": "nodenext",
     "allowJs": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
+    "skipLibCheck": true,
     "jsx": "react-jsx",
-    "jsxFactory": "",
-    "jsxFragmentFactory": "",
     "baseUrl": ".",
     "paths": {
-      "jotai-scope": ["./src"]
+      "jotai-scope": ["./src/index.ts"]
     }
-  }
+  },
+  "exclude": ["dist", "examples"]
 }
