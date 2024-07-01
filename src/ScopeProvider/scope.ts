@@ -1,5 +1,5 @@
 import { atom, type Atom } from 'jotai';
-import { type AnyAtom, type AnyWritableAtom } from './types';
+import type { AnyAtom, AnyWritableAtom } from './types';
 
 export type Scope = {
   /**
@@ -40,6 +40,7 @@ type GlobalScopeKey = typeof globalScopeKey;
 
 export function createScope(
   atoms: Iterable<AnyAtom>,
+  noScopeSet: Set<AnyAtom>,
   parentScope: Scope | undefined,
   scopeName?: string | undefined,
 ): Scope {
@@ -52,6 +53,7 @@ export function createScope(
     getAtom,
     prepareWriteAtom(anAtom, originalAtom, implicitScope) {
       if (
+        !noScopeSet.has(originalAtom) &&
         originalAtom.read === defaultRead &&
         isWritableAtom(originalAtom) &&
         isWritableAtom(anAtom) &&
@@ -154,17 +156,17 @@ export function createScope(
   }
 
   /**
-   * @returns a copy of the atom for derived atoms or the original atom for primitive and writable atoms
+   * @returns a copy of the atom for derived atoms or the original atom for primitive, writable, and noScoped atoms
    */
   function inheritAtom<T>(
     anAtom: Atom<T>,
     originalAtom: Atom<T>,
     implicitScope?: Scope,
   ) {
-    if (originalAtom.read !== defaultRead) {
-      return cloneAtom(originalAtom, implicitScope);
+    if (originalAtom.read === defaultRead || noScopeSet.has(originalAtom)) {
+      return anAtom;
     }
-    return anAtom;
+    return cloneAtom(originalAtom, implicitScope);
   }
 
   /**
