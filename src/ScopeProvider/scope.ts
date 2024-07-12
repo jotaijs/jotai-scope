@@ -195,14 +195,6 @@ export function createScope(
       );
     }
 
-    // eslint-disable-next-line camelcase
-    scopedAtom.unstable_is = (a: AnyAtom) => {
-      return (
-        a === scopedAtom ||
-        (a.unstable_is?.(originalAtom) ?? a === originalAtom)
-      );
-    };
-
     return scopedAtom;
   }
 
