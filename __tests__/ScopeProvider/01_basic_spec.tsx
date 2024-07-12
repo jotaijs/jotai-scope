@@ -12,6 +12,103 @@ import { ScopeProvider } from '../../src/index';
 import { clickButton, getTextContents } from '../utils';
 
 describe('Counter', () => {
+  test('unscoped base atoms are unaffected in ScopeProvider', () => {
+    const baseAtom = atom(0);
+    baseAtom.debugLabel = 'base';
+    const Counter = ({ level }: { level: string }) => {
+      const [base, setBase] = useAtom(baseAtom);
+      const increaseBase = () => setBase((c) => c + 1);
+      return (
+        <div>
+          base:<span className={`${level} base`}>{base}</span>
+          <button
+            className={`${level} setBase`}
+            type="button"
+            onClick={increaseBase}
+          >
+            increase
+          </button>
+        </div>
+      );
+    };
+
+    const App = () => {
+      return (
+        <div>
+          <h1>Unscoped</h1>
+          <Counter level="level0" />
+          <h1>Scoped Provider</h1>
+          <ScopeProvider atoms={[]} debugName="level1">
+            <Counter level="level1" />
+          </ScopeProvider>
+        </div>
+      );
+    };
+    const { container } = render(<App />);
+    const increaseUnscopedBase = '.level0.setBase';
+    const increaseScopedBase = '.level1.setBase';
+    const atomValueSelectors = ['.level0.base', '.level1.base'];
+
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['0', '0']);
+
+    clickButton(container, increaseUnscopedBase);
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['1', '1']);
+
+    clickButton(container, increaseScopedBase);
+    console.log(container.innerHTML);
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['2', '2']);
+  });
+
+  test.only('unscoped derived atoms are unaffected in ScopeProvider', () => {
+    const baseAtom = atom(0);
+    const derivedAtom = atom(
+      (get) => get(baseAtom),
+      (_get, set, value: SetStateAction<number>) => set(baseAtom, value),
+    );
+    baseAtom.debugLabel = 'base';
+    const Counter = ({ level }: { level: string }) => {
+      const [derived, setDerived] = useAtom(derivedAtom);
+      const increaseDerived = () => setDerived((c) => c + 1);
+      return (
+        <div>
+          base:<span className={`${level} derived`}>{derived}</span>
+          <button
+            className={`${level} setDerived`}
+            type="button"
+            onClick={increaseDerived}
+          >
+            increase
+          </button>
+        </div>
+      );
+    };
+
+    const App = () => {
+      return (
+        <div>
+          <h1>Unscoped</h1>
+          <Counter level="level0" />
+          <h1>Scoped Provider</h1>
+          <ScopeProvider atoms={[]} debugName="level1">
+            <Counter level="level1" />
+          </ScopeProvider>
+        </div>
+      );
+    };
+    const { container } = render(<App />);
+    const increaseUnscopedBase = '.level0.setDerived';
+    const increaseScopedBase = '.level1.setDerived';
+    const atomValueSelectors = ['.level0.derived', '.level1.derived'];
+
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['0', '0']);
+
+    clickButton(container, increaseUnscopedBase);
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['1', '1']);
+
+    clickButton(container, increaseScopedBase);
+    console.log(container.innerHTML);
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['2', '2']);
+  });
   /*
     base
     S0[base]: base0
