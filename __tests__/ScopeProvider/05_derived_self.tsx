@@ -12,13 +12,13 @@ const derivedAtom1 = atom(
   },
 );
 
-const Component = ({
+function Component({
   className,
   initialValue = 0,
 }: {
   className: string;
   initialValue?: number;
-}) => {
+}) {
   useHydrateAtoms([[baseAtom, initialValue]]);
   const [atom1ReadValue, setAtom1Value] = useAtom(derivedAtom1);
   const atom1WriteValue = setAtom1Value();
@@ -28,9 +28,9 @@ const Component = ({
       <span className="write">{atom1WriteValue}</span>
     </div>
   );
-};
+}
 
-const App = () => {
+function App() {
   return (
     <>
       <h1>base component</h1>
@@ -43,7 +43,7 @@ const App = () => {
       </ScopeProvider>
     </>
   );
-};
+}
 
 describe('Self', () => {
   test('derived dep scope is preserved in self reference', () => {

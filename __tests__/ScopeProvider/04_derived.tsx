@@ -34,7 +34,7 @@ function clickButtonGetResults(buttonSelector: string) {
     },
   );
 
-  const Counter = ({ counterClass }: { counterClass: string }) => {
+  function Counter({ counterClass }: { counterClass: string }) {
     const [base, setBase] = useAtom(baseAtom);
     const [derivedA, setDerivedA] = useAtom(derivedAtomA);
     const [derivedB, setDerivedB] = useAtom(derivedAtomB);
@@ -74,9 +74,9 @@ function clickButtonGetResults(buttonSelector: string) {
         </div>
       </>
     );
-  };
+  }
 
-  const App = () => {
+  function App() {
     return (
       <div>
         <h1>Only base is scoped</h1>
@@ -104,7 +104,7 @@ function clickButtonGetResults(buttonSelector: string) {
         </ScopeProvider>
       </div>
     );
-  };
+  }
 
   const { container } = render(<App />);
   expectAllZeroes(container);
