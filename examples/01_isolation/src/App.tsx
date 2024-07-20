@@ -5,7 +5,7 @@ const { Provider: MyProvider, useAtom: useMyAtom } = createIsolation();
 
 const countAtom = atom(0);
 
-const Counter = () => {
+function Counter() {
   const [count, setCount] = useAtom(countAtom);
   return (
     <div>
@@ -15,9 +15,9 @@ const Counter = () => {
       </button>
     </div>
   );
-};
+}
 
-const MyCounter = () => {
+function MyCounter() {
   const [count, setCount] = useMyAtom(countAtom);
   return (
     <div>
@@ -27,9 +27,9 @@ const MyCounter = () => {
       </button>
     </div>
   );
-};
+}
 
-const App = () => {
+function App() {
   return (
     <div>
       <h1>First Provider</h1>
@@ -44,6 +44,6 @@ const App = () => {
       </MyProvider>
     </div>
   );
-};
+}
 
 export default App;

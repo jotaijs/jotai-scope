@@ -20,7 +20,7 @@ const thisWritableAtom: WritableNumberAtom = atom(
 
 function renderTest(targetAtom: WritableNumberAtom) {
   baseAtom = atom(0);
-  const Component = ({ level }: { level: string }) => {
+  function Component({ level }: { level: string }) {
     const [value, increaseWritable] = useAtom(targetAtom);
     const [baseValue, increaseBase] = useAtom(baseAtom);
     return (
@@ -43,9 +43,9 @@ function renderTest(targetAtom: WritableNumberAtom) {
         </button>
       </div>
     );
-  };
+  }
 
-  const App = () => {
+  function App() {
     return (
       <>
         <h1>unscoped</h1>
@@ -60,7 +60,7 @@ function renderTest(targetAtom: WritableNumberAtom) {
         </ScopeProvider>
       </>
     );
-  };
+  }
   return render(<App />);
 }
 

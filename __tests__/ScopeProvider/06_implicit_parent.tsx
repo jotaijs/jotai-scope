@@ -18,8 +18,7 @@ function renderWithOrder(level1: 'BD' | 'DB', level2: 'BD' | 'DB') {
     return this.debugLabel ?? 'Unknown Atom';
   };
 
-  type Counter = FC<{ level: string }>;
-  const BaseThenDerived: Counter = ({ level }) => {
+  function BaseThenDerived({ level }: { level: string }) {
     const [base, increaseBase] = useAtom(baseAtom);
     const derived = useAtomValue(derivedAtom);
     return (
@@ -39,9 +38,9 @@ function renderWithOrder(level1: 'BD' | 'DB', level2: 'BD' | 'DB') {
         </div>
       </>
     );
-  };
+  }
 
-  const DerivedThenBase: Counter = ({ level }) => {
+  function DerivedThenBase({ level }: { level: string }) {
     const derived = useAtomValue(derivedAtom);
     const [base, increaseBase] = useAtom(baseAtom);
     return (
@@ -61,8 +60,11 @@ function renderWithOrder(level1: 'BD' | 'DB', level2: 'BD' | 'DB') {
         </div>
       </>
     );
-  };
-  const App = (props: { Level1Counter: Counter; Level2Counter: Counter }) => {
+  }
+  function App(props: {
+    Level1Counter: FC<{ level: string }>;
+    Level2Counter: FC<{ level: string }>;
+  }) {
     const { Level1Counter, Level2Counter } = props;
     return (
       <div>
@@ -78,7 +80,7 @@ function renderWithOrder(level1: 'BD' | 'DB', level2: 'BD' | 'DB') {
         </ScopeProvider>
       </div>
     );
-  };
+  }
   function getCounter(order: 'BD' | 'DB') {
     return order === 'BD' ? BaseThenDerived : DerivedThenBase;
   }

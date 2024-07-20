@@ -14,11 +14,11 @@ const ScopeContext = createContext<{
   baseStore: Store | undefined;
 }>({ scope: undefined, baseStore: undefined });
 
-export const ScopeProvider = ({
+export function ScopeProvider({
   atoms,
   children,
   debugName,
-}: PropsWithChildren<{ atoms: Iterable<AnyAtom>; debugName?: string }>) => {
+}: PropsWithChildren<{ atoms: Iterable<AnyAtom>; debugName?: string }>) {
   const parentStore: Store = useStore();
   let { scope: parentScope, baseStore = parentStore } =
     useContext(ScopeContext);
@@ -61,7 +61,7 @@ export const ScopeProvider = ({
       <Provider store={patchedStore}>{children}</Provider>
     </ScopeContext.Provider>
   );
-};
+}
 
 function isEqualSet(a: Set<unknown>, b: Set<unknown>) {
   return a === b || (a.size === b.size && Array.from(a).every((v) => b.has(v)));

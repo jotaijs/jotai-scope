@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "strict": true,
-    "target": "es2018",
+    "target": "esnext",
     "downlevelIteration": true,
     "esModuleInterop": true,
     "module": "nodenext",
@@ -15,5 +15,5 @@
       "jotai-scope": ["./src/index.ts"]
     }
   },
-  "exclude": ["dist", "examples"]
+  "exclude": ["dist", "examples", "jotai"]
 }

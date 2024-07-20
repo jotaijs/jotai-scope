@@ -1,2 +1,4 @@
 /dist
 /src/vendor
+/pnpm-lock.yaml
+/jotai
