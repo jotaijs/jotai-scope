@@ -554,7 +554,7 @@ describe('Counter', () => {
   });
 
   /*
-    base, derivedA(base), derivedB(base),
+    base, derivedA(base), derivedB(base)
     S0[base]: base0
     S1[base]: base1
     S2[base]: base2
@@ -629,7 +629,7 @@ describe('Counter', () => {
   });
 
   /*
-    baseA, baseB, baseC, derived(baseA + baseB + baseC),
+    baseA, baseB, baseC, derived(baseA + baseB + baseC)
     S0[     ]: derived(baseA0 + baseB0 + baseC0)
     S1[baseB]: derived(baseA0 + baseB1 + baseC0)
     S2[baseC]: derived(baseA0 + baseB1 + baseC2)
