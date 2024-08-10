@@ -1,34 +1,5 @@
 import { atom, type Atom } from 'jotai';
-import { type AnyAtom, type AnyWritableAtom } from './types';
-
-export type Scope = {
-  /**
-   * Returns a scoped atom from the original atom.
-   * @param anAtom
-   * @param implicitScope the atom is implicitly scoped in the provided scope
-   * @returns the scoped atom and the scope of the atom
-   */
-  getAtom: <T extends AnyAtom>(anAtom: T, implicitScope?: Scope) => [T, Scope?];
-  /**
-   * @modifies the atom's write function for atoms that can hold a value
-   * @returns a function to restore the original write function
-   */
-  prepareWriteAtom: <T extends AnyAtom>(
-    anAtom: T,
-    originalAtom: T,
-    implicitScope?: Scope,
-  ) => (() => void) | undefined;
-
-  /**
-   * @debug
-   */
-  name?: string;
-
-  /**
-   * @debug
-   */
-  toString?: () => string;
-};
+import type { AnyAtomFamily, AnyAtom, AnyWritableAtom, Scope } from './types';
 
 const globalScopeKey: { name?: string } = {};
 if (process.env.NODE_ENV !== 'production') {
@@ -39,7 +10,8 @@ if (process.env.NODE_ENV !== 'production') {
 type GlobalScopeKey = typeof globalScopeKey;
 
 export function createScope(
-  atoms: Iterable<AnyAtom>,
+  atoms: Set<AnyAtom>,
+  atomFamilies: Set<AnyAtomFamily>,
   parentScope: Scope | undefined,
   scopeName?: string | undefined,
 ): Scope {
@@ -50,6 +22,7 @@ export function createScope(
 
   const currentScope: Scope = {
     getAtom,
+    cleanup() {},
     prepareWriteAtom(anAtom, originalAtom, implicitScope) {
       if (
         originalAtom.read === defaultRead &&
@@ -80,10 +53,33 @@ export function createScope(
     currentScope.name = scopeName;
     currentScope.toString = toString;
   }
+
   // populate explicitly scoped atoms
   for (const anAtom of atoms) {
     explicit.set(anAtom, [cloneAtom(anAtom, currentScope), currentScope]);
   }
+
+  const cleanupFamiliesSet = new Set<() => void>();
+  for (const atomFamily of atomFamilies) {
+    for (const param of atomFamily.getParams()) {
+      const anAtom = atomFamily(param);
+      if (!explicit.has(anAtom)) {
+        explicit.set(anAtom, [cloneAtom(anAtom, currentScope), currentScope]);
+      }
+    }
+    const cleanupFamily = atomFamily.unstable_listen((e) => {
+      if (e.type === 'CREATE' && !explicit.has(e.atom)) {
+        explicit.set(e.atom, [cloneAtom(e.atom, currentScope), currentScope]);
+      } else if (!atoms.has(e.atom)) {
+        explicit.delete(e.atom);
+      }
+    });
+    cleanupFamiliesSet.add(cleanupFamily);
+  }
+  currentScope.cleanup = combineVoidFunctions(
+    currentScope.cleanup,
+    ...cleanupFamiliesSet,
+  );
 
   /**
    * Returns a scoped atom from the original atom.
@@ -243,4 +239,12 @@ const { read: defaultRead, write: defaultWrite } = atom<unknown>(null);
 
 function toString(this: { name: string }) {
   return this.name;
+}
+
+function combineVoidFunctions(...fns: (() => void)[]) {
+  return function combinedFunctions() {
+    for (const fn of fns) {
+      fn();
+    }
+  };
 }
