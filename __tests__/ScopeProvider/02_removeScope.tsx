@@ -1,5 +1,5 @@
 import { render } from '@testing-library/react';
-import { PropsWithChildren } from 'react';
+import type { PropsWithChildren } from 'react';
 import { atom, useAtom, useAtomValue } from 'jotai';
 import { atomWithReducer } from 'jotai/vanilla/utils';
 import { ScopeProvider } from '../../src/index';

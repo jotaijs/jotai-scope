@@ -4,8 +4,8 @@ import {
   useSetAtom,
   useAtomValue,
   atom,
-  WritableAtom,
-  SetStateAction,
+  type WritableAtom,
+  type SetStateAction,
 } from 'jotai';
 import { atomWithReducer } from 'jotai/vanilla/utils';
 import { ScopeProvider } from '../../src/index';

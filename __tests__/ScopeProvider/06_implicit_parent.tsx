@@ -1,4 +1,4 @@
-import { FC } from 'react';
+import type { FC } from 'react';
 import { render } from '@testing-library/react';
 import { atom, useAtom, useAtomValue } from 'jotai';
 import { atomWithReducer } from 'jotai/vanilla/utils';
