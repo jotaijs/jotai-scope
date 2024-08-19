@@ -78,7 +78,7 @@ export function createScope(
   }
   currentScope.cleanup = combineVoidFunctions(
     currentScope.cleanup,
-    ...cleanupFamiliesSet,
+    ...Array.from(cleanupFamiliesSet),
   );
 
   /**
