@@ -79,6 +79,11 @@ function App() {
 }
 
 describe('Counter', () => {
+  /*
+    baseA, baseB, baseC
+    S1[baseA]: baseA1 baseB0 baseC0
+    S2[baseB]: baseA1 baseB2 baseC0
+  */
   test('nested primitive atoms are correctly scoped', () => {
     const { container } = render(<App />);
     const increaseUnscopedBase1 = '.unscoped.setBase1';

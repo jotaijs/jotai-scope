@@ -46,6 +46,10 @@ function App() {
 }
 
 describe('Self', () => {
+  /*
+    baseA, derivedB(baseA, derivedB)
+    S1[baseA]: baseA1, derivedB0(baseA1, derivedB0)
+  */
   test('derived dep scope is preserved in self reference', () => {
     const { container } = render(<App />);
     expect(
