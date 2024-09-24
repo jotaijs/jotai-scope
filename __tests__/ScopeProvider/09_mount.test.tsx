@@ -41,3 +41,33 @@ describe('ScopeProvider', () => {
     expect(container.querySelector(base)).toBe(null)
   })
 })
+
+it('computed atom mounts once for the unscoped and once for the scoped', () => {
+  const baseAtom = atom(0)
+  const deriveAtom = atom(
+    (get) => get(baseAtom),
+    () => {},
+  )
+  const onUnmount = jest.fn()
+  const onMount = jest.fn(() => onUnmount)
+  deriveAtom.onMount = onMount
+  function Component() {
+    return useAtomValue(deriveAtom)
+  }
+  function App() {
+    return (
+      <>
+        <Component />
+        <Component />
+        <ScopeProvider atoms={[baseAtom]}>
+          <Component />
+          <Component />
+        </ScopeProvider>
+      </>
+    )
+  }
+  const { unmount } = render(<App />)
+  expect(onMount).toHaveBeenCalledTimes(2)
+  unmount()
+  expect(onUnmount).toHaveBeenCalledTimes(2)
+})
