@@ -1,33 +1,27 @@
-import { render } from '@testing-library/react';
-import { atom, useAtom } from 'jotai';
-import { useHydrateAtoms } from 'jotai/utils';
-import { getTextContents } from '../utils';
-import { ScopeProvider } from '../../src/index';
+import { render } from '@testing-library/react'
+import { atom, useAtom } from 'jotai'
+import { useHydrateAtoms } from 'jotai/utils'
+import { getTextContents } from '../utils'
+import { ScopeProvider } from '../../src/index'
 
-const baseAtom = atom(0);
+const baseAtom = atom(0)
 const derivedAtom1 = atom(
   (get) => get(baseAtom),
   (get): number => {
-    return get(derivedAtom1);
+    return get(derivedAtom1)
   },
-);
+)
 
-function Component({
-  className,
-  initialValue = 0,
-}: {
-  className: string;
-  initialValue?: number;
-}) {
-  useHydrateAtoms([[baseAtom, initialValue]]);
-  const [atom1ReadValue, setAtom1Value] = useAtom(derivedAtom1);
-  const atom1WriteValue = setAtom1Value();
+function Component({ className, initialValue = 0 }: { className: string; initialValue?: number }) {
+  useHydrateAtoms([[baseAtom, initialValue]])
+  const [atom1ReadValue, setAtom1Value] = useAtom(derivedAtom1)
+  const atom1WriteValue = setAtom1Value()
   return (
     <div className={className}>
       <span className="read">{atom1ReadValue}</span>
       <span className="write">{atom1WriteValue}</span>
     </div>
-  );
+  )
 }
 
 function App() {
@@ -42,7 +36,7 @@ function App() {
         <Component className="scoped" initialValue={1} />
       </ScopeProvider>
     </>
-  );
+  )
 }
 
 describe('Self', () => {
@@ -51,13 +45,9 @@ describe('Self', () => {
     S1[baseA]: baseA1, derivedB0(baseA1, derivedB0)
   */
   test('derived dep scope is preserved in self reference', () => {
-    const { container } = render(<App />);
-    expect(
-      getTextContents(container, ['.unscoped .read', '.unscoped .write']),
-    ).toEqual(['0', '0']);
+    const { container } = render(<App />)
+    expect(getTextContents(container, ['.unscoped .read', '.unscoped .write'])).toEqual(['0', '0'])
 
-    expect(
-      getTextContents(container, ['.scoped .read', '.scoped .write']),
-    ).toEqual(['1', '1']);
-  });
-});
+    expect(getTextContents(container, ['.scoped .read', '.scoped .write'])).toEqual(['1', '1'])
+  })
+})

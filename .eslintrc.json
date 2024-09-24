@@ -1,11 +1,7 @@
 {
   "parser": "@typescript-eslint/parser",
   "plugins": ["@typescript-eslint", "prettier"],
-  "extends": [
-    "plugin:@typescript-eslint/recommended",
-    "airbnb",
-    "plugin:prettier/recommended"
-  ],
+  "extends": ["plugin:@typescript-eslint/recommended", "airbnb", "plugin:prettier/recommended"],
   "env": {
     "browser": true
   },
@@ -21,33 +17,37 @@
     }
   },
   "rules": {
+    "no-shadow": "off",
+    "no-return-await": "off",
+    "consistent-return": "off",
     "react/jsx-uses-react": "off",
     "react/react-in-jsx-scope": "off",
     "@typescript-eslint/explicit-function-return-type": "off",
     "@typescript-eslint/explicit-module-boundary-types": "off",
     "@typescript-eslint/no-explicit-any": "off",
-    "react/jsx-filename-extension": [
-      "error",
-      { "extensions": [".js", ".tsx"] }
-    ],
+    "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+    "react/button-has-type": "off",
+    "react/jsx-filename-extension": ["error", { "extensions": [".js", ".tsx"] }],
     "react/prop-types": "off",
     "react/jsx-one-expression-per-line": "off",
+    "react/jsx-no-useless-fragment": "off",
     "import/extensions": ["error", "never"],
     "import/prefer-default-export": "off",
     "import/no-unresolved": ["error", { "ignore": ["jotai-scope"] }],
     "no-param-reassign": "off",
+    "no-promise-executor-return": "off",
     "no-plusplus": "off",
     "no-bitwise": "off",
     "symbol-description": "off",
     "prefer-object-spread": "off",
+    "no-return-assign": "off",
     "no-use-before-define": "off",
     "no-unused-vars": "off",
     "no-redeclare": "off",
-    "camelcase": ["error", { "allow": ["^INTERNAL_"] }],
-    "react/function-component-definition": [
-      "error",
-      { "namedComponents": "function-declaration" }
-    ],
+    "camelcase": ["error", { "allow": ["^INTERNAL_", "^unstable_"] }],
+    "react/function-component-definition": ["error", { "namedComponents": "function-declaration" }],
+    "react/no-unescaped-entities": "off",
+    "react/no-array-index-key": "off",
     "react/require-default-props": "off",
     "react/destructuring-assignment": "off",
     "react/jsx-no-constructed-context-values": "off",
@@ -60,10 +60,7 @@
         "jest": true
       },
       "rules": {
-        "import/no-extraneous-dependencies": [
-          "error",
-          { "devDependencies": true }
-        ]
+        "import/no-extraneous-dependencies": ["error", { "devDependencies": true }]
       }
     },
     {

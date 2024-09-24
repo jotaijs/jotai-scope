@@ -1,8 +1,8 @@
-import { render, act } from '@testing-library/react';
-import { useAtom, atom, useSetAtom } from 'jotai';
-import { atomFamily, atomWithReducer } from 'jotai/utils';
-import { ScopeProvider } from '../../src/index';
-import { clickButton, getTextContents } from '../utils';
+import { render, act } from '@testing-library/react'
+import { useAtom, atom, useSetAtom } from 'jotai'
+import { atomFamily, atomWithReducer } from 'jotai/utils'
+import { ScopeProvider } from '../../src/index'
+import { clickButton, getTextContents } from '../utils'
 
 describe('AtomFamily with ScopeProvider', () => {
   /*
@@ -11,13 +11,13 @@ describe('AtomFamily with ScopeProvider', () => {
     S1[aFamily]: a1 b1
   */
   test('01. Scoped atom families provide isolated state', () => {
-    const aFamily = atomFamily(() => atom(0));
-    const aAtom = aFamily('a');
-    aAtom.debugLabel = 'aAtom';
-    const bAtom = aFamily('b');
-    bAtom.debugLabel = 'bAtom';
+    const aFamily = atomFamily(() => atom(0))
+    const aAtom = aFamily('a')
+    aAtom.debugLabel = 'aAtom'
+    const bAtom = aFamily('b')
+    bAtom.debugLabel = 'bAtom'
     function Counter({ level, param }: { level: string; param: string }) {
-      const [value, setValue] = useAtom(aFamily(param));
+      const [value, setValue] = useAtom(aFamily(param))
       return (
         <div>
           {param}:<span className={`${level} ${param}`}>{value}</span>
@@ -29,7 +29,7 @@ describe('AtomFamily with ScopeProvider', () => {
             increase
           </button>
         </div>
-      );
+      )
     }
 
     function App() {
@@ -44,43 +44,43 @@ describe('AtomFamily with ScopeProvider', () => {
             <Counter level="level1" param="b" />
           </ScopeProvider>
         </div>
-      );
+      )
     }
 
-    const { container } = render(<App />);
-    const selectors = ['.level0.a', '.level0.b', '.level1.a', '.level1.b'];
+    const { container } = render(<App />)
+    const selectors = ['.level0.a', '.level0.b', '.level1.a', '.level1.b']
 
     expect(getTextContents(container, selectors)).toEqual([
       '0', // level0 a
       '0', // level0 b
       '0', // level1 a
       '0', // level1 b
-    ]);
+    ])
 
-    clickButton(container, '.level0.set-a');
+    clickButton(container, '.level0.set-a')
     expect(getTextContents(container, selectors)).toEqual([
       '1', // level0 a
       '0', // level0 b
       '0', // level1 a
       '0', // level1 b
-    ]);
+    ])
 
-    clickButton(container, '.level1.set-a');
+    clickButton(container, '.level1.set-a')
     expect(getTextContents(container, selectors)).toEqual([
       '1', // level0 a
       '0', // level0 b
       '1', // level1 a
       '0', // level1 b
-    ]);
+    ])
 
-    clickButton(container, '.level1.set-b');
+    clickButton(container, '.level1.set-b')
     expect(getTextContents(container, selectors)).toEqual([
       '1', // level0 a
       '0', // level0 b
       '1', // level1 a
       '1', // level1 b
-    ]);
-  });
+    ])
+  })
 
   /*
     aFamily('a'), aFamily.remove('a')
@@ -89,14 +89,14 @@ describe('AtomFamily with ScopeProvider', () => {
   */
   // TODO: refactor atomFamily to support descoping removing atoms
   test.skip('02. Removing atom from atomFamily does not affect scoped state', () => {
-    const aFamily = atomFamily(() => atom(0));
-    const atomA = aFamily('a');
-    atomA.debugLabel = 'atomA';
-    const rerenderAtom = atomWithReducer(0, (s) => s + 1);
-    rerenderAtom.debugLabel = 'rerenderAtom';
+    const aFamily = atomFamily(() => atom(0))
+    const atomA = aFamily('a')
+    atomA.debugLabel = 'atomA'
+    const rerenderAtom = atomWithReducer(0, (s) => s + 1)
+    rerenderAtom.debugLabel = 'rerenderAtom'
     function Counter({ level, param }: { level: string; param: string }) {
-      const [value, setValue] = useAtom(atomA);
-      useAtom(rerenderAtom);
+      const [value, setValue] = useAtom(atomA)
+      useAtom(rerenderAtom)
       return (
         <div>
           {param}:<span className={`${level} ${param}`}>{value}</span>
@@ -108,11 +108,11 @@ describe('AtomFamily with ScopeProvider', () => {
             increase
           </button>
         </div>
-      );
+      )
     }
 
     function App() {
-      const rerender = useSetAtom(rerenderAtom);
+      const rerender = useSetAtom(rerenderAtom)
       return (
         <div>
           <h1>Unscoped</h1>
@@ -121,8 +121,8 @@ describe('AtomFamily with ScopeProvider', () => {
             className="remove-atom"
             type="button"
             onClick={() => {
-              aFamily.remove('a');
-              rerender();
+              aFamily.remove('a')
+              rerender()
             }}
           >
             remove a from atomFamily
@@ -132,38 +132,38 @@ describe('AtomFamily with ScopeProvider', () => {
             <Counter level="level1" param="a" />
           </ScopeProvider>
         </div>
-      );
+      )
     }
 
-    const { container } = render(<App />);
-    const selectors = ['.level0.a', '.level1.a'];
+    const { container } = render(<App />)
+    const selectors = ['.level0.a', '.level1.a']
 
     expect(getTextContents(container, selectors)).toEqual([
       '0', // level0 a
       '0', // level1 a
-    ]);
+    ])
 
-    clickButton(container, '.level0.set-a');
+    clickButton(container, '.level0.set-a')
     expect(getTextContents(container, selectors)).toEqual([
       '1', // level0 a
       '0', // level1 a
-    ]);
+    ])
 
     act(() => {
-      clickButton(container, '.remove-atom');
-    });
+      clickButton(container, '.remove-atom')
+    })
 
     expect(getTextContents(container, ['.level0.a', '.level1.a'])).toEqual([
       '1', // level0 a
       '1', // level1 a // atomA is now unscoped
-    ]);
+    ])
 
-    clickButton(container, '.level1.set-a');
+    clickButton(container, '.level1.set-a')
     expect(getTextContents(container, ['.level0.a', '.level1.a'])).toEqual([
       '2', // level0 a
       '2', // level1 a
-    ]);
-  });
+    ])
+  })
 
   /*
     aFamily.setShouldRemove((createdAt, param) => param === 'b')
@@ -172,17 +172,17 @@ describe('AtomFamily with ScopeProvider', () => {
   */
   // TODO: refactor atomFamily to support descoping removing atoms
   test.skip('03. Scoped atom families respect custom removal conditions', () => {
-    const aFamily = atomFamily(() => atom(0));
-    const atomA = aFamily('a');
-    atomA.debugLabel = 'atomA';
-    const atomB = aFamily('b');
-    atomB.debugLabel = 'atomB';
-    const rerenderAtom = atomWithReducer(0, (s) => s + 1);
-    rerenderAtom.debugLabel = 'rerenderAtom';
+    const aFamily = atomFamily(() => atom(0))
+    const atomA = aFamily('a')
+    atomA.debugLabel = 'atomA'
+    const atomB = aFamily('b')
+    atomB.debugLabel = 'atomB'
+    const rerenderAtom = atomWithReducer(0, (s) => s + 1)
+    rerenderAtom.debugLabel = 'rerenderAtom'
 
     function Counter({ level, param }: { level: string; param: string }) {
-      const [value, setValue] = useAtom(aFamily(param));
-      useAtom(rerenderAtom);
+      const [value, setValue] = useAtom(aFamily(param))
+      useAtom(rerenderAtom)
       return (
         <div>
           {param}:<span className={`${level} ${param}`}>{value}</span>
@@ -194,19 +194,19 @@ describe('AtomFamily with ScopeProvider', () => {
             increase
           </button>
         </div>
-      );
+      )
     }
 
     function App() {
-      const rerender = useSetAtom(rerenderAtom);
+      const rerender = useSetAtom(rerenderAtom)
       return (
         <div>
           <button
             className="remove-b"
             type="button"
             onClick={() => {
-              aFamily.setShouldRemove((_, param) => param === 'b');
-              rerender();
+              aFamily.setShouldRemove((_, param) => param === 'b')
+              rerender()
             }}
           >
             remove b from atomFamily
@@ -220,38 +220,38 @@ describe('AtomFamily with ScopeProvider', () => {
             <Counter level="level1" param="b" />
           </ScopeProvider>
         </div>
-      );
+      )
     }
 
-    const { container } = render(<App />);
-    const removeBButton = '.remove-b';
-    const selectors = ['.level0.a', '.level0.b', '.level1.a', '.level1.b'];
+    const { container } = render(<App />)
+    const removeBButton = '.remove-b'
+    const selectors = ['.level0.a', '.level0.b', '.level1.a', '.level1.b']
 
     expect(getTextContents(container, selectors)).toEqual([
       '0', // level0 a
       '0', // level0 b
       '0', // level1 a
       '0', // level1 b
-    ]);
+    ])
 
-    clickButton(container, '.level0.set-a');
-    clickButton(container, '.level0.set-b');
+    clickButton(container, '.level0.set-a')
+    clickButton(container, '.level0.set-b')
     expect(getTextContents(container, selectors)).toEqual([
       '1', // level0 a
       '1', // level0 b
       '0', // level1 a // a is scoped
       '0', // level1 b // b is scoped
-    ]);
+    ])
 
     act(() => {
-      clickButton(container, removeBButton);
-    });
+      clickButton(container, removeBButton)
+    })
 
     expect(getTextContents(container, selectors)).toEqual([
       '1', // level0 a
       '1', // level0 b
       '0', // level1 a // a is still scoped
       '1', // level1 b // b is no longer scoped
-    ]);
-  });
-});
+    ])
+  })
+})

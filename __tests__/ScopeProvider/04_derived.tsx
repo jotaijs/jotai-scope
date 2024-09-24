@@ -1,7 +1,7 @@
-import { render } from '@testing-library/react';
-import { atom, useAtom } from 'jotai';
-import { clickButton, getTextContents } from '../utils';
-import { ScopeProvider } from '../../src/index';
+import { render } from '@testing-library/react'
+import { atom, useAtom } from 'jotai'
+import { clickButton, getTextContents } from '../utils'
+import { ScopeProvider } from '../../src/index'
 
 const atomValueSelectors = [
   '.case1.base',
@@ -16,28 +16,28 @@ const atomValueSelectors = [
   '.layer2.base',
   '.layer2.derivedA',
   '.layer2.derivedB',
-];
+]
 
 function clickButtonGetResults(buttonSelector: string) {
-  const baseAtom = atom(0);
+  const baseAtom = atom(0)
   const derivedAtomA = atom(
     (get) => get(baseAtom),
     (get, set) => {
-      set(baseAtom, get(baseAtom) + 1);
+      set(baseAtom, get(baseAtom) + 1)
     },
-  );
+  )
 
   const derivedAtomB = atom(
     (get) => get(baseAtom),
     (get, set) => {
-      set(baseAtom, get(baseAtom) + 1);
+      set(baseAtom, get(baseAtom) + 1)
     },
-  );
+  )
 
   function Counter({ counterClass }: { counterClass: string }) {
-    const [base, setBase] = useAtom(baseAtom);
-    const [derivedA, setDerivedA] = useAtom(derivedAtomA);
-    const [derivedB, setDerivedB] = useAtom(derivedAtomB);
+    const [base, setBase] = useAtom(baseAtom)
+    const [derivedA, setDerivedA] = useAtom(derivedAtomA)
+    const [derivedB, setDerivedB] = useAtom(derivedAtomB)
     return (
       <>
         <div>
@@ -73,7 +73,7 @@ function clickButtonGetResults(buttonSelector: string) {
           </button>
         </div>
       </>
-    );
+    )
   }
 
   function App() {
@@ -94,22 +94,19 @@ function clickButtonGetResults(buttonSelector: string) {
         <ScopeProvider atoms={[derivedAtomA]} debugName="layer1">
           <Counter counterClass="layer1" />
           <h2>Layer2: Base and derivedB are scoped</h2>
-          <p>
-            derivedA should use layer2&apos;s atom, base and derivedB are layer
-            2 scoped
-          </p>
+          <p>derivedA should use layer2&apos;s atom, base and derivedB are layer 2 scoped</p>
           <ScopeProvider atoms={[baseAtom, derivedAtomB]} debugName="layer2">
             <Counter counterClass="layer2" />
           </ScopeProvider>
         </ScopeProvider>
       </div>
-    );
+    )
   }
 
-  const { container } = render(<App />);
-  expectAllZeroes(container);
-  clickButton(container, buttonSelector);
-  return getTextContents(container, atomValueSelectors);
+  const { container } = render(<App />)
+  expectAllZeroes(container)
+  clickButton(container, buttonSelector)
+  return getTextContents(container, atomValueSelectors)
 }
 
 function expectAllZeroes(container: HTMLElement) {
@@ -133,23 +130,23 @@ function expectAllZeroes(container: HTMLElement) {
     '0', // base
     '0', // derivedA
     '0', // derivedB
-  ]);
+  ])
 }
 
 describe('Counter', () => {
   test("parent scope's derived atom is prior to nested scope's scoped base", () => {
-    const increaseCase1Base = '.case1.setBase';
-    const increaseCase1DerivedA = '.case1.setDerivedA';
-    const increaseCase1DerivedB = '.case1.setDerivedB';
-    const increaseCase2Base = '.case2.setBase';
-    const increaseCase2DerivedA = '.case2.setDerivedA';
-    const increaseCase2DerivedB = '.case2.setDerivedB';
-    const increaseLayer1Base = '.layer1.setBase';
-    const increaseLayer1DerivedA = '.layer1.setDerivedA';
-    const increaseLayer1DerivedB = '.layer1.setDerivedB';
-    const increaseLayer2Base = '.layer2.setBase';
-    const increaseLayer2DerivedA = '.layer2.setDerivedA';
-    const increaseLayer2DerivedB = '.layer2.setDerivedB';
+    const increaseCase1Base = '.case1.setBase'
+    const increaseCase1DerivedA = '.case1.setDerivedA'
+    const increaseCase1DerivedB = '.case1.setDerivedB'
+    const increaseCase2Base = '.case2.setBase'
+    const increaseCase2DerivedA = '.case2.setDerivedA'
+    const increaseCase2DerivedB = '.case2.setDerivedB'
+    const increaseLayer1Base = '.layer1.setBase'
+    const increaseLayer1DerivedA = '.layer1.setDerivedA'
+    const increaseLayer1DerivedB = '.layer1.setDerivedB'
+    const increaseLayer2Base = '.layer2.setBase'
+    const increaseLayer2DerivedA = '.layer2.setDerivedA'
+    const increaseLayer2DerivedB = '.layer2.setDerivedB'
 
     /*
       base, derivedA(base), derivedB(base)
@@ -178,7 +175,7 @@ describe('Counter', () => {
       '0', // base
       '0', // derivedA
       '0', // derivedB
-    ]);
+    ])
 
     /*
       base, derivedA(base), derivedB(base)
@@ -207,7 +204,7 @@ describe('Counter', () => {
       '0', // base
       '0', // derivedA
       '0', // derivedB
-    ]);
+    ])
 
     /*
       base, derivedA(base), derivedB(base)
@@ -236,7 +233,7 @@ describe('Counter', () => {
       '0', // base
       '0', // derivedA
       '0', // derivedB
-    ]);
+    ])
 
     /*
       base, derivedA(base), derivedB(base)
@@ -265,7 +262,7 @@ describe('Counter', () => {
       '0', // base
       '0', // derivedA
       '0', // derivedB
-    ]);
+    ])
 
     /*
       base, derivedA(base), derivedB(base)
@@ -294,7 +291,7 @@ describe('Counter', () => {
       '0', // base            actual:  0,
       '0', // derivedA        actual:  0,
       '0', // derivedB        actual:  0
-    ]);
+    ])
 
     /*
       base, derivedA(base), derivedB(base)
@@ -323,7 +320,7 @@ describe('Counter', () => {
       '0', // base
       '0', // derivedA
       '0', // derivedB
-    ]);
+    ])
 
     /*
       base, derivedA(base), derivedB(base)
@@ -352,7 +349,7 @@ describe('Counter', () => {
       '0', // base
       '0', // derivedA
       '0', // derivedB
-    ]);
+    ])
 
     /*
       base, derivedA(base), derivedB(base)
@@ -381,7 +378,7 @@ describe('Counter', () => {
       '0', // base
       '0', // derivedA
       '0', // derivedB
-    ]);
+    ])
 
     /*
       base, derivedA(base), derivedB(base)
@@ -410,7 +407,7 @@ describe('Counter', () => {
       '0', // base
       '0', // derivedA
       '0', // derivedB
-    ]);
+    ])
 
     /*
       base, derivedA(base), derivedB(base)
@@ -439,7 +436,7 @@ describe('Counter', () => {
       '1', // base
       '1', // derivedA
       '1', // derivedB
-    ]);
+    ])
 
     /*
       base, derivedA(base), derivedB(base)
@@ -468,7 +465,7 @@ describe('Counter', () => {
       '1', // base
       '1', // derivedA
       '1', // derivedB
-    ]);
+    ])
 
     /*
       base, derivedA(base), derivedB(base)
@@ -497,6 +494,6 @@ describe('Counter', () => {
       '1', // base
       '1', // derivedA
       '1', // derivedB
-    ]);
-  });
-});
+    ])
+  })
+})

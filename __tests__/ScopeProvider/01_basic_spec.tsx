@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react';
+import { render } from '@testing-library/react'
 import {
   useAtom,
   useSetAtom,
@@ -6,10 +6,10 @@ import {
   atom,
   type WritableAtom,
   type SetStateAction,
-} from 'jotai';
-import { atomWithReducer } from 'jotai/vanilla/utils';
-import { ScopeProvider } from '../../src/index';
-import { clickButton, getTextContents } from '../utils';
+} from 'jotai'
+import { atomWithReducer } from 'jotai/vanilla/utils'
+import { ScopeProvider } from '../../src/index'
+import { clickButton, getTextContents } from '../utils'
 
 describe('Counter', () => {
   /*
@@ -18,10 +18,10 @@ describe('Counter', () => {
     S1[]: base0
   */
   test('01. ScopeProvider does not provide isolation for unscoped primitive atoms', () => {
-    const baseAtom = atom(0);
-    baseAtom.debugLabel = 'base';
+    const baseAtom = atom(0)
+    baseAtom.debugLabel = 'base'
     function Counter({ level }: { level: string }) {
-      const [base, increaseBase] = useAtom(baseAtom);
+      const [base, increaseBase] = useAtom(baseAtom)
       return (
         <div>
           base:<span className={`${level} base`}>{base}</span>
@@ -33,7 +33,7 @@ describe('Counter', () => {
             increase
           </button>
         </div>
-      );
+      )
     }
 
     function App() {
@@ -46,30 +46,30 @@ describe('Counter', () => {
             <Counter level="level1" />
           </ScopeProvider>
         </div>
-      );
+      )
     }
-    const { container } = render(<App />);
-    const increaseUnscopedBase = '.level0.setBase';
-    const increaseScopedBase = '.level1.setBase';
-    const atomValueSelectors = ['.level0.base', '.level1.base'];
+    const { container } = render(<App />)
+    const increaseUnscopedBase = '.level0.setBase'
+    const increaseScopedBase = '.level1.setBase'
+    const atomValueSelectors = ['.level0.base', '.level1.base']
 
     expect(getTextContents(container, atomValueSelectors)).toEqual([
       '0', // level0 base
       '0', // level1 base
-    ]);
+    ])
 
-    clickButton(container, increaseUnscopedBase);
+    clickButton(container, increaseUnscopedBase)
     expect(getTextContents(container, atomValueSelectors)).toEqual([
       '1', // level0 base
       '1', // level1 base
-    ]);
+    ])
 
-    clickButton(container, increaseScopedBase);
+    clickButton(container, increaseScopedBase)
     expect(getTextContents(container, atomValueSelectors)).toEqual([
       '2', // level0 base
       '2', // level1 base
-    ]);
-  });
+    ])
+  })
 
   /*
     base, Derived(base)
@@ -77,27 +77,23 @@ describe('Counter', () => {
     S1[]: base0 Derived0(base0)
   */
   test('02. unscoped derived atoms are unaffected in ScopeProvider', () => {
-    const baseAtom = atom(0);
+    const baseAtom = atom(0)
     const derivedAtom = atom(
       (get) => get(baseAtom),
       (_get, set, value: SetStateAction<number>) => set(baseAtom, value),
-    );
-    baseAtom.debugLabel = 'base';
+    )
+    baseAtom.debugLabel = 'base'
     function Counter({ level }: { level: string }) {
-      const [derived, setDerived] = useAtom(derivedAtom);
-      const increaseDerived = () => setDerived((c) => c + 1);
+      const [derived, setDerived] = useAtom(derivedAtom)
+      const increaseDerived = () => setDerived((c) => c + 1)
       return (
         <div>
           base:<span className={`${level} derived`}>{derived}</span>
-          <button
-            className={`${level} setDerived`}
-            type="button"
-            onClick={increaseDerived}
-          >
+          <button className={`${level} setDerived`} type="button" onClick={increaseDerived}>
             increase
           </button>
         </div>
-      );
+      )
     }
 
     function App() {
@@ -110,30 +106,30 @@ describe('Counter', () => {
             <Counter level="level1" />
           </ScopeProvider>
         </div>
-      );
+      )
     }
-    const { container } = render(<App />);
-    const increaseUnscopedBase = '.level0.setDerived';
-    const increaseScopedBase = '.level1.setDerived';
-    const atomValueSelectors = ['.level0.derived', '.level1.derived'];
+    const { container } = render(<App />)
+    const increaseUnscopedBase = '.level0.setDerived'
+    const increaseScopedBase = '.level1.setDerived'
+    const atomValueSelectors = ['.level0.derived', '.level1.derived']
 
     expect(getTextContents(container, atomValueSelectors)).toEqual([
       '0', // level 0 derived
       '0', // level 1 derived
-    ]);
+    ])
 
-    clickButton(container, increaseUnscopedBase);
+    clickButton(container, increaseUnscopedBase)
     expect(getTextContents(container, atomValueSelectors)).toEqual([
       '1', // level 0 derived
       '1', // level 1 derived
-    ]);
+    ])
 
-    clickButton(container, increaseScopedBase);
+    clickButton(container, increaseScopedBase)
     expect(getTextContents(container, atomValueSelectors)).toEqual([
       '2', // level 0 derived
       '2', // level 1 derived
-    ]);
-  });
+    ])
+  })
 
   /*
     base
@@ -141,10 +137,10 @@ describe('Counter', () => {
     S1[base]: base1
   */
   test('03. ScopeProvider provides isolation for scoped primitive atoms', () => {
-    const baseAtom = atom(0);
-    baseAtom.debugLabel = 'base';
+    const baseAtom = atom(0)
+    baseAtom.debugLabel = 'base'
     function Counter({ level }: { level: string }) {
-      const [base, increaseBase] = useAtom(baseAtom);
+      const [base, increaseBase] = useAtom(baseAtom)
       return (
         <div>
           base:<span className={`${level} base`}>{base}</span>
@@ -156,7 +152,7 @@ describe('Counter', () => {
             increase
           </button>
         </div>
-      );
+      )
     }
 
     function App() {
@@ -169,30 +165,30 @@ describe('Counter', () => {
             <Counter level="level1" />
           </ScopeProvider>
         </div>
-      );
+      )
     }
-    const { container } = render(<App />);
-    const increaseUnscopedBase = '.level0.setBase';
-    const increaseScopedBase = '.level1.setBase';
-    const atomValueSelectors = ['.level0.base', '.level1.base'];
+    const { container } = render(<App />)
+    const increaseUnscopedBase = '.level0.setBase'
+    const increaseScopedBase = '.level1.setBase'
+    const atomValueSelectors = ['.level0.base', '.level1.base']
 
     expect(getTextContents(container, atomValueSelectors)).toEqual([
       '0', // level0 base
       '0', // level1 base
-    ]);
+    ])
 
-    clickButton(container, increaseUnscopedBase);
+    clickButton(container, increaseUnscopedBase)
     expect(getTextContents(container, atomValueSelectors)).toEqual([
       '1', // level0 base
       '0', // level1 base
-    ]);
+    ])
 
-    clickButton(container, increaseScopedBase);
+    clickButton(container, increaseScopedBase)
     expect(getTextContents(container, atomValueSelectors)).toEqual([
       '1', // level0 base
       '1', // level1 base
-    ]);
-  });
+    ])
+  })
 
   /*
     base, derived(base)
@@ -200,30 +196,26 @@ describe('Counter', () => {
     S1[base]: derived0(base1)
   */
   test('04. unscoped derived can read and write to scoped primitive atoms', () => {
-    const baseAtom = atom(0);
-    baseAtom.debugLabel = 'base';
+    const baseAtom = atom(0)
+    baseAtom.debugLabel = 'base'
     const derivedAtom = atom(
       (get) => get(baseAtom),
       (get, set) => set(baseAtom, get(baseAtom) + 1),
-    );
-    derivedAtom.debugLabel = 'derived';
+    )
+    derivedAtom.debugLabel = 'derived'
 
     function Counter({ level }: { level: string }) {
-      const [derived, increaseFromDerived] = useAtom(derivedAtom);
-      const value = useAtomValue(baseAtom);
+      const [derived, increaseFromDerived] = useAtom(derivedAtom)
+      const value = useAtomValue(baseAtom)
       return (
         <div>
           base:<span className={`${level} base`}>{derived}</span>
           value:<span className={`${level} value`}>{value}</span>
-          <button
-            className={`${level} setBase`}
-            type="button"
-            onClick={increaseFromDerived}
-          >
+          <button className={`${level} setBase`} type="button" onClick={increaseFromDerived}>
             increase
           </button>
         </div>
-      );
+      )
     }
 
     function App() {
@@ -236,41 +228,36 @@ describe('Counter', () => {
             <Counter level="level1" />
           </ScopeProvider>
         </div>
-      );
+      )
     }
-    const { container } = render(<App />);
-    const increaseUnscopedBase = '.level0.setBase';
-    const increaseScopedBase = '.level1.setBase';
-    const atomValueSelectors = [
-      '.level0.base',
-      '.level0.value',
-      '.level1.base',
-      '.level1.value',
-    ];
+    const { container } = render(<App />)
+    const increaseUnscopedBase = '.level0.setBase'
+    const increaseScopedBase = '.level1.setBase'
+    const atomValueSelectors = ['.level0.base', '.level0.value', '.level1.base', '.level1.value']
 
     expect(getTextContents(container, atomValueSelectors)).toEqual([
       '0', // level0 base
       '0', // level0 value
       '0', // level1 base
       '0', // level1 value
-    ]);
+    ])
 
-    clickButton(container, increaseUnscopedBase);
+    clickButton(container, increaseUnscopedBase)
     expect(getTextContents(container, atomValueSelectors)).toEqual([
       '1', // level0 base
       '1', // level0 value
       '0', // level1 base
       '0', // level1 value
-    ]);
+    ])
 
-    clickButton(container, increaseScopedBase);
+    clickButton(container, increaseScopedBase)
     expect(getTextContents(container, atomValueSelectors)).toEqual([
       '1', // level0 base
       '1', // level0 value
       '1', // level1 base
       '1', // level1 value
-    ]);
-  });
+    ])
+  })
 
   /*
     base, notScoped, derived(base + notScoped)
@@ -278,46 +265,38 @@ describe('Counter', () => {
     S1[base]: derived0(base1 + notScoped0)
   */
   test('05. unscoped derived can read both scoped and unscoped atoms', () => {
-    const baseAtom = atomWithReducer(0, (v) => v + 1);
-    baseAtom.debugLabel = 'base';
-    const notScopedAtom = atomWithReducer(0, (v) => v + 1);
-    notScopedAtom.debugLabel = 'notScoped';
+    const baseAtom = atomWithReducer(0, (v) => v + 1)
+    baseAtom.debugLabel = 'base'
+    const notScopedAtom = atomWithReducer(0, (v) => v + 1)
+    notScopedAtom.debugLabel = 'notScoped'
     const derivedAtom = atom((get) => ({
       base: get(baseAtom),
       notScoped: get(notScopedAtom),
-    }));
-    derivedAtom.debugLabel = 'derived';
+    }))
+    derivedAtom.debugLabel = 'derived'
 
     function Counter({ level }: { level: string }) {
-      const increaseBase = useSetAtom(baseAtom);
-      const derived = useAtomValue(derivedAtom);
+      const increaseBase = useSetAtom(baseAtom)
+      const derived = useAtomValue(derivedAtom)
       return (
         <div>
           base:<span className={`${level} base`}>{derived.base}</span>
           not scoped:
           <span className={`${level} notScoped`}>{derived.notScoped}</span>
-          <button
-            className={`${level} setBase`}
-            type="button"
-            onClick={increaseBase}
-          >
+          <button className={`${level} setBase`} type="button" onClick={increaseBase}>
             increase
           </button>
         </div>
-      );
+      )
     }
 
     function IncreaseUnscoped() {
-      const increaseNotScoped = useSetAtom(notScopedAtom);
+      const increaseNotScoped = useSetAtom(notScopedAtom)
       return (
-        <button
-          type="button"
-          onClick={increaseNotScoped}
-          className="increaseNotScoped"
-        >
+        <button type="button" onClick={increaseNotScoped} className="increaseNotScoped">
           increase unscoped
         </button>
-      );
+      )
     }
 
     function App() {
@@ -331,45 +310,41 @@ describe('Counter', () => {
             <Counter level="level1" />
           </ScopeProvider>
         </div>
-      );
+      )
     }
-    const { container } = render(<App />);
-    const increaseUnscopedBase = '.level0.setBase';
-    const increaseScopedBase = '.level1.setBase';
-    const increaseNotScoped = '.increaseNotScoped';
-    const atomValueSelectors = [
-      '.level0.base',
-      '.level1.base',
-      '.level1.notScoped',
-    ];
+    const { container } = render(<App />)
+    const increaseUnscopedBase = '.level0.setBase'
+    const increaseScopedBase = '.level1.setBase'
+    const increaseNotScoped = '.increaseNotScoped'
+    const atomValueSelectors = ['.level0.base', '.level1.base', '.level1.notScoped']
 
     expect(getTextContents(container, atomValueSelectors)).toEqual([
       '0', // level0 base
       '0', // level1 base
       '0', // level1 notScoped
-    ]);
+    ])
 
-    clickButton(container, increaseUnscopedBase);
+    clickButton(container, increaseUnscopedBase)
     expect(getTextContents(container, atomValueSelectors)).toEqual([
       '1', // level0 base
       '0', // level1 base
       '0', // level1 notScoped
-    ]);
+    ])
 
-    clickButton(container, increaseScopedBase);
+    clickButton(container, increaseScopedBase)
     expect(getTextContents(container, atomValueSelectors)).toEqual([
       '1', // level0 base
       '1', // level1 base
       '0', // level1 notScoped
-    ]);
+    ])
 
-    clickButton(container, increaseNotScoped);
+    clickButton(container, increaseNotScoped)
     expect(getTextContents(container, atomValueSelectors)).toEqual([
       '1', // level0 base
       '1', // level1 base
       '1', // level1 notScoped
-    ]);
-  });
+    ])
+  })
 
   /*
     base, derived(base),
@@ -377,37 +352,29 @@ describe('Counter', () => {
     S1[derived]: derived1(base1)
   */
   test('06. dependencies of scoped derived are implicitly scoped', () => {
-    const baseAtom = atomWithReducer(0, (v) => v + 1);
-    baseAtom.debugLabel = 'base';
+    const baseAtom = atomWithReducer(0, (v) => v + 1)
+    baseAtom.debugLabel = 'base'
 
     const derivedAtom = atom(
       (get) => get(baseAtom),
       (_get, set) => set(baseAtom),
-    );
-    derivedAtom.debugLabel = 'derived';
+    )
+    derivedAtom.debugLabel = 'derived'
 
     function Counter({ level }: { level: string }) {
-      const increaseBase = useSetAtom(baseAtom);
-      const [derived, setDerived] = useAtom(derivedAtom);
+      const increaseBase = useSetAtom(baseAtom)
+      const [derived, setDerived] = useAtom(derivedAtom)
       return (
         <div>
           base:<span className={`${level} base`}>{derived}</span>
-          <button
-            className={`${level} setBase`}
-            type="button"
-            onClick={increaseBase}
-          >
+          <button className={`${level} setBase`} type="button" onClick={increaseBase}>
             increase base
           </button>
-          <button
-            className={`${level} setDerived`}
-            type="button"
-            onClick={setDerived}
-          >
+          <button className={`${level} setDerived`} type="button" onClick={setDerived}>
             increase derived
           </button>
         </div>
-      );
+      )
     }
 
     function App() {
@@ -420,25 +387,25 @@ describe('Counter', () => {
             <Counter level="level1" />
           </ScopeProvider>
         </div>
-      );
+      )
     }
-    const { container } = render(<App />);
-    const increaseUnscopedBase = '.level0.setBase';
-    const increaseScopedBase = '.level1.setBase';
-    const increaseScopedDerived = '.level1.setDerived';
-    const atomValueSelectors = ['.level0.base', '.level1.base'];
+    const { container } = render(<App />)
+    const increaseUnscopedBase = '.level0.setBase'
+    const increaseScopedBase = '.level1.setBase'
+    const increaseScopedDerived = '.level1.setDerived'
+    const atomValueSelectors = ['.level0.base', '.level1.base']
 
-    expect(getTextContents(container, atomValueSelectors)).toEqual(['0', '0']);
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['0', '0'])
 
-    clickButton(container, increaseUnscopedBase);
-    expect(getTextContents(container, atomValueSelectors)).toEqual(['1', '0']);
+    clickButton(container, increaseUnscopedBase)
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['1', '0'])
 
-    clickButton(container, increaseScopedBase);
-    expect(getTextContents(container, atomValueSelectors)).toEqual(['2', '0']);
+    clickButton(container, increaseScopedBase)
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['2', '0'])
 
-    clickButton(container, increaseScopedDerived);
-    expect(getTextContents(container, atomValueSelectors)).toEqual(['2', '1']);
-  });
+    clickButton(container, increaseScopedDerived)
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['2', '1'])
+  })
 
   /*
     base, derivedA(base), derivemB(base)
@@ -446,23 +413,23 @@ describe('Counter', () => {
     S1[derivedA, derivedB]: derivedA1(base1), derivedB1(base1)
   */
   test('07. scoped derived atoms can share implicitly scoped dependencies', () => {
-    const baseAtom = atomWithReducer(0, (v) => v + 1);
-    baseAtom.debugLabel = 'base';
+    const baseAtom = atomWithReducer(0, (v) => v + 1)
+    baseAtom.debugLabel = 'base'
     const derivedAtomA = atom(
       (get) => get(baseAtom),
       (_get, set) => set(baseAtom),
-    );
-    derivedAtomA.debugLabel = 'derivedAtomA';
+    )
+    derivedAtomA.debugLabel = 'derivedAtomA'
     const derivedAtomB = atom(
       (get) => get(baseAtom),
       (_get, set) => set(baseAtom),
-    );
-    derivedAtomB.debugLabel = 'derivedAtomB';
+    )
+    derivedAtomB.debugLabel = 'derivedAtomB'
 
     function Counter({ level }: { level: string }) {
-      const setBase = useSetAtom(baseAtom);
-      const [derivedA, setDerivedA] = useAtom(derivedAtomA);
-      const [derivedB, setDerivedB] = useAtom(derivedAtomB);
+      const setBase = useSetAtom(baseAtom)
+      const [derivedA, setDerivedA] = useAtom(derivedAtomA)
+      const [derivedB, setDerivedB] = useAtom(derivedAtomB)
       return (
         <div>
           base:<span className={`${level} base`}>{derivedA}</span>
@@ -470,29 +437,17 @@ describe('Counter', () => {
           <span className={`${level} derivedA`}>{derivedA}</span>
           derivedB:
           <span className={`${level} derivedB`}>{derivedB}</span>
-          <button
-            className={`${level} setBase`}
-            type="button"
-            onClick={setBase}
-          >
+          <button className={`${level} setBase`} type="button" onClick={setBase}>
             set base
           </button>
-          <button
-            className={`${level} setDerivedA`}
-            type="button"
-            onClick={setDerivedA}
-          >
+          <button className={`${level} setDerivedA`} type="button" onClick={setDerivedA}>
             set derivedA
           </button>
-          <button
-            className={`${level} setDerivedB`}
-            type="button"
-            onClick={setDerivedB}
-          >
+          <button className={`${level} setDerivedB`} type="button" onClick={setDerivedB}>
             set derivedB
           </button>
         </div>
-      );
+      )
     }
 
     function App() {
@@ -505,53 +460,49 @@ describe('Counter', () => {
             <Counter level="level1" />
           </ScopeProvider>
         </div>
-      );
+      )
     }
-    const { container } = render(<App />);
-    const increaseLevel0Base = '.level0.setBase';
-    const increaseLevel1Base = '.level1.setBase';
-    const increaseLevel1DerivedA = '.level1.setDerivedA';
-    const increaseLevel1DerivedB = '.level1.setDerivedB';
-    const atomValueSelectors = [
-      '.level0.derivedA',
-      '.level1.derivedA',
-      '.level1.derivedB',
-    ];
+    const { container } = render(<App />)
+    const increaseLevel0Base = '.level0.setBase'
+    const increaseLevel1Base = '.level1.setBase'
+    const increaseLevel1DerivedA = '.level1.setDerivedA'
+    const increaseLevel1DerivedB = '.level1.setDerivedB'
+    const atomValueSelectors = ['.level0.derivedA', '.level1.derivedA', '.level1.derivedB']
 
     expect(getTextContents(container, atomValueSelectors)).toEqual([
       '0', // level0 derivedA
       '0', // level1 derivedA
       '0', // level1 derivedB
-    ]);
+    ])
 
-    clickButton(container, increaseLevel0Base);
+    clickButton(container, increaseLevel0Base)
     expect(getTextContents(container, atomValueSelectors)).toEqual([
       '1', // level0 derivedA
       '0', // level1 derivedA
       '0', // level1 derivedB
-    ]);
+    ])
 
-    clickButton(container, increaseLevel1Base);
+    clickButton(container, increaseLevel1Base)
     expect(getTextContents(container, atomValueSelectors)).toEqual([
       '2', // level0 derivedA
       '0', // level1 derivedA
       '0', // level1 derivedB
-    ]);
+    ])
 
-    clickButton(container, increaseLevel1DerivedA);
+    clickButton(container, increaseLevel1DerivedA)
     expect(getTextContents(container, atomValueSelectors)).toEqual([
       '2', // level0 derivedA
       '1', // level1 derivedA
       '1', // level1 derivedB
-    ]);
+    ])
 
-    clickButton(container, increaseLevel1DerivedB);
+    clickButton(container, increaseLevel1DerivedB)
     expect(getTextContents(container, atomValueSelectors)).toEqual([
       '2', // level0 derivedA
       '2', // level1 derivedA
       '2', // level1 derivedB
-    ]);
-  });
+    ])
+  })
 
   /*
     base, derivedA(base), derivedB(base)
@@ -561,22 +512,18 @@ describe('Counter', () => {
     S3[base]: base3
   */
   test('08. nested scopes provide isolation for primitive atoms at every level', () => {
-    const baseAtom = atomWithReducer(0, (v) => v + 1);
+    const baseAtom = atomWithReducer(0, (v) => v + 1)
 
     function Counter({ level }: { level: string }) {
-      const [base, increaseBase] = useAtom(baseAtom);
+      const [base, increaseBase] = useAtom(baseAtom)
       return (
         <div>
           base:<span className={`${level} base`}>{base}</span>
-          <button
-            className={`${level} setBase`}
-            type="button"
-            onClick={() => increaseBase()}
-          >
+          <button className={`${level} setBase`} type="button" onClick={() => increaseBase()}>
             increase
           </button>
         </div>
-      );
+      )
     }
 
     function App() {
@@ -592,41 +539,25 @@ describe('Counter', () => {
             </ScopeProvider>
           </ScopeProvider>
         </div>
-      );
+      )
     }
-    const { container } = render(<App />);
-    const increaseUnscopedBase = '.level0.setBase';
-    const increaseScopedBase = '.level1.setBase';
-    const increaseDoubleScopedBase = '.level2.setBase';
-    const atomValueSelectors = ['.level0.base', '.level1.base', '.level2.base'];
+    const { container } = render(<App />)
+    const increaseUnscopedBase = '.level0.setBase'
+    const increaseScopedBase = '.level1.setBase'
+    const increaseDoubleScopedBase = '.level2.setBase'
+    const atomValueSelectors = ['.level0.base', '.level1.base', '.level2.base']
 
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '0',
-      '0',
-      '0',
-    ]);
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['0', '0', '0'])
 
-    clickButton(container, increaseUnscopedBase);
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '1',
-      '0',
-      '0',
-    ]);
+    clickButton(container, increaseUnscopedBase)
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['1', '0', '0'])
 
-    clickButton(container, increaseScopedBase);
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '1',
-      '1',
-      '0',
-    ]);
+    clickButton(container, increaseScopedBase)
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['1', '1', '0'])
 
-    clickButton(container, increaseDoubleScopedBase);
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '1',
-      '1',
-      '1',
-    ]);
-  });
+    clickButton(container, increaseDoubleScopedBase)
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['1', '1', '1'])
+  })
 
   /*
     baseA, baseB, baseC, derived(baseA + baseB + baseC)
@@ -636,12 +567,12 @@ describe('Counter', () => {
   */
   test('09. unscoped derived atoms in nested scoped can read and write to scoped primitive atoms at every level', async () => {
     function clickButtonGetResults(buttonSelector: string) {
-      const baseAAtom = atom(0);
-      baseAAtom.debugLabel = 'baseA';
-      const baseBAtom = atom(0);
-      baseBAtom.debugLabel = 'baseB';
-      const baseCAtom = atom(0);
-      baseCAtom.debugLabel = 'baseC';
+      const baseAAtom = atom(0)
+      baseAAtom.debugLabel = 'baseA'
+      const baseBAtom = atom(0)
+      baseBAtom.debugLabel = 'baseB'
+      const baseCAtom = atom(0)
+      baseCAtom.debugLabel = 'baseC'
       const derivedAtom = atom(
         (get) => ({
           baseA: get(baseAAtom),
@@ -649,25 +580,25 @@ describe('Counter', () => {
           baseC: get(baseCAtom),
         }),
         (get, set) => {
-          set(baseAAtom, get(baseAAtom) + 1);
-          set(baseBAtom, get(baseBAtom) + 1);
-          set(baseCAtom, get(baseCAtom) + 1);
+          set(baseAAtom, get(baseAAtom) + 1)
+          set(baseBAtom, get(baseBAtom) + 1)
+          set(baseCAtom, get(baseCAtom) + 1)
         },
-      );
-      derivedAtom.debugLabel = 'derived';
+      )
+      derivedAtom.debugLabel = 'derived'
 
       function Counter({
         level,
         baseAtom,
       }: {
-        level: string;
-        baseAtom: WritableAtom<number, [SetStateAction<number>], void>;
+        level: string
+        baseAtom: WritableAtom<number, [SetStateAction<number>], void>
       }) {
-        const setBase = useSetAtom(baseAtom);
-        const [{ baseA, baseB, baseC }, increaseAll] = useAtom(derivedAtom);
-        const valueA = useAtomValue(baseAAtom);
-        const valueB = useAtomValue(baseBAtom);
-        const valueC = useAtomValue(baseCAtom);
+        const setBase = useSetAtom(baseAtom)
+        const [{ baseA, baseB, baseC }, increaseAll] = useAtom(derivedAtom)
+        const valueA = useAtomValue(baseAAtom)
+        const valueB = useAtomValue(baseBAtom)
+        const valueC = useAtomValue(baseCAtom)
         return (
           <div>
             baseA:<span className={`${level} baseA`}>{baseA}</span>
@@ -680,7 +611,7 @@ describe('Counter', () => {
               className={`${level} increaseBase`}
               type="button"
               onClick={() => {
-                setBase((c) => c + 1);
+                setBase((c) => c + 1)
               }}
             >
               increase base
@@ -689,13 +620,13 @@ describe('Counter', () => {
               className={`${level} increaseAll`}
               type="button"
               onClick={() => {
-                increaseAll();
+                increaseAll()
               }}
             >
               increase all
             </button>
           </div>
-        );
+        )
       }
 
       function App() {
@@ -711,12 +642,12 @@ describe('Counter', () => {
               </ScopeProvider>
             </ScopeProvider>
           </div>
-        );
+        )
       }
-      const { container } = render(<App />);
-      expectAllZeroes(container);
-      clickButton(container, buttonSelector);
-      return getTextContents(container, atomValueSelectors).join('');
+      const { container } = render(<App />)
+      expectAllZeroes(container)
+      clickButton(container, buttonSelector)
+      return getTextContents(container, atomValueSelectors).join('')
     }
     function expectAllZeroes(container: HTMLElement) {
       expect(getTextContents(container, atomValueSelectors).join('')).toEqual(
@@ -743,7 +674,7 @@ describe('Counter', () => {
           '0', // valueB1
           '0', // valueC2
         ].join(''),
-      );
+      )
     }
     const atomValueSelectors = [
       '.level0.baseA',
@@ -764,13 +695,13 @@ describe('Counter', () => {
       '.level2.valueA',
       '.level2.valueB',
       '.level2.valueC',
-    ];
-    const increaseLevel0BaseA = '.level0.increaseBase';
-    const increaseLevel1BaseB = '.level1.increaseBase';
-    const increaseLevel2BaseC = '.level2.increaseBase';
-    const increaseLevel0All = '.level0.increaseAll';
-    const increaseLevel1All = '.level1.increaseAll';
-    const increaseLevel2All = '.level2.increaseAll';
+    ]
+    const increaseLevel0BaseA = '.level0.increaseBase'
+    const increaseLevel1BaseB = '.level1.increaseBase'
+    const increaseLevel2BaseC = '.level2.increaseBase'
+    const increaseLevel0All = '.level0.increaseAll'
+    const increaseLevel1All = '.level1.increaseAll'
+    const increaseLevel2All = '.level2.increaseAll'
 
     expect(clickButtonGetResults(increaseLevel0BaseA)).toEqual(
       [
@@ -796,7 +727,7 @@ describe('Counter', () => {
         '0', // valueB1
         '0', // valueC2
       ].join(''),
-    );
+    )
 
     expect(clickButtonGetResults(increaseLevel1BaseB)).toEqual(
       [
@@ -822,7 +753,7 @@ describe('Counter', () => {
         '1', // valueB1
         '0', // valueC2
       ].join(''),
-    );
+    )
 
     expect(clickButtonGetResults(increaseLevel2BaseC)).toEqual(
       [
@@ -848,7 +779,7 @@ describe('Counter', () => {
         '0', // valueB1
         '1', // valueC2
       ].join(''),
-    );
+    )
 
     expect(clickButtonGetResults(increaseLevel0All)).toEqual(
       [
@@ -874,7 +805,7 @@ describe('Counter', () => {
         '0', // valueB1
         '0', // valueC2
       ].join(''),
-    );
+    )
 
     expect(clickButtonGetResults(increaseLevel1All)).toEqual(
       [
@@ -900,7 +831,7 @@ describe('Counter', () => {
         '1', // valueB1
         '0', // valueC2
       ].join(''),
-    );
+    )
 
     expect(clickButtonGetResults(increaseLevel2All)).toEqual(
       [
@@ -926,8 +857,8 @@ describe('Counter', () => {
         '1', // valueB1
         '1', // valueC2
       ].join(''),
-    );
-  });
+    )
+  })
 
   /*
     baseA, baseB, derived(baseA + baseB)
@@ -935,11 +866,11 @@ describe('Counter', () => {
     S2[baseB]: derived1(baseA1 + baseB2)
   */
   test('10. inherited scoped derived atoms can read and write to scoped primitive atoms at every nested level', () => {
-    const baseAAtom = atomWithReducer(0, (v) => v + 1);
-    baseAAtom.debugLabel = 'baseA';
+    const baseAAtom = atomWithReducer(0, (v) => v + 1)
+    baseAAtom.debugLabel = 'baseA'
 
-    const baseBAtom = atomWithReducer(0, (v) => v + 1);
-    baseBAtom.debugLabel = 'baseB';
+    const baseBAtom = atomWithReducer(0, (v) => v + 1)
+    baseBAtom.debugLabel = 'baseB'
 
     const derivedAtom = atom(
       (get) => ({
@@ -947,27 +878,23 @@ describe('Counter', () => {
         baseB: get(baseBAtom),
       }),
       (_get, set) => {
-        set(baseAAtom);
-        set(baseBAtom);
+        set(baseAAtom)
+        set(baseBAtom)
       },
-    );
-    derivedAtom.debugLabel = 'derived';
+    )
+    derivedAtom.debugLabel = 'derived'
 
     function Counter({ level }: { level: string }) {
-      const [{ baseA, baseB }, increaseAll] = useAtom(derivedAtom);
+      const [{ baseA, baseB }, increaseAll] = useAtom(derivedAtom)
       return (
         <div>
           baseA:<span className={`${level} baseA`}>{baseA}</span>
           baseB:<span className={`${level} baseB`}>{baseB}</span>
-          <button
-            className={`${level} increaseAll`}
-            type="button"
-            onClick={increaseAll}
-          >
+          <button className={`${level} increaseAll`} type="button" onClick={increaseAll}>
             increase all
           </button>
         </div>
-      );
+      )
     }
 
     function App() {
@@ -982,18 +909,13 @@ describe('Counter', () => {
             </ScopeProvider>
           </ScopeProvider>
         </div>
-      );
+      )
     }
-    const { container } = render(<App />);
+    const { container } = render(<App />)
 
-    const increaseLevel1All = '.level1.increaseAll';
-    const increaseLevel2All = '.level2.increaseAll';
-    const atomValueSelectors = [
-      '.level1.baseA',
-      '.level1.baseB',
-      '.level2.baseA',
-      '.level2.baseB',
-    ];
+    const increaseLevel1All = '.level1.increaseAll'
+    const increaseLevel2All = '.level2.increaseAll'
+    const atomValueSelectors = ['.level1.baseA', '.level1.baseB', '.level2.baseA', '.level2.baseB']
 
     /*
       baseA, baseB, derived(baseA + baseB)
@@ -1005,32 +927,32 @@ describe('Counter', () => {
       '0', // level1 baseB1
       '0', // level2 baseA1
       '0', // level2 baseB2
-    ]);
+    ])
 
     /*
       baseA, baseB, derived(baseA + baseB)
       S1[baseB, derived]: derived1(baseA1 + baseB1)
       S2[baseB]: derived1(baseA1 + baseB2)
     */
-    clickButton(container, increaseLevel1All);
+    clickButton(container, increaseLevel1All)
     expect(getTextContents(container, atomValueSelectors)).toEqual([
       '1', // level1 baseA1
       '1', // level1 baseB1
       '1', // level2 baseA1
       '0', // level2 baseB2
-    ]);
+    ])
 
     /*
       baseA, baseB, derived(baseA + baseB)
       S1[baseB, derived]: derived1(baseA1 + baseB1)
       S2[baseB]: derived1(baseA1 + baseB2)
     */
-    clickButton(container, increaseLevel2All);
+    clickButton(container, increaseLevel2All)
     expect(getTextContents(container, atomValueSelectors)).toEqual([
       '2', // level1 baseA1
       '1', // level1 baseB1
       '2', // level2 baseA1
       '1', // level2 baseB2
-    ]);
-  });
-});
+    ])
+  })
+})

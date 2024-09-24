@@ -16,15 +16,15 @@ https://jotai.org/docs/integrations/scope
 Taking the following setting in mind:
 
 ```javascript
-const base = atom(0);
-const derived1 = atom((get) => get(base));
-const derived2 = atom((get) => get(base));
+const base = atom(0)
+const derived1 = atom((get) => get(base))
+const derived2 = atom((get) => get(base))
 
 const Component = () => {
-  useAtom(base);
-  useAtom(derived1);
-  useAtom(derived2);
-};
+  useAtom(base)
+  useAtom(derived1)
+  useAtom(derived2)
+}
 ```
 
 ### Example1: base and derived1 are scoped

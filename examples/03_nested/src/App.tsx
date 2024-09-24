@@ -1,22 +1,22 @@
-import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai';
-import { ScopeProvider } from 'jotai-scope';
-import { atomWithReducer } from 'jotai/vanilla/utils';
+import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai'
+import { ScopeProvider } from 'jotai-scope'
+import { atomWithReducer } from 'jotai/vanilla/utils'
 
-const baseAtom1 = atomWithReducer(0, (v) => v + 1);
-const baseAtom2 = atomWithReducer(0, (v) => v + 1);
-const baseAtom = atom(0);
+const baseAtom1 = atomWithReducer(0, (v) => v + 1)
+const baseAtom2 = atomWithReducer(0, (v) => v + 1)
+const baseAtom = atom(0)
 
 const writeProxyAtom = atom('unused', (get, set) => {
-  set(baseAtom, get(baseAtom) + 1);
-  set(baseAtom1);
-  set(baseAtom2);
-});
+  set(baseAtom, get(baseAtom) + 1)
+  set(baseAtom1)
+  set(baseAtom2)
+})
 
 function Counter({ counterClass }: { counterClass: string }) {
-  const [base1, increaseBase1] = useAtom(baseAtom1);
-  const [base2, increaseBase2] = useAtom(baseAtom2);
-  const base = useAtomValue(baseAtom);
-  const increaseAll = useSetAtom(writeProxyAtom);
+  const [base1, increaseBase1] = useAtom(baseAtom1)
+  const [base2, increaseBase2] = useAtom(baseAtom2)
+  const base = useAtomValue(baseAtom)
+  const increaseAll = useSetAtom(writeProxyAtom)
   return (
     <>
       <div>
@@ -42,15 +42,11 @@ function Counter({ counterClass }: { counterClass: string }) {
       <div>
         base: <span className={`${counterClass} base`}>{base}</span>
       </div>
-      <button
-        className={`${counterClass} setAll`}
-        type="button"
-        onClick={() => increaseAll()}
-      >
+      <button className={`${counterClass} setAll`} type="button" onClick={() => increaseAll()}>
         increase all three atoms
       </button>
     </>
-  );
+  )
 }
 
 function App() {
@@ -63,16 +59,13 @@ function App() {
       <ScopeProvider atoms={[baseAtom1]}>
         <Counter counterClass="layer1" />
         <h1>Layer 2: Scope base 2</h1>
-        <p>
-          base 1 should be shared between layer 1 and layer 2, base should be
-          globally shared
-        </p>
+        <p>base 1 should be shared between layer 1 and layer 2, base should be globally shared</p>
         <ScopeProvider atoms={[baseAtom2]}>
           <Counter counterClass="layer2" />
         </ScopeProvider>
       </ScopeProvider>
     </div>
-  );
+  )
 }
 
-export default App;
+export default App

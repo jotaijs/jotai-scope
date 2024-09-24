@@ -1,35 +1,31 @@
-import type { FC } from 'react';
-import { render } from '@testing-library/react';
-import { atom, useAtom, useAtomValue } from 'jotai';
-import { atomWithReducer } from 'jotai/vanilla/utils';
-import { clickButton, getTextContents } from '../utils';
-import { ScopeProvider } from '../../src/index';
+import type { FC } from 'react'
+import { render } from '@testing-library/react'
+import { atom, useAtom, useAtomValue } from 'jotai'
+import { atomWithReducer } from 'jotai/vanilla/utils'
+import { clickButton, getTextContents } from '../utils'
+import { ScopeProvider } from '../../src/index'
 
 function renderWithOrder(level1: 'BD' | 'DB', level2: 'BD' | 'DB') {
-  const baseAtom = atomWithReducer(0, (v) => v + 1);
-  baseAtom.debugLabel = 'baseAtom';
+  const baseAtom = atomWithReducer(0, (v) => v + 1)
+  baseAtom.debugLabel = 'baseAtom'
   baseAtom.toString = function toString() {
-    return this.debugLabel ?? 'Unknown Atom';
-  };
+    return this.debugLabel ?? 'Unknown Atom'
+  }
 
-  const derivedAtom = atom((get) => get(baseAtom));
-  derivedAtom.debugLabel = 'derivedAtom';
+  const derivedAtom = atom((get) => get(baseAtom))
+  derivedAtom.debugLabel = 'derivedAtom'
   derivedAtom.toString = function toString() {
-    return this.debugLabel ?? 'Unknown Atom';
-  };
+    return this.debugLabel ?? 'Unknown Atom'
+  }
 
   function BaseThenDerived({ level }: { level: string }) {
-    const [base, increaseBase] = useAtom(baseAtom);
-    const derived = useAtomValue(derivedAtom);
+    const [base, increaseBase] = useAtom(baseAtom)
+    const derived = useAtomValue(derivedAtom)
     return (
       <>
         <div>
           base: <span className={`${level} base`}>{base}</span>
-          <button
-            type="button"
-            className={`${level} setBase`}
-            onClick={increaseBase}
-          >
+          <button type="button" className={`${level} setBase`} onClick={increaseBase}>
             +
           </button>
         </div>
@@ -37,21 +33,17 @@ function renderWithOrder(level1: 'BD' | 'DB', level2: 'BD' | 'DB') {
           derived:<span className={`${level} derived`}>{derived}</span>
         </div>
       </>
-    );
+    )
   }
 
   function DerivedThenBase({ level }: { level: string }) {
-    const derived = useAtomValue(derivedAtom);
-    const [base, increaseBase] = useAtom(baseAtom);
+    const derived = useAtomValue(derivedAtom)
+    const [base, increaseBase] = useAtom(baseAtom)
     return (
       <>
         <div>
           base:<span className={`${level} base`}>{base}</span>
-          <button
-            type="button"
-            className={`${level} setBase`}
-            onClick={increaseBase}
-          >
+          <button type="button" className={`${level} setBase`} onClick={increaseBase}>
             +
           </button>
         </div>
@@ -59,13 +51,13 @@ function renderWithOrder(level1: 'BD' | 'DB', level2: 'BD' | 'DB') {
           derived:<span className={`${level} derived`}>{derived}</span>
         </div>
       </>
-    );
+    )
   }
   function App(props: {
-    Level1Counter: FC<{ level: string }>;
-    Level2Counter: FC<{ level: string }>;
+    Level1Counter: FC<{ level: string }>
+    Level2Counter: FC<{ level: string }>
   }) {
-    const { Level1Counter, Level2Counter } = props;
+    const { Level1Counter, Level2Counter } = props
     return (
       <div>
         <h1>Layer 1: Scope derived</h1>
@@ -79,17 +71,12 @@ function renderWithOrder(level1: 'BD' | 'DB', level2: 'BD' | 'DB') {
           </ScopeProvider>
         </ScopeProvider>
       </div>
-    );
+    )
   }
   function getCounter(order: 'BD' | 'DB') {
-    return order === 'BD' ? BaseThenDerived : DerivedThenBase;
+    return order === 'BD' ? BaseThenDerived : DerivedThenBase
   }
-  return render(
-    <App
-      Level1Counter={getCounter(level1)}
-      Level2Counter={getCounter(level2)}
-    />,
-  );
+  return render(<App Level1Counter={getCounter(level1)} Level2Counter={getCounter(level2)} />)
 }
 
 /*
@@ -103,20 +90,15 @@ describe('Implicit parent does not affect unscoped', () => {
     ['BD', 'DB'],
     ['DB', 'BD'],
     ['DB', 'DB'],
-  ] as const;
+  ] as const
   test.each(cases)('level 1: %p and level 2: %p', (level1, level2) => {
-    const { container } = renderWithOrder(level1, level2);
-    const increaseLayer2Base = '.layer2.setBase';
-    const selectors = [
-      '.layer1.base',
-      '.layer1.derived',
-      '.layer2.base',
-      '.layer2.derived',
-    ];
+    const { container } = renderWithOrder(level1, level2)
+    const increaseLayer2Base = '.layer2.setBase'
+    const selectors = ['.layer1.base', '.layer1.derived', '.layer2.base', '.layer2.derived']
 
-    expect(getTextContents(container, selectors).join('')).toEqual('0000');
+    expect(getTextContents(container, selectors).join('')).toEqual('0000')
 
-    clickButton(container, increaseLayer2Base);
-    expect(getTextContents(container, selectors).join('')).toEqual('1010');
-  });
-});
+    clickButton(container, increaseLayer2Base)
+    expect(getTextContents(container, selectors).join('')).toEqual('1010')
+  })
+})
