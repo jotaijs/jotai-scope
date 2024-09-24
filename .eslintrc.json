@@ -1,11 +1,7 @@
 {
   "parser": "@typescript-eslint/parser",
   "plugins": ["@typescript-eslint", "prettier"],
-  "extends": [
-    "plugin:@typescript-eslint/recommended",
-    "airbnb",
-    "plugin:prettier/recommended"
-  ],
+  "extends": ["plugin:@typescript-eslint/recommended", "airbnb", "plugin:prettier/recommended"],
   "env": {
     "browser": true
   },
@@ -29,15 +25,9 @@
     "@typescript-eslint/explicit-function-return-type": "off",
     "@typescript-eslint/explicit-module-boundary-types": "off",
     "@typescript-eslint/no-explicit-any": "off",
-    "@typescript-eslint/no-unused-vars": [
-      "error",
-      { "argsIgnorePattern": "^_" }
-    ],
+    "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
     "react/button-has-type": "off",
-    "react/jsx-filename-extension": [
-      "error",
-      { "extensions": [".js", ".tsx"] }
-    ],
+    "react/jsx-filename-extension": ["error", { "extensions": [".js", ".tsx"] }],
     "react/prop-types": "off",
     "react/jsx-one-expression-per-line": "off",
     "react/jsx-no-useless-fragment": "off",
@@ -55,10 +45,7 @@
     "no-unused-vars": "off",
     "no-redeclare": "off",
     "camelcase": ["error", { "allow": ["^INTERNAL_", "^unstable_"] }],
-    "react/function-component-definition": [
-      "error",
-      { "namedComponents": "function-declaration" }
-    ],
+    "react/function-component-definition": ["error", { "namedComponents": "function-declaration" }],
     "react/no-unescaped-entities": "off",
     "react/no-array-index-key": "off",
     "react/require-default-props": "off",
@@ -73,10 +60,7 @@
         "jest": true
       },
       "rules": {
-        "import/no-extraneous-dependencies": [
-          "error",
-          { "devDependencies": true }
-        ]
+        "import/no-extraneous-dependencies": ["error", { "devDependencies": true }]
       }
     },
     {

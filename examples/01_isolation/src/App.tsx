@@ -1,12 +1,12 @@
-import { atom, useAtom } from 'jotai';
-import { createIsolation } from 'jotai-scope';
+import { atom, useAtom } from 'jotai'
+import { createIsolation } from 'jotai-scope'
 
-const { Provider: MyProvider, useAtom: useMyAtom } = createIsolation();
+const { Provider: MyProvider, useAtom: useMyAtom } = createIsolation()
 
-const countAtom = atom(0);
+const countAtom = atom(0)
 
 function Counter() {
-  const [count, setCount] = useAtom(countAtom);
+  const [count, setCount] = useAtom(countAtom)
   return (
     <div>
       <span>count: {count}</span>
@@ -14,11 +14,11 @@ function Counter() {
         increment
       </button>
     </div>
-  );
+  )
 }
 
 function MyCounter() {
-  const [count, setCount] = useMyAtom(countAtom);
+  const [count, setCount] = useMyAtom(countAtom)
   return (
     <div>
       <span>scoped count: {count}</span>
@@ -26,7 +26,7 @@ function MyCounter() {
         increment
       </button>
     </div>
-  );
+  )
 }
 
 function App() {
@@ -43,7 +43,7 @@ function App() {
         <MyCounter />
       </MyProvider>
     </div>
-  );
+  )
 }
 
-export default App;
+export default App

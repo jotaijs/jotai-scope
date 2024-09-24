@@ -1,31 +1,23 @@
-import { fireEvent } from '@testing-library/react';
+import { fireEvent } from '@testing-library/react'
 
-function getElements(
-  container: HTMLElement,
-  querySelectors: string[],
-): Element[] {
+function getElements(container: HTMLElement, querySelectors: string[]): Element[] {
   return querySelectors.map((querySelector) => {
-    const element = container.querySelector(querySelector);
+    const element = container.querySelector(querySelector)
     if (!element) {
-      throw new Error(`Element not found: ${querySelector}`);
+      throw new Error(`Element not found: ${querySelector}`)
     }
-    return element;
-  });
+    return element
+  })
 }
 
-export function getTextContents(
-  container: HTMLElement,
-  selectors: string[],
-): string[] {
-  return getElements(container, selectors).map(
-    (element) => element.textContent!,
-  );
+export function getTextContents(container: HTMLElement, selectors: string[]): string[] {
+  return getElements(container, selectors).map((element) => element.textContent!)
 }
 
 export function clickButton(container: HTMLElement, querySelector: string) {
-  const button = container.querySelector(querySelector);
+  const button = container.querySelector(querySelector)
   if (!button) {
-    throw new Error(`Button not found: ${querySelector}`);
+    throw new Error(`Button not found: ${querySelector}`)
   }
-  fireEvent.click(button);
+  fireEvent.click(button)
 }

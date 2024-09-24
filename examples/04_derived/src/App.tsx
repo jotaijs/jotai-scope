@@ -1,25 +1,25 @@
-import { atom, useAtom } from 'jotai';
-import { ScopeProvider } from 'jotai-scope';
+import { atom, useAtom } from 'jotai'
+import { ScopeProvider } from 'jotai-scope'
 
-const baseAtom = atom(0);
+const baseAtom = atom(0)
 const derivedAtom1 = atom(
   (get) => get(baseAtom),
   (get, set) => {
-    set(baseAtom, get(baseAtom) + 1);
+    set(baseAtom, get(baseAtom) + 1)
   },
-);
+)
 
 const derivedAtom2 = atom(
   (get) => get(baseAtom),
   (get, set) => {
-    set(baseAtom, get(baseAtom) + 1);
+    set(baseAtom, get(baseAtom) + 1)
   },
-);
+)
 
 function Counter({ counterClass }: { counterClass: string }) {
-  const [base, setBase] = useAtom(baseAtom);
-  const [derived1, setDerived1] = useAtom(derivedAtom1);
-  const [derived2, setDerived2] = useAtom(derivedAtom2);
+  const [base, setBase] = useAtom(baseAtom)
+  const [derived1, setDerived1] = useAtom(derivedAtom1)
+  const [derived2, setDerived2] = useAtom(derivedAtom2)
   return (
     <>
       <div>
@@ -53,7 +53,7 @@ function Counter({ counterClass }: { counterClass: string }) {
         </button>
       </div>
     </>
-  );
+  )
 }
 
 function App() {
@@ -74,16 +74,13 @@ function App() {
       <ScopeProvider atoms={[derivedAtom1]}>
         <Counter counterClass="layer1" />
         <h2>Layer2: Base and derived2 are scoped</h2>
-        <p>
-          derived1 should use layer1&apos;s atom, base and derived2 are layer 2
-          scoped
-        </p>
+        <p>derived1 should use layer1&apos;s atom, base and derived2 are layer 2 scoped</p>
         <ScopeProvider atoms={[baseAtom, derivedAtom2]}>
           <Counter counterClass="layer2" />
         </ScopeProvider>
       </ScopeProvider>
     </div>
-  );
+  )
 }
 
-export default App;
+export default App

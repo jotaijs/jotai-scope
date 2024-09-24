@@ -1,7 +1,7 @@
-import { createIsolation } from '../../src/index';
+import { createIsolation } from '../../src/index'
 
 describe('basic spec', () => {
   it('should export functions', () => {
-    expect(createIsolation).toBeDefined();
-  });
-});
+    expect(createIsolation).toBeDefined()
+  })
+})

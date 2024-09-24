@@ -1,15 +1,15 @@
-import { atom, useAtom, useAtomValue } from 'jotai';
-import { ScopeProvider } from 'jotai-scope';
-import { atomWithReducer } from 'jotai/vanilla/utils';
-import { PropsWithChildren } from 'react';
+import { atom, useAtom, useAtomValue } from 'jotai'
+import { ScopeProvider } from 'jotai-scope'
+import { atomWithReducer } from 'jotai/vanilla/utils'
+import { PropsWithChildren } from 'react'
 
-const baseAtom1 = atomWithReducer(0, (v) => v + 1);
-const baseAtom2 = atomWithReducer(0, (v) => v + 1);
-const shouldHaveScopeAtom = atom(true);
+const baseAtom1 = atomWithReducer(0, (v) => v + 1)
+const baseAtom2 = atomWithReducer(0, (v) => v + 1)
+const shouldHaveScopeAtom = atom(true)
 
 function Counter({ counterClass }: { counterClass: string }) {
-  const [base1, increaseBase1] = useAtom(baseAtom1);
-  const [base2, increaseBase2] = useAtom(baseAtom2);
+  const [base1, increaseBase1] = useAtom(baseAtom1)
+  const [base2, increaseBase2] = useAtom(baseAtom2)
   return (
     <>
       <div>
@@ -33,29 +33,21 @@ function Counter({ counterClass }: { counterClass: string }) {
         </button>
       </div>
     </>
-  );
+  )
 }
 
 function Wrapper({ children }: PropsWithChildren) {
-  const shouldHaveScope = useAtomValue(shouldHaveScopeAtom);
-  return shouldHaveScope ? (
-    <ScopeProvider atoms={[baseAtom2]}>{children}</ScopeProvider>
-  ) : (
-    children
-  );
+  const shouldHaveScope = useAtomValue(shouldHaveScopeAtom)
+  return shouldHaveScope ? <ScopeProvider atoms={[baseAtom2]}>{children}</ScopeProvider> : children
 }
 
 function ScopeButton() {
-  const [shouldHaveScope, setShouldHaveScope] = useAtom(shouldHaveScopeAtom);
+  const [shouldHaveScope, setShouldHaveScope] = useAtom(shouldHaveScopeAtom)
   return (
-    <button
-      id="toggleScope"
-      type="button"
-      onClick={() => setShouldHaveScope((prev) => !prev)}
-    >
+    <button id="toggleScope" type="button" onClick={() => setShouldHaveScope((prev) => !prev)}>
       {shouldHaveScope ? 'Disable' : 'Enable'} Scope
     </button>
-  );
+  )
 }
 
 function App() {
@@ -69,7 +61,7 @@ function App() {
       </Wrapper>
       <ScopeButton />
     </div>
-  );
+  )
 }
 
-export default App;
+export default App

@@ -1,13 +1,13 @@
-import type { Atom, WritableAtom, getDefaultStore } from 'jotai';
-import { AtomFamily } from 'jotai/vanilla/utils/atomFamily';
+import type { Atom, WritableAtom, getDefaultStore } from 'jotai'
+import { AtomFamily } from 'jotai/vanilla/utils/atomFamily'
 
-export type AnyAtom = Atom<unknown> | WritableAtom<unknown, unknown[], unknown>;
+export type AnyAtom = Atom<unknown> | WritableAtom<unknown, unknown[], unknown>
 
-export type AnyAtomFamily = AtomFamily<any, AnyAtom>;
+export type AnyAtomFamily = AtomFamily<any, AnyAtom>
 
-export type AnyWritableAtom = WritableAtom<unknown, unknown[], unknown>;
+export type AnyWritableAtom = WritableAtom<unknown, unknown[], unknown>
 
-export type Store = ReturnType<typeof getDefaultStore>;
+export type Store = ReturnType<typeof getDefaultStore>
 
 export type Scope = {
   /**
@@ -16,12 +16,12 @@ export type Scope = {
    * @param implicitScope the atom is implicitly scoped in the provided scope
    * @returns the scoped atom and the scope of the atom
    */
-  getAtom: <T extends AnyAtom>(anAtom: T, implicitScope?: Scope) => [T, Scope?];
+  getAtom: <T extends AnyAtom>(anAtom: T, implicitScope?: Scope) => [T, Scope?]
 
   /**
    * Cleans up the scope
    */
-  cleanup: () => void;
+  cleanup: () => void
 
   /**
    * @modifies the atom's write function for atoms that can hold a value
@@ -31,15 +31,15 @@ export type Scope = {
     anAtom: T,
     originalAtom: T,
     implicitScope?: Scope,
-  ) => (() => void) | undefined;
+  ) => (() => void) | undefined
 
   /**
    * @debug
    */
-  name?: string;
+  name?: string
 
   /**
    * @debug
    */
-  toString?: () => string;
-};
+  toString?: () => string
+}
