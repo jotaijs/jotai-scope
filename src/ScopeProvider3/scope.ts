@@ -37,6 +37,9 @@ export function createScope(
   /** set of cleanup functions */
   const cleanupSet = new Set<() => void>()
 
+  /** map of scoped atoms to their atomState states */
+  const atomStateMap = new Map<AnyAtom, WithScope<AtomState>>()
+
   function cleanup() {
     for (const c of cleanupSet) {
       c()
@@ -69,100 +72,99 @@ export function createScope(
     return a
   }
 
-  const store: NamedStore = baseStore.unstable_derive((baseGetAtomState) => {
-    /** map of scoped atoms to their atomState states */
-    const scopedAtomStateMap = new WeakMap<AnyAtom, WithScope<AtomState>>()
+  const store: NamedStore = baseStore.unstable_derive(
+    (baseGetAtomState, _baseReadTrap, _baseWriteTrap, ...args) => {
+      /**
+       * Sets up observers for when dependencies are added or removed on `d`
+       * @modifies {ProxyMap<AnyAtom, number>} atomState.d
+       * @modifies {Set<() => void>} atomState.l
+       *
+       * a, b, C(a + b)
+       *
+       * S0[ ]: a0, b0, C0(a0 + b0) <-- unscoped
+       * S1[b]: a0, b1, C0(a0 + b1) <-- isConsumer
+       * S2[C]: a0, b0, C2(a2 + b2) <-- isExplicit
+       * S3[ ]: a0, b0, C2(a2 + b2) <-- isInherited
+       * S4[C]: a0, b0, C2(a4 + b4) <-- isExplicit
+       * S5[b]: a0, b5, C2(a4 + b5) <-- isConsumer
+       *
+       * atomState C {
+       *   d: Map(2) { a => 1, b => 1 }
+       *   v: a + b
+       *   m: {}
+       * }
+       *
+       */
 
-    /**
-     * Sets up observers for when dependencies are added or removed on `d`
-     * @modifies {ProxyMap<AnyAtom, number>} atomState.d
-     * @modifies {Set<() => void>} atomState.l
-     *
-     * a, b, C(a + b)
-     *
-     * S0[ ]: a0, b0, C0(a0 + b0) <-- unscoped
-     * S1[b]: a0, b1, C0(a0 + b1) <-- isConsumer
-     * S2[C]: a0, b0, C2(a2 + b2) <-- isExplicit
-     * S3[ ]: a0, b0, C2(a2 + b2) <-- isInherited
-     * S4[C]: a0, b0, C2(a4 + b4) <-- isExplicit
-     * S5[b]: a0, b5, C2(a4 + b5) <-- isConsumer
-     *
-     * atomState C {
-     *   d: Map(2) { a => 1, b => 1 }
-     *   v: a + b
-     *   m: {}
-     * }
-     *
-     */
-
-    function getAtomState<Value>(atom: WithOrigin<Atom<Value>>): AtomState<Value> {
-      // explicit atom are always scoped, return their scoped atomState
-      if (explicit.has(atom)) {
-        return emplace(atom, scopedAtomStateMap, () =>
-          Object.assign(createAtomState<Value, WithScope>({ x: true })),
-        )
-      }
-      // inherited implicit atoms are cloned and given `o` property to reference the original atom
-      // if the original atom is explicitly scoped, return their original scoped atomState
-      if (explicit.has(atom.o!)) {
-        return emplace(atom.o!, scopedAtomStateMap, () =>
-          Object.assign(createAtomState<Value, WithScope>({ x: true })),
-        )
-      }
-      // implicit atoms are cloned, return their scoped atomState
-      if (implicit.has(atom)) {
-        return emplace(atom, scopedAtomStateMap, createAtomState<Value>)
-      }
-      /** inherited of explicit, implicit, or unscoped */
-      const inheritedAtomState: WithScope<AtomState<Value>> = baseGetAtomState(atom)!
-      if (inheritedAtomState.x) {
-        // inherited explicit
+      function getAtomState<Value>(atom: WithOrigin<Atom<Value>>): AtomState<Value> {
+        // explicit atom are always scoped, return their scoped atomState
+        if (explicit.has(atom)) {
+          return emplace(atom, atomStateMap, () =>
+            Object.assign(createAtomState<Value, WithScope>({ x: true })),
+          )
+        }
+        // inherited implicit atoms are cloned and given `o` property to reference the original atom
+        // if the original atom is explicitly scoped, return their original scoped atomState
+        if (explicit.has(atom.o!)) {
+          return emplace(atom.o!, atomStateMap, () =>
+            Object.assign(createAtomState<Value, WithScope>({ x: true })),
+          )
+        }
+        // implicit atoms are cloned, return their scoped atomState
+        if (implicit.has(atom)) {
+          return emplace(atom, atomStateMap, createAtomState<Value>)
+        }
+        /** inherited of explicit, implicit, or unscoped */
+        const inheritedAtomState: WithScope<AtomState<Value>> = baseGetAtomState(atom)!
+        if (inheritedAtomState.x) {
+          // inherited explicit
+          return inheritedAtomState
+        }
+        if (consumer.has(atom)) {
+          // consumer
+          return emplace(atom, atomStateMap, createAtomState<Value>)
+        }
+        // inherited implicit or unscoped
         return inheritedAtomState
       }
-      if (consumer.has(atom)) {
-        // consumer
-        return emplace(atom, scopedAtomStateMap, createAtomState<Value>)
-      }
-      // inherited implicit or unscoped
-      return inheritedAtomState
-    }
 
-    function readAtomTrap<Value>(
-      atom: Atom<Value>,
-      ...[getter, options]: Parameters<Atom<Value>['read']>
-    ) {
-      consumer.delete(atom)
-      function getterTrap<Value>(a: Atom<Value>) {
-        if (!explicit.has(atom) && (explicit.has(a) || consumer.has(a))) {
-          consumer.add(atom)
-        }
-        return getter(resolveAtom(atom, a))
-      }
-      return atom.read(getterTrap, options)
-    }
-
-    function writeAtomTrap<Value, Args extends unknown[], Result>(
-      atom: WritableAtom<Value, Args, Result>,
-      ...[getter, setter, ...args]: Parameters<WritableAtom<Value, Args, Result>['write']>
-    ) {
-      function getterTrap<Value>(a: Atom<Value>) {
-        return getter(resolveAtom(atom, a))
-      }
-      function setterTrap<Value, Args extends unknown[], Result>(
-        a: WritableAtom<Value, Args, Result>,
-        ...args: Args
+      function readAtomTrap<Value>(
+        atom: Atom<Value>,
+        ...[getter, options]: Parameters<Atom<Value>['read']>
       ) {
-        return setter(resolveAtom(atom, a), ...args)
+        consumer.delete(atom)
+        function getterTrap<Value>(a: Atom<Value>) {
+          if (!explicit.has(atom) && (explicit.has(a) || consumer.has(a))) {
+            consumer.add(atom)
+          }
+          return getter(resolveAtom(atom, a))
+        }
+        return atom.read(getterTrap, options)
       }
-      return atom.write(getterTrap, setterTrap, ...args)
-    }
-    return [getAtomState, readAtomTrap, writeAtomTrap]
-  })
+
+      function writeAtomTrap<Value, Args extends unknown[], Result>(
+        atom: WritableAtom<Value, Args, Result>,
+        ...[getter, setter, ...args]: Parameters<WritableAtom<Value, Args, Result>['write']>
+      ) {
+        function getterTrap<Value>(a: Atom<Value>) {
+          return getter(resolveAtom(atom, a))
+        }
+        function setterTrap<Value, Args extends unknown[], Result>(
+          a: WritableAtom<Value, Args, Result>,
+          ...args: Args
+        ) {
+          return setter(resolveAtom(atom, a), ...args)
+        }
+        return atom.write(getterTrap, setterTrap, ...args)
+      }
+      return [getAtomState, readAtomTrap, writeAtomTrap, ...args]
+    },
+  )
   if (debugName && process.env.NODE_ENV !== 'production') {
-    store.name = `store:${debugName}`
+    store.name = debugName
   }
 
-  return { store, cleanup }
+  return { store, cleanup, atomStateMap, explicit, implicit, implicitMap, consumer }
 }
 
 function cloneAtom<T extends Atom<unknown>>(atom: T): T {

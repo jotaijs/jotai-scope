@@ -7,6 +7,8 @@ export type NamedStore = Store & { name?: string }
 
 export type AnyAtom = Atom<unknown> | WritableAtom<unknown, unknown[], unknown>
 
+export type AnyWritableAtom = WritableAtom<unknown, unknown[], unknown>
+
 export type AnyAtomFamily = AtomFamily<any, AnyAtom>
 
 /* =================== Stolen from jotai/store.ts ================== */

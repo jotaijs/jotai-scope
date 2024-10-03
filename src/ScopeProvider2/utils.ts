@@ -25,18 +25,12 @@ type SetLike<T> = {
  */
 export function emplace<R, T extends R, U, V extends U>(
   key: T,
-  map: MapLike<R, U>,
+  map: MapLike<R, U> | SetLike<R>,
   callback: (key: T) => V,
 ): V
-export function emplace<R, T extends R, U>(key: T, set: SetLike<R>, callback: (key: T) => U): U
-export function emplace<R extends WeakKey, T extends R, U>(
-  key: T,
-  map: WeakMap<R, U>,
-  callback: (key: T) => U,
-): U
 export function emplace<R extends WeakKey, T extends R, U, V extends U>(
   key: T,
-  set: WeakSet<R>,
+  map: WeakMap<R, U> | WeakSet<R>,
   callback: (key: T) => V,
 ): V
 export function emplace(key: any, collection: any, callback: (key: any) => any) {

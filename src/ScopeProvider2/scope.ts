@@ -111,56 +111,60 @@ export function createScope(
   }
 
   function deriveStore() {
-    const derivedStore: NamedStore = baseStore.unstable_derive((baseGetAtomState) => {
-      /** map of scoped atoms to their atomState states */
-      const scopedAtomStateMap = new WeakMap<AnyAtom, AtomState<any>>()
+    const derivedStore: NamedStore = baseStore.unstable_derive(
+      (baseGetAtomState, _baseReadTrap, _baseWriteTrap, ...args) => {
+        /** map of scoped atoms to their atomState states */
+        const scopedAtomStateMap = new WeakMap<AnyAtom, AtomState<any>>()
 
-      /** set of proxied atom states */
-      const proxiedAtomStateSet = new WeakSet<AnyAtom>()
+        /** set of proxied atom states */
+        const proxiedAtomStateSet = new WeakSet<AnyAtom>()
 
-      return [
-        function getAtomState(anAtom, originAtomState) {
-          if (explicit.has(anAtom)) {
-            return emplace(anAtom, scopedAtomStateMap, createAtomState)
-          }
-          if (implicit.has(anAtom)) {
-            return emplace(anAtom, scopedAtomStateMap, createAtomState)
-          }
-          // TODO: handle writable atoms
-          // TODO: do we need to clone the computed atom?
-          // TODO: do we need to doubly-link the computed atom state?
-          if (isComputedAtom(anAtom)) {
-            const baseAtomState = emplace(anAtom, proxiedAtomStateSet, () =>
-              proxyAtomState(anAtom, baseGetAtomState(anAtom, originAtomState)),
-            )
-            if (computedConsumer.has(anAtom)) {
-              return emplace(anAtom, scopedAtomStateMap, () => createAtomState(baseAtomState))
+        return [
+          function getAtomState(anAtom) {
+            if (explicit.has(anAtom)) {
+              return emplace(anAtom, scopedAtomStateMap, () => createAtomState())
             }
-          }
-          // inherit atom state
-          return baseGetAtomState(anAtom, originAtomState)!
-        },
-        function atomReadTrap(anAtom, getter, options) {
-          return anAtom.read(
-            function atomReadScopedGetter(a) {
-              return getter(currentScope.getAtom(a, fromExplicit(anAtom)))
-            }, //
-            options,
-          )
-        },
-        function atomWriteTrap(anAtom, getter, setter, ...args) {
-          return anAtom.write(
-            function atomWriteScopedGetter(a) {
-              return getter(currentScope.getAtom(a, fromExplicit(anAtom)))
-            },
-            function atomWriteScopedSetter(a, ...v) {
-              return setter(currentScope.getAtom(a, fromExplicit(anAtom)), ...v)
-            },
-            ...args,
-          )
-        },
-      ]
-    })
+            if (implicit.has(anAtom)) {
+              return emplace(anAtom, scopedAtomStateMap, () => createAtomState())
+            }
+            // TODO: handle writable atoms
+            // TODO: do we need to clone the computed atom?
+            // TODO: do we need to doubly-link the computed atom state?
+            if (isComputedAtom(anAtom)) {
+              const baseAtomState = emplace(anAtom, proxiedAtomStateSet, () =>
+                proxyAtomState(anAtom, baseGetAtomState(anAtom)),
+              )
+              if (computedConsumer.has(anAtom)) {
+                return emplace(anAtom, scopedAtomStateMap, () => createAtomState(baseAtomState))
+              }
+            }
+            // inherit atom state
+            const r = baseGetAtomState(anAtom)
+            return r
+          },
+          function atomReadTrap(anAtom, getter, options) {
+            return anAtom.read(
+              function atomReadScopedGetter(a) {
+                return getter(currentScope.getAtom(a, fromExplicit(anAtom)))
+              }, //
+              options,
+            )
+          },
+          function atomWriteTrap(anAtom, getter, setter, ...args) {
+            return anAtom.write(
+              function atomWriteScopedGetter(a) {
+                return getter(currentScope.getAtom(a, fromExplicit(anAtom)))
+              },
+              function atomWriteScopedSetter(a, ...v) {
+                return setter(currentScope.getAtom(a, fromExplicit(anAtom)), ...v)
+              },
+              ...args,
+            )
+          },
+          ...args,
+        ]
+      },
+    )
     if (debugName) {
       derivedStore.name = `store:${debugName}`
     }
@@ -175,7 +179,7 @@ export function createScope(
     assertIsAtomStateWithDepListeners<Value>(atomState)
     atomState.s ??= new Map()
     const { d, l } = emplace(currentScope, atomState.s, () => ({
-      d: new Set(),
+      d: new Set<AnyAtom>(),
       l: (action) => {
         const a = action.payload?.key!
         if (action.type === 'SET' && (explicit.has(a) || computedConsumer.has(a))) {

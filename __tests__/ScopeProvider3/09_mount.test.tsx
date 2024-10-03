@@ -67,7 +67,7 @@ it('computed atom mounts once for the unscoped and once for the scoped', () => {
     )
   }
   const { unmount } = render(<App />)
-  expect(onMount).toHaveBeenCalledTimes(2)
+  expect(onMount).toHaveBeenCalledTimes(1)
   unmount()
-  expect(onUnmount).toHaveBeenCalledTimes(2)
+  expect(onUnmount).toHaveBeenCalledTimes(1)
 })

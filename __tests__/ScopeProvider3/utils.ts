@@ -1,4 +1,5 @@
 import { fireEvent } from '@testing-library/react'
+import { AnyAtom } from 'src/ScopeProvider2/types'
 import type { Store } from 'src/ScopeProvider3/types'
 
 function getElements(container: HTMLElement, querySelectors: string[]): Element[] {
@@ -25,6 +26,8 @@ export function clickButton(container: HTMLElement, querySelector: string) {
 
 export type PrdStore = Exclude<Store, { dev4_get_internal_weak_map: any }>
 export type DevStoreRev4 = Omit<Extract<Store, { dev4_get_internal_weak_map: any }>, keyof PrdStore>
+export type Store = PrdStore & DevStoreRev4
+export type NamedStore = Store & { name?: string }
 
 function isDevStore(store: Store): store is PrdStore & DevStoreRev4 {
   return (
@@ -46,3 +49,16 @@ export function delay(ms: number) {
 
 export type WithJestMock<T extends (...args: any[]) => any> = T &
   jest.Mock<ReturnType<T>, Parameters<T>>
+
+export function subscribe(store: Store, atom: AnyAtom) {
+  const cb = jest.fn()
+  return [cb, store.sub(atom, cb)] as const
+}
+
+export function getAtoms(store: Store, atoms: AnyAtom[]) {
+  return atoms.map((atom) => store.get(atom))
+}
+
+export function increment(value: number) {
+  return value + 1
+}
