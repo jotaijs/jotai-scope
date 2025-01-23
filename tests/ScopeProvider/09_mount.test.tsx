@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { act, render } from '@testing-library/react'
 import { atom, useAtomValue } from 'jotai'
 import { describe, expect, it, vi } from 'vitest'
-import { ScopeProvider } from '../../src/index'
+import { ScopeProvider } from 'jotai-scope'
 import { clickButton } from '../utils'
 
 describe('ScopeProvider', () => {

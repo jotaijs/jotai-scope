@@ -3,9 +3,11 @@
   "compilerOptions": {
     "outDir": "./dist",
     "module": "esnext",
+    "moduleResolution": "node",
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["**/tests/*", "**/*.test.*"]
 }

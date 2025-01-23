@@ -9,7 +9,7 @@ import {
 } from 'jotai'
 import { atomWithReducer } from 'jotai/vanilla/utils'
 import { describe, expect, test } from 'vitest'
-import { ScopeProvider } from '../../src/index'
+import { ScopeProvider } from 'jotai-scope'
 import { clickButton, getTextContents } from '../utils'
 
 describe('Counter', () => {

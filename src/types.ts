@@ -1,13 +1,13 @@
-import type { Atom, WritableAtom, getDefaultStore } from 'jotai'
+import type { Atom, WritableAtom, createStore } from 'jotai/vanilla'
 import { AtomFamily } from 'jotai/vanilla/utils/atomFamily'
+
+export type Store = ReturnType<typeof createStore>
 
 export type AnyAtom = Atom<unknown> | WritableAtom<unknown, unknown[], unknown>
 
-export type AnyAtomFamily = AtomFamily<any, AnyAtom>
+export type AnyAtomFamily = AtomFamily<unknown, AnyAtom>
 
 export type AnyWritableAtom = WritableAtom<unknown, unknown[], unknown>
-
-export type Store = ReturnType<typeof getDefaultStore>
 
 export type Scope = {
   /**

@@ -1,5 +1,5 @@
 import { fireEvent } from '@testing-library/react'
-import { Store } from 'src/ScopeProvider/types'
+import { Store } from 'src/types'
 
 function getElements(
   container: HTMLElement,

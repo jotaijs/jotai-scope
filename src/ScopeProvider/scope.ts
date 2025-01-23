@@ -1,5 +1,5 @@
 import { type Atom, atom } from 'jotai'
-import type { AnyAtom, AnyAtomFamily, AnyWritableAtom, Scope } from './types'
+import type { AnyAtom, AnyAtomFamily, AnyWritableAtom, Scope } from '../types'
 
 const globalScopeKey: { name?: string } = {}
 if (process.env.NODE_ENV !== 'production') {

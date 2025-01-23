@@ -13,10 +13,12 @@
     "exactOptionalPropertyTypes": true,
     "skipLibCheck": true,
     "jsx": "react-jsx",
+    "jsxImportSource": "react",
     "baseUrl": ".",
     "paths": {
       "jotai-scope": ["./src"]
     }
   },
-  "exclude": ["dist", "**/tests/*", "**/*.test.*"]
+  "include": ["src", "tests"],
+  "exclude": ["dist"]
 }

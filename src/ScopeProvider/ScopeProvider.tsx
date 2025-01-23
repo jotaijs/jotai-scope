@@ -8,9 +8,9 @@ import {
   useState,
 } from 'react'
 import { Provider, useStore } from 'jotai/react'
+import type { AnyAtom, AnyAtomFamily, Scope, Store } from '../types'
 import { createPatchedStore, isTopLevelScope } from './patchedStore'
 import { createScope } from './scope'
-import type { AnyAtom, AnyAtomFamily, Scope, Store } from './types'
 
 const ScopeContext = createContext<{
   scope: Scope | undefined
