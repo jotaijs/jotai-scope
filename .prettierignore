@@ -1,2 +1,3 @@
-/jotai
-pnpm-lock.yaml
+/pnpm-lock.yaml
+/dist
+README.md

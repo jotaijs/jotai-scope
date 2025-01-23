@@ -1,9 +1,6 @@
 *~
 *.swp
-node_modules
-/dist
 .vscode
-yarn-error.log
-yarn.lock
-package-lock.json
-//jotai
+dist
+jotai
+node_modules

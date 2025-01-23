@@ -1,7 +1,5 @@
 import { createContext, useContext, useRef } from 'react'
 import type { ReactNode } from 'react'
-import { createStore } from 'jotai/vanilla'
-import type { WritableAtom } from 'jotai/vanilla'
 import {
   useAtom as useAtomOrig,
   useAtomValue as useAtomValueOrig,
@@ -9,11 +7,22 @@ import {
   useStore as useStoreOrig,
 } from 'jotai/react'
 import { useHydrateAtoms } from 'jotai/react/utils'
+import { createStore } from 'jotai/vanilla'
+import type { AnyWritableAtom, Store } from './types'
 
-type Store = ReturnType<typeof createStore>
-type AnyWritableAtom = WritableAtom<unknown, any[], any>
+type CreateIsolationResult = {
+  Provider: (props: {
+    store?: Store
+    initialValues?: Iterable<readonly [AnyWritableAtom, unknown]>
+    children: ReactNode
+  }) => React.JSX.Element
+  useStore: typeof useStoreOrig
+  useAtom: typeof useAtomOrig
+  useAtomValue: typeof useAtomValueOrig
+  useSetAtom: typeof useSetAtomOrig
+}
 
-export function createIsolation() {
+export function createIsolation(): CreateIsolationResult {
   const StoreContext = createContext<Store | null>(null)
 
   function Provider({
@@ -30,7 +39,11 @@ export function createIsolation() {
       storeRef.current = createStore()
     }
     useHydrateAtoms(initialValues as any, { store: storeRef.current })
-    return <StoreContext.Provider value={storeRef.current}>{children}</StoreContext.Provider>
+    return (
+      <StoreContext.Provider value={storeRef.current}>
+        {children}
+      </StoreContext.Provider>
+    )
   }
 
   const useStore = ((options?: any) => {

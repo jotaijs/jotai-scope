@@ -1,5 +1,5 @@
-import { atom, type Atom } from 'jotai'
-import type { AnyAtomFamily, AnyAtom, AnyWritableAtom, Scope } from './types'
+import { type Atom, atom } from 'jotai'
+import type { AnyAtom, AnyAtomFamily, AnyWritableAtom, Scope } from '../types'
 
 const globalScopeKey: { name?: string } = {}
 if (process.env.NODE_ENV !== 'production') {
@@ -13,7 +13,7 @@ export function createScope(
   atoms: Set<AnyAtom>,
   atomFamilies: Set<AnyAtomFamily>,
   parentScope: Scope | undefined,
-  scopeName?: string | undefined,
+  scopeName?: string | undefined
 ): Scope {
   const explicit = new WeakMap<AnyAtom, [AnyAtom, Scope?]>()
   const implicit = new WeakMap<AnyAtom, [AnyAtom, Scope?]>()
@@ -36,8 +36,10 @@ export function createScope(
         // instead, we need to override write until the write is finished
         const { write } = originalAtom
         anAtom.write = createScopedWrite(
-          originalAtom.write.bind(originalAtom) as (typeof originalAtom)['write'],
-          implicitScope,
+          originalAtom.write.bind(
+            originalAtom
+          ) as (typeof originalAtom)['write'],
+          implicitScope
         )
         return () => {
           anAtom.write = write
@@ -76,7 +78,7 @@ export function createScope(
   }
   currentScope.cleanup = combineVoidFunctions(
     currentScope.cleanup,
-    ...Array.from(cleanupFamiliesSet),
+    ...Array.from(cleanupFamiliesSet)
   )
 
   /**
@@ -85,7 +87,10 @@ export function createScope(
    * @param implicitScope the atom is implicitly scoped in the provided scope
    * @returns the scoped atom and the scope of the atom
    */
-  function getAtom<T extends AnyAtom>(anAtom: T, implicitScope?: Scope): [T, Scope?] {
+  function getAtom<T extends AnyAtom>(
+    anAtom: T,
+    implicitScope?: Scope
+  ): [T, Scope?] {
     if (explicit.has(anAtom)) {
       return explicit.get(anAtom) as [T, Scope]
     }
@@ -104,12 +109,15 @@ export function createScope(
       // dependencies of inherited atoms first check if they are explicitly scoped
       // otherwise they use their original scope's atom
       if (!inherited.get(scopeKey)?.has(anAtom)) {
-        const [ancestorAtom, explicitScope] = parentScope.getAtom(anAtom, implicitScope)
+        const [ancestorAtom, explicitScope] = parentScope.getAtom(
+          anAtom,
+          implicitScope
+        )
         setInheritedAtom(
           inheritAtom(ancestorAtom, anAtom, explicitScope),
           anAtom,
           implicitScope,
-          explicitScope,
+          explicitScope
         )
       }
       return inherited.get(scopeKey)!.get(anAtom) as [T, Scope]
@@ -126,7 +134,7 @@ export function createScope(
     scopedAtom: T,
     originalAtom: T,
     implicitScope?: Scope,
-    explicitScope?: Scope,
+    explicitScope?: Scope
   ) {
     const scopeKey = implicitScope ?? globalScopeKey
     if (!inherited.has(scopeKey)) {
@@ -137,14 +145,18 @@ export function createScope(
       [
         scopedAtom, //
         explicitScope,
-      ].filter(Boolean) as [T, Scope?],
+      ].filter(Boolean) as [T, Scope?]
     )
   }
 
   /**
    * @returns a copy of the atom for derived atoms or the original atom for primitive and writable atoms
    */
-  function inheritAtom<T>(anAtom: Atom<T>, originalAtom: Atom<T>, implicitScope?: Scope) {
+  function inheritAtom<T>(
+    anAtom: Atom<T>,
+    originalAtom: Atom<T>,
+    implicitScope?: Scope
+  ) {
     if (originalAtom.read !== defaultRead) {
       return cloneAtom(originalAtom, implicitScope)
     }
@@ -158,13 +170,13 @@ export function createScope(
     // avoid reading `init` to preserve lazy initialization
     const scopedAtom: Atom<T> = Object.create(
       Object.getPrototypeOf(originalAtom),
-      Object.getOwnPropertyDescriptors(originalAtom),
+      Object.getOwnPropertyDescriptors(originalAtom)
     )
 
     if (scopedAtom.read !== defaultRead) {
       scopedAtom.read = createScopedRead<typeof scopedAtom>(
         originalAtom.read.bind(originalAtom),
-        implicitScope,
+        implicitScope
       )
     }
 
@@ -173,7 +185,10 @@ export function createScope(
       isWritableAtom(originalAtom) &&
       scopedAtom.write !== defaultWrite
     ) {
-      scopedAtom.write = createScopedWrite(originalAtom.write.bind(originalAtom), implicitScope)
+      scopedAtom.write = createScopedWrite(
+        originalAtom.write.bind(originalAtom),
+        implicitScope
+      )
     }
 
     return scopedAtom
@@ -181,7 +196,7 @@ export function createScope(
 
   function createScopedRead<T extends Atom<unknown>>(
     read: T['read'],
-    implicitScope?: Scope,
+    implicitScope?: Scope
   ): T['read'] {
     return function scopedRead(get, opts) {
       return read(
@@ -189,14 +204,14 @@ export function createScope(
           const [scopedAtom] = getAtom(a, implicitScope)
           return get(scopedAtom)
         }, //
-        opts,
+        opts
       )
     }
   }
 
   function createScopedWrite<T extends AnyWritableAtom>(
     write: T['write'],
-    implicitScope?: Scope,
+    implicitScope?: Scope
   ): T['write'] {
     return function scopedWrite(get, set, ...args) {
       return write(
@@ -208,7 +223,7 @@ export function createScope(
           const [scopedAtom] = getAtom(a, implicitScope)
           return set(scopedAtom, ...v)
         },
-        ...args,
+        ...args
       )
     }
   }

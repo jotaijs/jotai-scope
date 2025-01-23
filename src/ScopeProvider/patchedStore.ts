@@ -1,4 +1,4 @@
-import type { Store, Scope } from './types'
+import type { Scope, Store } from '../types'
 
 function PatchedStore() {}
 

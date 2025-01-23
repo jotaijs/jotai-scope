@@ -4,16 +4,21 @@
     "target": "esnext",
     "downlevelIteration": true,
     "esModuleInterop": true,
-    "module": "nodenext",
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "allowJs": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "skipLibCheck": true,
     "jsx": "react-jsx",
+    "jsxImportSource": "react",
     "baseUrl": ".",
     "paths": {
-      "jotai-scope": ["./src/index.ts"]
+      "jotai-scope": ["./src"]
     }
   },
-  "exclude": ["dist", "examples", "jotai"]
+  "include": ["src", "tests"],
+  "exclude": ["dist"]
 }
