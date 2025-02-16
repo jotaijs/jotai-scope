@@ -1,9 +1,9 @@
 import { render } from '@testing-library/react'
-import { atom, useAtom } from 'jotai'
-import { useHydrateAtoms } from 'jotai/utils'
 import { describe, expect, test } from 'vitest'
-import { ScopeProvider } from 'jotai-scope'
-import { getTextContents } from '../utils'
+import { ScopeProvider } from 'src/ScopeProvider/ScopeProvider'
+import { atom, useAtom } from '../../jotai'
+import { useHydrateAtoms } from '../../jotai/utils'
+import { getTextContents } from './utils'
 
 const baseAtom = atom(0)
 const derivedAtom1 = atom(
@@ -51,7 +51,7 @@ describe('Self', () => {
     baseA, derivedB(baseA, derivedB)
     S1[baseA]: baseA1, derivedB0(baseA1, derivedB0)
   */
-  test('derived dep scope is preserved in self reference', () => {
+  test('derived dep scope is preserved in self reference', function test() {
     const { container } = render(<App />)
     expect(
       getTextContents(container, ['.unscoped .read', '.unscoped .write'])

@@ -1,13 +1,13 @@
 import { createContext, useContext, useRef } from 'react'
-import type { ReactNode } from 'react'
+import type { JSX, ReactNode } from 'react'
 import {
+  createStore,
   useAtom as useAtomOrig,
   useAtomValue as useAtomValueOrig,
   useSetAtom as useSetAtomOrig,
   useStore as useStoreOrig,
-} from 'jotai/react'
-import { useHydrateAtoms } from 'jotai/react/utils'
-import { createStore } from 'jotai/vanilla'
+} from '../jotai'
+import { useHydrateAtoms } from '../jotai/utils'
 import type { AnyWritableAtom, Store } from './types'
 
 type CreateIsolationResult = {
@@ -15,7 +15,7 @@ type CreateIsolationResult = {
     store?: Store
     initialValues?: Iterable<readonly [AnyWritableAtom, unknown]>
     children: ReactNode
-  }) => React.JSX.Element
+  }) => JSX.Element
   useStore: typeof useStoreOrig
   useAtom: typeof useAtomOrig
   useAtomValue: typeof useAtomValueOrig

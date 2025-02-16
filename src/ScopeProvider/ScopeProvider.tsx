@@ -1,79 +1,43 @@
-import {
-  type EffectCallback,
-  type PropsWithChildren,
-  createContext,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from 'react'
-import { Provider, useStore } from 'jotai/react'
-import type { AnyAtom, AnyAtomFamily, Scope, Store } from '../types'
-import { createPatchedStore, isTopLevelScope } from './patchedStore'
+import type { JSX, ReactNode } from 'react'
+import { useState } from 'react'
+import { Provider, useStore } from '../../jotai'
+import type { Atom } from '../../jotai'
 import { createScope } from './scope'
+import type { AnyAtom, AnyAtomFamily, Store } from './types'
+import { isEqualSet } from './utils'
 
-const ScopeContext = createContext<{
-  scope: Scope | undefined
-  baseStore: Store | undefined
-}>({ scope: undefined, baseStore: undefined })
-
-export function ScopeProvider({
-  atoms,
-  atomFamilies,
-  children,
-  debugName,
-}: PropsWithChildren<{
-  atoms: Iterable<AnyAtom>
-  atomFamilies?: Iterable<AnyAtomFamily>
-  debugName?: string
-}>): React.JSX.Element
-export function ScopeProvider({
-  atoms,
-  atomFamilies,
-  children,
-  debugName,
-}: PropsWithChildren<{
-  atoms?: Iterable<AnyAtom>
-  atomFamilies: Iterable<AnyAtomFamily>
-  debugName?: string
-}>): React.JSX.Element
-export function ScopeProvider({
-  atoms,
-  atomFamilies,
-  children,
-  debugName,
-}: PropsWithChildren<{
+type BaseScopeProviderProps = {
   atoms?: Iterable<AnyAtom>
   atomFamilies?: Iterable<AnyAtomFamily>
   debugName?: string
-}>) {
-  const parentStore: Store = useStore()
-  let { scope: parentScope, baseStore = parentStore } = useContext(ScopeContext)
-  // if this ScopeProvider is the first descendant scope under Provider then it is the top level scope
-  // https://github.com/jotaijs/jotai-scope/pull/33#discussion_r1604268003
-  if (isTopLevelScope(parentStore)) {
-    parentScope = undefined
-    baseStore = parentStore
-  }
+  store?: Store
+  children: ReactNode
+}
 
-  // atomSet is used to detect if the atoms prop has changed.
+export function ScopeProvider(
+  props: { atoms: Iterable<Atom<unknown>> } & BaseScopeProviderProps
+): JSX.Element
+
+export function ScopeProvider(
+  props: { atomFamilies: Iterable<AnyAtomFamily> } & BaseScopeProviderProps
+): JSX.Element
+
+export function ScopeProvider(props: BaseScopeProviderProps) {
+  const { atoms, atomFamilies, children, debugName, ...options } = props
+  const baseStore = useStore(options)
   const atomSet = new Set(atoms)
   const atomFamilySet = new Set(atomFamilies)
 
   function initialize() {
-    const scope = createScope(atomSet, atomFamilySet, parentScope, debugName)
     return {
-      patchedStore: createPatchedStore(baseStore, scope),
-      scopeContext: { scope, baseStore },
+      scope: createScope(atomSet, atomFamilySet, baseStore, debugName),
       hasChanged(current: {
         baseStore: Store
-        parentScope: Scope | undefined
-        atomSet: Set<AnyAtom>
+        atomSet: Set<Atom<unknown>>
         atomFamilySet: Set<AnyAtomFamily>
       }) {
         return (
-          parentScope !== current.parentScope ||
-          baseStore !== current.baseStore ||
+          current.baseStore !== baseStore ||
           !isEqualSet(atomSet, current.atomSet) ||
           !isEqualSet(atomFamilySet, current.atomFamilySet)
         )
@@ -81,27 +45,10 @@ export function ScopeProvider({
     }
   }
 
-  const [state, setState] = useState(initialize)
-  const { hasChanged, scopeContext, patchedStore } = state
-  if (hasChanged({ parentScope, atomSet, atomFamilySet, baseStore })) {
-    scopeContext.scope?.cleanup()
+  const [{ hasChanged, scope }, setState] = useState(initialize)
+  if (hasChanged({ baseStore, atomSet, atomFamilySet })) {
+    scope.cleanup()
     setState(initialize)
   }
-  const { cleanup } = scopeContext.scope
-  useEvent(() => cleanup, [])
-  return (
-    <ScopeContext.Provider value={scopeContext}>
-      <Provider store={patchedStore}>{children}</Provider>
-    </ScopeContext.Provider>
-  )
-}
-
-function isEqualSet(a: Set<unknown>, b: Set<unknown>) {
-  return a === b || (a.size === b.size && Array.from(a).every((v) => b.has(v)))
-}
-
-function useEvent(fn: EffectCallback, deps: unknown[]) {
-  const ref = useRef(fn)
-  ref.current = fn
-  useEffect(() => ref.current(), deps)
+  return <Provider store={scope.store}>{children}</Provider>
 }

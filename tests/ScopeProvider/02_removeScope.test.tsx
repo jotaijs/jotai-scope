@@ -1,10 +1,10 @@
 import type { PropsWithChildren } from 'react'
 import { render } from '@testing-library/react'
-import { atom, useAtom, useAtomValue } from 'jotai'
-import { atomWithReducer } from 'jotai/vanilla/utils'
 import { describe, expect, test } from 'vitest'
-import { ScopeProvider } from 'jotai-scope'
-import { clickButton, getTextContents } from '../utils'
+import { ScopeProvider } from 'src/ScopeProvider/ScopeProvider'
+import { atom, useAtom, useAtomValue } from '../../jotai'
+import { atomWithReducer } from '../../jotai/utils'
+import { clickButton, getTextContents } from './utils'
 
 const baseAtom1 = atomWithReducer(0, (v) => v + 1)
 const baseAtom2 = atomWithReducer(0, (v) => v + 1)
@@ -73,7 +73,7 @@ function App() {
 }
 
 describe('Counter', () => {
-  test('atom get correct value when ScopeProvider is added/removed', () => {
+  test('atom get correct value when ScopeProvider is added/removed', function test() {
     const { container } = render(<App />)
     const increaseUnscopedBase1 = '.unscoped.setBase1'
     const increaseUnscopedBase2 = '.unscoped.setBase2'

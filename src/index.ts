@@ -1,2 +1,2 @@
 export { createIsolation } from './createIsolation'
-export { ScopeProvider } from './ScopeProvider/ScopeProvider'
+export { ScopeProvider } from './ScopeProvider2/ScopeProvider'
