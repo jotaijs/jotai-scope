@@ -1,5 +1,5 @@
-import type { Atom, WritableAtom, createStore } from '../jotai'
-import { AtomFamily } from '../jotai/utils'
+import type { Atom, WritableAtom, createStore } from '../../jotai'
+import { AtomFamily } from '../../jotai/utils'
 
 export type Store = ReturnType<typeof createStore>
 

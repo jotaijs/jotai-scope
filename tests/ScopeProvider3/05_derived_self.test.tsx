@@ -1,9 +1,9 @@
 import { render } from '@testing-library/react'
 import { describe, expect, test } from 'vitest'
-import { ScopeProvider } from 'jotai-scope'
+import { ScopeProvider } from 'src/ScopeProvider3/ScopeProvider'
 import { atom, useAtom } from '../../jotai'
 import { useHydrateAtoms } from '../../jotai/utils'
-import { getTextContents } from '../utils'
+import { getTextContents } from './utils'
 
 const baseAtom = atom(0)
 const derivedAtom1 = atom(

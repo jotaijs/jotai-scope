@@ -1,9 +1,9 @@
 import { render } from '@testing-library/react'
 import { describe, expect, test } from 'vitest'
-import { ScopeProvider } from 'jotai-scope'
+import { ScopeProvider } from 'src/ScopeProvider3/ScopeProvider'
 import { atom, useAtom, useAtomValue, useSetAtom } from '../../jotai'
 import { atomWithReducer } from '../../jotai/utils'
-import { clickButton, getTextContents } from '../utils'
+import { clickButton, getTextContents } from './utils'
 
 const baseAtom1 = atomWithReducer(0, (v) => v + 1)
 const baseAtom2 = atomWithReducer(0, (v) => v + 1)

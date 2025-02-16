@@ -1,13 +1,6 @@
-import {
-  type EffectCallback,
-  type PropsWithChildren,
-  createContext,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from 'react'
-import { Provider, useStore } from 'jotai/react'
+import type { EffectCallback, JSX, PropsWithChildren } from 'react'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
+import { Provider, useStore } from '../../jotai'
 import type { AnyAtom, AnyAtomFamily, Scope, Store } from '../types'
 import { createPatchedStore, isTopLevelScope } from './patchedStore'
 import { createScope } from './scope'
@@ -26,7 +19,7 @@ export function ScopeProvider({
   atoms: Iterable<AnyAtom>
   atomFamilies?: Iterable<AnyAtomFamily>
   debugName?: string
-}>): React.JSX.Element
+}>): JSX.Element
 export function ScopeProvider({
   atoms,
   atomFamilies,
@@ -36,7 +29,7 @@ export function ScopeProvider({
   atoms?: Iterable<AnyAtom>
   atomFamilies: Iterable<AnyAtomFamily>
   debugName?: string
-}>): React.JSX.Element
+}>): JSX.Element
 export function ScopeProvider({
   atoms,
   atomFamilies,

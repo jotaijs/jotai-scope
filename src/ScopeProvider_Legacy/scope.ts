@@ -1,4 +1,4 @@
-import { type Atom, atom } from 'jotai'
+import { type Atom, atom } from '../../jotai'
 import type { AnyAtom, AnyAtomFamily, AnyWritableAtom, Scope } from '../types'
 
 const globalScopeKey: { name?: string } = {}
@@ -85,6 +85,7 @@ export function createScope(
    * Returns a scoped atom from the original atom.
    * @param anAtom
    * @param implicitScope the atom is implicitly scoped in the provided scope
+   * - when the implicit scope is the current scope, the atom is emplaced in the implicit set and returned
    * @returns the scoped atom and the scope of the atom
    */
   function getAtom<T extends AnyAtom>(
@@ -164,6 +165,9 @@ export function createScope(
   }
 
   /**
+   * Makes a clone of the atom
+   * - replaces read with a scoped read function
+   * - replaces write with a scoped write function
    * @returns a scoped copy of the atom
    */
   function cloneAtom<T>(originalAtom: Atom<T>, implicitScope?: Scope) {
@@ -194,6 +198,12 @@ export function createScope(
     return scopedAtom
   }
 
+  /**
+   * Creates a scoped read function that intercepts the read function of the original atom
+   * to intercept the getter with the custom getAtom function
+   * @param implicitScope
+   * @returns
+   */
   function createScopedRead<T extends Atom<unknown>>(
     read: T['read'],
     implicitScope?: Scope
@@ -209,6 +219,12 @@ export function createScope(
     }
   }
 
+  /**
+   * Creates a scoped write function that intercepts the write function of the original atom
+   * to intercept the getter and setter with the custom getAtom function
+   * @param implicitScope
+   * @returns
+   */
   function createScopedWrite<T extends AnyWritableAtom>(
     write: T['write'],
     implicitScope?: Scope

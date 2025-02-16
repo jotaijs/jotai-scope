@@ -1,6 +1,6 @@
 import { fireEvent } from '@testing-library/react'
-import { Mock } from 'vitest'
 import type { Store } from 'src/types'
+import { Mock } from 'vitest'
 
 function getElements(
   container: HTMLElement,
@@ -32,7 +32,7 @@ export function clickButton(container: HTMLElement, querySelector: string) {
   fireEvent.click(button)
 }
 
-type PrdStore = Exclude<Store, { dev4_get_internal_weak_map: any }>
+export type PrdStore = Exclude<Store, { dev4_get_internal_weak_map: any }>
 type DevStoreRev4 = Omit<
   Extract<Store, { dev4_get_internal_weak_map: any }>,
   keyof PrdStore

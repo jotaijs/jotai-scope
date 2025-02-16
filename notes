@@ -1,0 +1,27 @@
+computed atoms are like implicit atoms but reverse
+computed atoms are not copied
+reverseImplicitSet is a set of computed atoms to indicate whether a computed atom should be treated as a reverse implicit
+the atom is removed from the set between recomputations
+by intercepting the readFn, if an atom is `get` that is either an explicit or reverse implicit,
+
+- then the atom is added to the reverse implicit set
+
+only the readFn determines if the atom is added to the reverse implicit set
+intercepting the readFn and writeFn is used to get the "correct" atom
+when a computed atom converts to reverse implicit,
+
+- its atomState is created from scratch
+- this is because the atomState stores a different value for the scoped atom and can have different dependencies
+
+**Special Case:** on first read, when a computed atom reads a scoped atom,
+
+1. it is added to the reverse implicit set
+1. the atomState is copied from the unscoped atomState
+1. getAtomState points to the scoped atomState
+
+the atomStateProxy is no longer needed.
+
+# Implementation
+
+readAtomTrap:
+getter:

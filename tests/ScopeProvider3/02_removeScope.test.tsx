@@ -1,25 +1,18 @@
+import type { PropsWithChildren } from 'react'
 import { render } from '@testing-library/react'
 import { describe, expect, test } from 'vitest'
-import { ScopeProvider } from 'jotai-scope'
-import { atom, useAtom, useAtomValue, useSetAtom } from '../../jotai'
+import { ScopeProvider } from 'src/ScopeProvider3/ScopeProvider'
+import { atom, useAtom, useAtomValue } from '../../jotai'
 import { atomWithReducer } from '../../jotai/utils'
-import { clickButton, getTextContents } from '../utils'
+import { clickButton, getTextContents } from './utils'
 
 const baseAtom1 = atomWithReducer(0, (v) => v + 1)
 const baseAtom2 = atomWithReducer(0, (v) => v + 1)
-const baseAtom = atom(0)
-
-const writeProxyAtom = atom('unused', (get, set) => {
-  set(baseAtom, get(baseAtom) + 1)
-  set(baseAtom1)
-  set(baseAtom2)
-})
+const shouldHaveScopeAtom = atom(true)
 
 function Counter({ counterClass }: { counterClass: string }) {
   const [base1, increaseBase1] = useAtom(baseAtom1)
   const [base2, increaseBase2] = useAtom(baseAtom2)
-  const base = useAtomValue(baseAtom)
-  const increaseAll = useSetAtom(writeProxyAtom)
   return (
     <>
       <div>
@@ -40,16 +33,28 @@ function Counter({ counterClass }: { counterClass: string }) {
           increase
         </button>
       </div>
-      <div>
-        base: <span className={`${counterClass} base`}>{base}</span>
-      </div>
-      <button
-        className={`${counterClass} setAll`}
-        type="button"
-        onClick={() => increaseAll()}>
-        increase all three atoms
-      </button>
     </>
+  )
+}
+
+function Wrapper({ children }: PropsWithChildren) {
+  const shouldHaveScope = useAtomValue(shouldHaveScopeAtom)
+  return shouldHaveScope ? (
+    <ScopeProvider atoms={[baseAtom2]}>{children}</ScopeProvider>
+  ) : (
+    children
+  )
+}
+
+function ScopeButton() {
+  const [shouldHaveScope, setShouldHaveScope] = useAtom(shouldHaveScopeAtom)
+  return (
+    <button
+      id="toggleScope"
+      type="button"
+      onClick={() => setShouldHaveScope((prev) => !prev)}>
+      {shouldHaveScope ? 'Disable' : 'Enable'} Scope
+    </button>
   )
 }
 
@@ -58,59 +63,32 @@ function App() {
     <div>
       <h1>Unscoped</h1>
       <Counter counterClass="unscoped" />
-      <h1>Layer 1: Scope base 1</h1>
-      <p>base 2 and base should be globally shared</p>
-      <ScopeProvider atoms={[baseAtom1]}>
-        <Counter counterClass="layer1" />
-        <h1>Layer 2: Scope base 2</h1>
-        <p>
-          base 1 should be shared between layer 1 and layer 2, base should be
-          globally shared
-        </p>
-        <ScopeProvider atoms={[baseAtom2]}>
-          <Counter counterClass="layer2" />
-        </ScopeProvider>
-      </ScopeProvider>
+      <h1>Scoped Provider</h1>
+      <Wrapper>
+        <Counter counterClass="scoped" />
+      </Wrapper>
+      <ScopeButton />
     </div>
   )
 }
 
 describe('Counter', () => {
-  /*
-    baseA, baseB, baseC
-    S1[baseA]: baseA1 baseB0 baseC0
-    S2[baseB]: baseA1 baseB2 baseC0
-  */
-  test('nested primitive atoms are correctly scoped', () => {
+  test('atom get correct value when ScopeProvider is added/removed', () => {
     const { container } = render(<App />)
     const increaseUnscopedBase1 = '.unscoped.setBase1'
     const increaseUnscopedBase2 = '.unscoped.setBase2'
-    const increaseAllUnscoped = '.unscoped.setAll'
-    const increaseLayer1Base1 = '.layer1.setBase1'
-    const increaseLayer1Base2 = '.layer1.setBase2'
-    const increaseAllLayer1 = '.layer1.setAll'
-    const increaseLayer2Base1 = '.layer2.setBase1'
-    const increaseLayer2Base2 = '.layer2.setBase2'
-    const increaseAllLayer2 = '.layer2.setAll'
+    const increaseScopedBase1 = '.scoped.setBase1'
+    const increaseScopedBase2 = '.scoped.setBase2'
+    const toggleScope = '#toggleScope'
 
     const atomValueSelectors = [
       '.unscoped.base1',
       '.unscoped.base2',
-      '.unscoped.base',
-      '.layer1.base1',
-      '.layer1.base2',
-      '.layer1.base',
-      '.layer2.base1',
-      '.layer2.base2',
-      '.layer2.base',
+      '.scoped.base1',
+      '.scoped.base2',
     ]
 
     expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '0',
-      '0',
-      '0',
-      '0',
-      '0',
       '0',
       '0',
       '0',
@@ -121,12 +99,7 @@ describe('Counter', () => {
     expect(getTextContents(container, atomValueSelectors)).toEqual([
       '1',
       '0',
-      '0',
-      '0',
-      '0',
-      '0',
-      '0',
-      '0',
+      '1',
       '0',
     ])
 
@@ -134,103 +107,98 @@ describe('Counter', () => {
     expect(getTextContents(container, atomValueSelectors)).toEqual([
       '1',
       '1',
-      '0',
-      '0',
       '1',
-      '0',
-      '0',
-      '0',
       '0',
     ])
 
-    clickButton(container, increaseAllUnscoped)
+    clickButton(container, increaseScopedBase1)
     expect(getTextContents(container, atomValueSelectors)).toEqual([
       '2',
+      '1',
+      '2',
+      '0',
+    ])
+
+    clickButton(container, increaseScopedBase2)
+    clickButton(container, increaseScopedBase2)
+    clickButton(container, increaseScopedBase2)
+
+    expect(getTextContents(container, atomValueSelectors)).toEqual([
       '2',
       '1',
-      '0',
+      '2',
+      '3',
+    ])
+
+    clickButton(container, toggleScope)
+    expect(getTextContents(container, atomValueSelectors)).toEqual([
       '2',
       '1',
-      '0',
-      '0',
+      '2',
       '1',
     ])
 
-    clickButton(container, increaseLayer1Base1)
+    clickButton(container, increaseUnscopedBase1)
     expect(getTextContents(container, atomValueSelectors)).toEqual([
+      '3',
+      '1',
+      '3',
+      '1',
+    ])
+
+    clickButton(container, increaseUnscopedBase2)
+    expect(getTextContents(container, atomValueSelectors)).toEqual([
+      '3',
       '2',
+      '3',
       '2',
-      '1',
-      '1',
+    ])
+
+    clickButton(container, increaseScopedBase1)
+    expect(getTextContents(container, atomValueSelectors)).toEqual([
+      '4',
       '2',
-      '1',
-      '1',
+      '4',
+      '2',
+    ])
+
+    clickButton(container, increaseScopedBase2)
+    expect(getTextContents(container, atomValueSelectors)).toEqual([
+      '4',
+      '3',
+      '4',
+      '3',
+    ])
+
+    clickButton(container, toggleScope)
+    expect(getTextContents(container, atomValueSelectors)).toEqual([
+      '4',
+      '3',
+      '4',
       '0',
+    ])
+
+    clickButton(container, increaseScopedBase2)
+    expect(getTextContents(container, atomValueSelectors)).toEqual([
+      '4',
+      '3',
+      '4',
       '1',
     ])
 
-    clickButton(container, increaseLayer1Base2)
+    clickButton(container, increaseScopedBase2)
     expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '2',
-      '3',
-      '1',
-      '1',
-      '3',
-      '1',
-      '1',
-      '0',
-      '1',
-    ])
-
-    clickButton(container, increaseAllLayer1)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '2',
       '4',
-      '2',
-      '2',
+      '3',
       '4',
-      '2',
-      '2',
-      '0',
       '2',
     ])
 
-    clickButton(container, increaseLayer2Base1)
+    clickButton(container, increaseScopedBase2)
     expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '2',
-      '4',
-      '2',
-      '3',
-      '4',
-      '2',
-      '3',
-      '0',
-      '2',
-    ])
-
-    clickButton(container, increaseLayer2Base2)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '2',
-      '4',
-      '2',
-      '3',
-      '4',
-      '2',
-      '3',
-      '1',
-      '2',
-    ])
-
-    clickButton(container, increaseAllLayer2)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '2',
       '4',
       '3',
       '4',
-      '4',
-      '3',
-      '4',
-      '2',
       '3',
     ])
   })

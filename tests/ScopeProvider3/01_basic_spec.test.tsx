@@ -1,16 +1,26 @@
 import { render } from '@testing-library/react'
 import { describe, expect, test } from 'vitest'
-import { ScopeProvider } from 'jotai-scope'
+import { createScope } from 'src/ScopeProvider3/scope'
+import { ScopeProvider } from 'src/ScopeProvider3/ScopeProvider'
+import { AnyAtom, AtomState } from 'src/ScopeProvider3/types'
 import {
+  type Atom,
   type SetStateAction,
   type WritableAtom,
   atom,
+  createStore,
   useAtom,
   useAtomValue,
   useSetAtom,
 } from '../../jotai'
 import { atomWithReducer } from '../../jotai/utils'
-import { clickButton, getTextContents } from '../utils'
+import {
+  clickButton,
+  getAtoms,
+  getTextContents,
+  increment,
+  subscribe,
+} from './utils'
 
 describe('Counter', () => {
   /*
@@ -193,80 +203,54 @@ describe('Counter', () => {
   })
 
   /*
-    base, derived(base)
-    S0[base]: derived0(base0)
-    S1[base]: derived0(base1)
+    a, b(a)
+    S0[ ]: a0(b0)
+    S1[b]: a0(b1)
   */
   test('04. unscoped derived can read and write to scoped primitive atoms', () => {
-    const baseAtom = atom(0)
-    baseAtom.debugLabel = 'base'
-    const derivedAtom = atom(
-      (get) => get(baseAtom),
-      (get, set) => set(baseAtom, get(baseAtom) + 1)
+    const a = atom(0)
+    a.debugLabel = 'a'
+    const b = atom(
+      (get) => get(a),
+      (_get, set) => set(a, increment)
     )
-    derivedAtom.debugLabel = 'derived'
+    b.debugLabel = 'b'
 
-    function Counter({ level }: { level: string }) {
-      const [derived, increaseFromDerived] = useAtom(derivedAtom)
-      const value = useAtomValue(baseAtom)
-      return (
-        <div>
-          base:<span className={`${level} base`}>{derived}</span>
-          value:<span className={`${level} value`}>{value}</span>
-          <button
-            className={`${level} setBase`}
-            type="button"
-            onClick={increaseFromDerived}>
-            increase
-          </button>
-        </div>
-      )
-    }
+    const s1Atoms = new Set<AnyAtom>([b])
 
-    function App() {
-      return (
-        <div>
-          <h1>Unscoped</h1>
-          <Counter level="level0" />
-          <h1>Scoped Provider</h1>
-          <ScopeProvider atoms={[baseAtom]}>
-            <Counter level="level1" />
-          </ScopeProvider>
-        </div>
-      )
-    }
-    const { container } = render(<App />)
-    const increaseUnscopedBase = '.level0.setBase'
-    const increaseScopedBase = '.level1.setBase'
-    const atomValueSelectors = [
-      '.level0.base',
-      '.level0.value',
-      '.level1.base',
-      '.level1.value',
-    ]
+    const s0AtomStateMap = new Map<AnyAtom, AtomState>()
+    const s0Store = createStore().unstable_derive((_, ...traps) => {
+      return [
+        function getAtomState<Value>(atom: Atom<Value>) {
+          let atomState = s0AtomStateMap.get(atom) as
+            | AtomState<Value>
+            | undefined
+          if (!atomState) {
+            atomState = { d: new Map(), p: new Set(), n: 0 }
+            s0AtomStateMap.set(atom, atomState)
+          }
+          return atomState
+        },
+        ...traps,
+      ]
+    })
+    const { store: s1Store } = createScope(s1Atoms, new Set(), s0Store, 'S1')
 
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '0', // level0 base
-      '0', // level0 value
-      '0', // level1 base
-      '0', // level1 value
-    ])
+    const [_s0DerivedCb] = subscribe(s0Store, b)
+    const [_s0BaseCb] = subscribe(s0Store, a)
+    const [_s1DerivedCb] = subscribe(s1Store, b)
+    const [_s1BaseCb] = subscribe(s1Store, a)
 
-    clickButton(container, increaseUnscopedBase)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '1', // level0 base
-      '1', // level0 value
-      '0', // level1 base
-      '0', // level1 value
-    ])
+    expect(getAtoms(s0Store, [a, b])).toEqual(['0', '0'])
+    expect(getAtoms(s1Store, [a, b])).toEqual(['0', '0'])
 
-    clickButton(container, increaseScopedBase)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '1', // level0 base
-      '1', // level0 value
-      '1', // level1 base
-      '1', // level1 value
-    ])
+    s0Store.set(b)
+    expect(getAtoms(s0Store, [a, b])).toEqual(['1', '1'])
+    expect(getAtoms(s1Store, [a, b])).toEqual(['0', '0'])
+
+    s1Store.set(b)
+    expect(getAtoms(s0Store, [a, b])).toEqual(['1', '1'])
+    expect(getAtoms(s1Store, [a, b])).toEqual(['1', '1'])
   })
 
   /*

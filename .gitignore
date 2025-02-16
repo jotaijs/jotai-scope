@@ -1,7 +1,7 @@
 *~
 *.swp
 .vscode
+.DS_Store
 dist
 jotai
 node_modules
-.DS_Store

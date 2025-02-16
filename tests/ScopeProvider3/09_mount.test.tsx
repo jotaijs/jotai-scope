@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { act, render } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { ScopeProvider } from 'jotai-scope'
+import { ScopeProvider } from 'src/ScopeProvider3/ScopeProvider'
 import { atom, useAtomValue } from '../../jotai'
-import { clickButton } from '../utils'
+import { clickButton } from './utils'
 
 describe('ScopeProvider', () => {
   it('mounts and unmounts successfully', () => {
@@ -71,7 +71,7 @@ it('computed atom mounts once for the unscoped and once for the scoped', () => {
     )
   }
   const { unmount } = render(<App />)
-  expect(onMount).toHaveBeenCalledTimes(2)
+  expect(onMount).toHaveBeenCalledTimes(1)
   unmount()
-  expect(onUnmount).toHaveBeenCalledTimes(2)
+  expect(onUnmount).toHaveBeenCalledTimes(1)
 })
