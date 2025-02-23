@@ -29,7 +29,15 @@ export function scopeTemplate<
   T extends string,
   Defs extends string[] = ExtractAtomDefs<T>,
   Scopes extends string[] = ExtractScopes<T>,
->(scopeDescription: T) {
+>(
+  scopeDescription: T
+): {
+  atoms: BuildAtomTypes<Defs>
+  scopes: { [K in Scopes[number]]: NamedStore }
+  getAtoms: (store: Store, atomList?: AnyAtom[]) => unknown[]
+  reset: (store: WithAtomStateMap<any>) => void
+  resetAll: () => void
+} {
   const lines = scopeDescription
     .split('\n')
     .map((line) => line.trim())
