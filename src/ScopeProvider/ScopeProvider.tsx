@@ -22,8 +22,13 @@ export function ScopeProvider(
   props: { atomFamilies: Iterable<AnyAtomFamily> } & BaseScopeProviderProps
 ): JSX.Element
 
-export function ScopeProvider(props: BaseScopeProviderProps) {
-  const { atoms, atomFamilies, children, debugName, ...options } = props
+export function ScopeProvider({
+  atoms,
+  atomFamilies,
+  children,
+  debugName,
+  ...options
+}: BaseScopeProviderProps) {
   const baseStore = useStore(options)
   const atomSet = new Set(atoms)
   const atomFamilySet = new Set(atomFamilies)
