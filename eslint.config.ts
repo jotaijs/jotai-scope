@@ -27,6 +27,7 @@ export default tseslint.config(
       eqeqeq: 'error',
       'no-console': 'off',
       'no-inner-declarations': 'off',
+      'no-sparse-arrays': 'off',
       'no-var': 'error',
       'prefer-const': 'error',
       'sort-imports': [

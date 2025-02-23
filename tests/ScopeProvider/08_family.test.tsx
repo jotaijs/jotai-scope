@@ -1,9 +1,9 @@
 import { act, render } from '@testing-library/react'
-import { atom, useAtom, useSetAtom } from 'jotai'
-import { atomFamily, atomWithReducer } from 'jotai/utils'
 import { describe, expect, test } from 'vitest'
-import { ScopeProvider } from '../../src/index'
-import { clickButton, getTextContents } from '../utils'
+import { ScopeProvider } from 'src/ScopeProvider/ScopeProvider'
+import { atom, useAtom, useSetAtom } from '../../jotai'
+import { atomFamily, atomWithReducer } from '../../jotai/utils'
+import { clickButton, getTextContents } from './utils'
 
 describe('AtomFamily with ScopeProvider', () => {
   /*
@@ -11,7 +11,7 @@ describe('AtomFamily with ScopeProvider', () => {
     S0[]: a0 b0
     S1[aFamily]: a1 b1
   */
-  test('01. Scoped atom families provide isolated state', () => {
+  test('01. Scoped atom families provide isolated state', function test() {
     const aFamily = atomFamily(() => atom(0))
     const aAtom = aFamily('a')
     aAtom.debugLabel = 'aAtom'
