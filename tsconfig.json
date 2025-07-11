@@ -2,23 +2,18 @@
   "compilerOptions": {
     "strict": true,
     "target": "esnext",
-    "downlevelIteration": true,
-    "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",
     "allowJs": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true,
-    "skipLibCheck": true,
     "jsx": "react-jsx",
-    "jsxImportSource": "react",
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "paths": {
       "jotai-scope": ["./src"]
-    }
+    },
+    "types": ["vite/client", "node"]
   },
   "include": ["src", "tests"],
-  "exclude": ["dist"]
+  "exclude": ["dist", "jotai"]
 }

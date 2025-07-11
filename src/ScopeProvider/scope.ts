@@ -1,8 +1,9 @@
 import { type Atom, atom } from 'jotai'
+import { __DEV__ } from '../env'
 import type { AnyAtom, AnyAtomFamily, AnyWritableAtom, Scope } from '../types'
 
 const globalScopeKey: { name?: string } = {}
-if (process.env.NODE_ENV !== 'production') {
+if (__DEV__) {
   globalScopeKey.name = 'unscoped'
   globalScopeKey.toString = toString
 }
@@ -49,7 +50,7 @@ export function createScope(
     },
   }
 
-  if (scopeName && process.env.NODE_ENV !== 'production') {
+  if (scopeName && __DEV__) {
     currentScope.name = scopeName
     currentScope.toString = toString
   }
