@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "declaration": true,
+    "declarationMap": true,
+    "emitDeclarationOnly": true,
+    "paths": {},
+    "allowSyntheticDefaultImports": true,
+    "isolatedModules": false
+  },
+  "include": ["src"]
+}

@@ -1,10 +1,14 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
-    "jsx": "react-jsx",
-    "jsxImportSource": "react"
+    "noEmit": true,
+    "isolatedModules": true,
+    "allowImportingTsExtensions": true,
+    "paths": {
+      "jotai": ["./jotai/src/index.ts"],
+      "jotai/*": ["./jotai/src/*"],
+      "jotai-scope": ["./src"]
+    }
   },
-  "include": ["**/tests/*", "**/*.test.*"]
+  "include": ["src", "jotai/src", "tests"]
 }
