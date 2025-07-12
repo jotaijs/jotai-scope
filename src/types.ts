@@ -30,7 +30,8 @@ export type Scope = {
   prepareWriteAtom: <T extends AnyAtom>(
     anAtom: T,
     originalAtom: T,
-    implicitScope?: Scope
+    implicitScope?: Scope,
+    writeScope?: Scope
   ) => (() => void) | undefined
 
   /**
