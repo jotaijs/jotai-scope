@@ -1,7 +1,16 @@
 import { render } from '@testing-library/react'
-import { type PrimitiveAtom, type WritableAtom, atom, useAtom } from 'jotai'
+import {
+  type PrimitiveAtom,
+  type WritableAtom,
+  atom,
+  createStore,
+  useAtom,
+} from 'jotai'
 import { describe, expect, test } from 'vitest'
-import { ScopeProvider } from 'jotai-scope'
+import { ScopeProvider } from '../../src'
+import { createPatchedStore } from '../../src/ScopeProvider/patchedStore'
+import { createScope } from '../../src/ScopeProvider/scope'
+import { AnyAtom } from '../../src/types'
 import { clickButton, getTextContents } from '../utils'
 
 let baseAtom: PrimitiveAtom<number>
@@ -9,8 +18,11 @@ let baseAtom: PrimitiveAtom<number>
 type WritableNumberAtom = WritableAtom<number, [number?], void>
 
 const writableAtom: WritableNumberAtom = atom(0, (get, set, value = 0) => {
-  set(writableAtom, get(writableAtom) + get(baseAtom) + value)
+  const writableValue = get(writableAtom)
+  const baseValue = get(baseAtom)
+  set(writableAtom, writableValue + baseValue + value)
 })
+writableAtom.debugLabel = 'writableAtom'
 
 const thisWritableAtom: WritableNumberAtom = atom(
   0,
@@ -21,6 +33,8 @@ const thisWritableAtom: WritableNumberAtom = atom(
 
 function renderTest(targetAtom: WritableNumberAtom) {
   baseAtom = atom(0)
+  baseAtom.debugLabel = 'baseAtom'
+
   function Component({ level }: { level: string }) {
     const [value, increaseWritable] = useAtom(targetAtom)
     const [baseValue, increaseBase] = useAtom(baseAtom)
@@ -31,7 +45,9 @@ function renderTest(targetAtom: WritableNumberAtom) {
         <button
           type="button"
           className="write"
-          onClick={() => increaseWritable()}>
+          onClick={() => {
+            increaseWritable()
+          }}>
           increase writable atom
         </button>
         <button
@@ -49,7 +65,7 @@ function renderTest(targetAtom: WritableNumberAtom) {
       <>
         <h1>unscoped</h1>
         <Component level="level0" />
-        <ScopeProvider atoms={[baseAtom]}>
+        <ScopeProvider atoms={[baseAtom]} debugName="level1">
           <h1>scoped</h1>
           <p>
             writable atom should update its value in both scoped and unscoped
@@ -145,12 +161,51 @@ describe('Self', () => {
 
       // level1 writable atom increases its value using level1 base atom
       clickButton(container, increaseLevel1Writable)
-      expect(getTextContents(container, selectors)).toEqual([
-        '1', // level0 readBase
-        '12', // level0 read
-        '10', // level1 readBase
-        '12', // level1 read
-      ])
+      const v = getTextContents(container, selectors) + ''
+      expect(v).toEqual(
+        [
+          '1', // level0 readBase
+          '12', // level0 read
+          '10', // level1 readBase
+          '12', // level1 read
+        ] + ''
+      )
     }
   )
+})
+
+describe('scope chains', () => {
+  const a = atom(0)
+  const b = atom(null, (_, set, v: number) => set(a, v))
+  const c = atom(null, (_, set, v: number) => set(b, v))
+  a.debugLabel = 'a'
+  b.debugLabel = 'b'
+  c.debugLabel = 'c'
+  function createScopes(atoms: AnyAtom[] = []) {
+    const s0 = createStore()
+    const s1 = createPatchedStore(
+      s0,
+      createScope(
+        ...(Object.values({
+          atoms: new Set(atoms),
+          atomFamilies: undefined,
+          parentScope: undefined,
+          scopeName: 'S1',
+        }) as Parameters<typeof createScope>)
+      )
+    )
+    return { s0, s1 }
+  }
+  test('S1[a]: a1, b0(,a1), c0(,b0(,a1))', () => {
+    {
+      const { s0, s1 } = createScopes([a])
+      s0.set(c, 1)
+      expect([s0.get(a), s1.get(a)] + '').toBe('1,0')
+    }
+    {
+      const { s0, s1 } = createScopes([a])
+      s1.set(c, 1)
+      expect([s0.get(a), s1.get(a)] + '').toBe('0,1')
+    }
+  })
 })

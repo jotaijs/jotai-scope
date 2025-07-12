@@ -11,8 +11,8 @@ if (__DEV__) {
 type GlobalScopeKey = typeof globalScopeKey
 
 export function createScope(
-  atoms: Set<AnyAtom>,
-  atomFamilies: Set<AnyAtomFamily>,
+  atoms: Set<AnyAtom> = new Set(),
+  atomFamilies: Set<AnyAtomFamily> = new Set(),
   parentScope: Scope | undefined,
   scopeName?: string | undefined
 ): Scope {
@@ -24,7 +24,7 @@ export function createScope(
   const currentScope: Scope = {
     getAtom,
     cleanup() {},
-    prepareWriteAtom(anAtom, originalAtom, implicitScope) {
+    prepareWriteAtom(anAtom, originalAtom, implicitScope, writeScope) {
       if (
         originalAtom.read === defaultRead &&
         isWritableAtom(originalAtom) &&
@@ -40,7 +40,8 @@ export function createScope(
           originalAtom.write.bind(
             originalAtom
           ) as (typeof originalAtom)['write'],
-          implicitScope
+          implicitScope,
+          writeScope
         )
         return () => {
           anAtom.write = write
@@ -192,6 +193,10 @@ export function createScope(
       )
     }
 
+    if (__DEV__) {
+      scopedAtom.debugLabel = `${originalAtom.debugLabel}@${currentScope.name}`
+    }
+
     return scopedAtom
   }
 
@@ -212,7 +217,8 @@ export function createScope(
 
   function createScopedWrite<T extends AnyWritableAtom>(
     write: T['write'],
-    implicitScope?: Scope
+    implicitScope?: Scope,
+    writeScope = implicitScope
   ): T['write'] {
     return function scopedWrite(get, set, ...args) {
       return write(
@@ -222,7 +228,17 @@ export function createScope(
         },
         function scopedSet(a, ...v) {
           const [scopedAtom] = getAtom(a, implicitScope)
-          return set(scopedAtom, ...v)
+          const restore = currentScope.prepareWriteAtom(
+            scopedAtom,
+            a,
+            implicitScope,
+            writeScope
+          )
+          try {
+            return set(scopedAtom, ...v)
+          } finally {
+            restore?.()
+          }
         },
         ...args
       )

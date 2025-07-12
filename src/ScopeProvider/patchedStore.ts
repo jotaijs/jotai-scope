@@ -14,7 +14,12 @@ export function createPatchedStore(baseStore: Store, scope: Scope): Store {
     },
     set(anAtom, ...args) {
       const [scopedAtom, implicitScope] = scope.getAtom(anAtom)
-      const restore = scope.prepareWriteAtom(scopedAtom, anAtom, implicitScope)
+      const restore = scope.prepareWriteAtom(
+        scopedAtom,
+        anAtom,
+        implicitScope,
+        scope
+      )
       try {
         return baseStore.set(scopedAtom, ...args)
       } finally {
