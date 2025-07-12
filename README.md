@@ -117,7 +117,7 @@ Above:
   - **c** is a derived atom. **c** reads **a** and **b**. In **S1**, **c** is not scoped so it reads **a1** and **b0** from **S1**.
   - **c** is scoped in **S2**, so it reads **a** from **S2** and **b** from **S2**. This is because atom dependencies of scoped atoms are _implicitly scoped_.
   - Outside **c** and **d** in **S2**, **a** and **b** still inherit from **S1**.
-  - **c** and **d** are both scoped in **S2**, so they both reads **a2** and **b2**. **c** and **d** share the same atom dependencies. **a2** in **c2** and **a2** in **d2** are the same atom.
+  - **c** and **d** are both scoped in **S2**, so they both read **a2**. Implicit dependencies are shared across scoped atoms in the same scope so **a2** in **c2** and **a2** in **d2** are the same atom.
 
 ### API
 
