@@ -8,7 +8,6 @@ import {
 } from 'jotai'
 import { describe, expect, test } from 'vitest'
 import { ScopeProvider } from '../../src'
-import { createPatchedStore } from '../../src/ScopeProvider/patchedStore'
 import { createScope } from '../../src/ScopeProvider/scope'
 import { AnyAtom } from '../../src/types'
 import { clickButton, getTextContents } from '../utils'
@@ -183,17 +182,12 @@ describe('scope chains', () => {
   c.debugLabel = 'c'
   function createScopes(atoms: AnyAtom[] = []) {
     const s0 = createStore()
-    const s1 = createPatchedStore(
-      s0,
-      createScope(
-        ...(Object.values({
-          atoms: new Set(atoms),
-          atomFamilies: undefined,
-          parentScope: undefined,
-          scopeName: 'S1',
-        }) as Parameters<typeof createScope>)
-      )
-    )
+    const s1 = createScope({
+      atomSet: new Set(atoms),
+      atomFamilySet: undefined,
+      parentStore: s0,
+      scopeName: 'S1',
+    })
     return { s0, s1 }
   }
   test('S1[a]: a1, b0(,a1), c0(,b0(,a1))', () => {

@@ -1,21 +1,35 @@
 import { type Atom, atom } from 'jotai'
 import { __DEV__ } from '../env'
-import type { AnyAtom, AnyAtomFamily, AnyWritableAtom, Scope } from '../types'
+import {
+  type AnyAtom,
+  type AnyAtomFamily,
+  type AnyWritableAtom,
+  SCOPE,
+  type Scope,
+  type ScopedStore,
+  type Store,
+} from '../types'
 
 const globalScopeKey: { name?: string } = {}
 if (__DEV__) {
   globalScopeKey.name = 'unscoped'
-  globalScopeKey.toString = toString
+  globalScopeKey.toString = toNameString
 }
 
 type GlobalScopeKey = typeof globalScopeKey
 
-export function createScope(
-  atoms: Set<AnyAtom> = new Set(),
-  atomFamilies: Set<AnyAtomFamily> = new Set(),
-  parentScope: Scope | undefined,
-  scopeName?: string | undefined
-): Scope {
+export function createScope({
+  atomSet = new Set(),
+  atomFamilySet = new Set(),
+  parentStore,
+  scopeName,
+}: {
+  atomSet?: Set<AnyAtom>
+  atomFamilySet?: Set<AnyAtomFamily>
+  parentStore: Store | ScopedStore
+  scopeName?: string
+}): ScopedStore {
+  const parentScope = SCOPE in parentStore ? parentStore[SCOPE] : undefined
   const explicit = new WeakMap<AnyAtom, [AnyAtom, Scope?]>()
   const implicit = new WeakMap<AnyAtom, [AnyAtom, Scope?]>()
   type ScopeMap = WeakMap<AnyAtom, [AnyAtom, Scope?]>
@@ -53,16 +67,16 @@ export function createScope(
 
   if (scopeName && __DEV__) {
     currentScope.name = scopeName
-    currentScope.toString = toString
+    currentScope.toString = toNameString
   }
 
   // populate explicitly scoped atoms
-  for (const anAtom of atoms) {
+  for (const anAtom of atomSet) {
     explicit.set(anAtom, [cloneAtom(anAtom, currentScope), currentScope])
   }
 
   const cleanupFamiliesSet = new Set<() => void>()
-  for (const atomFamily of atomFamilies) {
+  for (const atomFamily of atomFamilySet) {
     for (const param of atomFamily.getParams()) {
       const anAtom = atomFamily(param)
       if (!explicit.has(anAtom)) {
@@ -72,7 +86,7 @@ export function createScope(
     const cleanupFamily = atomFamily.unstable_listen((e) => {
       if (e.type === 'CREATE' && !explicit.has(e.atom)) {
         explicit.set(e.atom, [cloneAtom(e.atom, currentScope), currentScope])
-      } else if (!atoms.has(e.atom)) {
+      } else if (!atomSet.has(e.atom)) {
         explicit.delete(e.atom)
       }
     })
@@ -245,7 +259,8 @@ export function createScope(
     }
   }
 
-  return currentScope
+  const scopedStore = createPatchedStore(parentStore, currentScope)
+  return scopedStore
 }
 
 function isWritableAtom(anAtom: AnyAtom): anAtom is AnyWritableAtom {
@@ -254,7 +269,7 @@ function isWritableAtom(anAtom: AnyAtom): anAtom is AnyWritableAtom {
 
 const { read: defaultRead, write: defaultWrite } = atom<unknown>(null)
 
-function toString(this: { name: string }) {
+function toNameString(this: { name: string }) {
   return this.name
 }
 
@@ -264,4 +279,47 @@ function combineVoidFunctions(...fns: (() => void)[]) {
       fn()
     }
   }
+}
+
+function PatchedStore() {}
+
+/**
+ * @returns a patched store that intercepts get and set calls to apply the scope
+ */
+function createPatchedStore(baseStore: Store, scope: Scope): ScopedStore {
+  const store: ScopedStore = {
+    ...baseStore,
+    get(anAtom, ...args) {
+      const [scopedAtom] = scope.getAtom(anAtom)
+      return baseStore.get(scopedAtom, ...args)
+    },
+    set(anAtom, ...args) {
+      const [scopedAtom, implicitScope] = scope.getAtom(anAtom)
+      const restore = scope.prepareWriteAtom(
+        scopedAtom,
+        anAtom,
+        implicitScope,
+        scope
+      )
+      try {
+        return baseStore.set(scopedAtom, ...args)
+      } finally {
+        restore?.()
+      }
+    },
+    sub(anAtom, ...args) {
+      const [scopedAtom] = scope.getAtom(anAtom)
+      return baseStore.sub(scopedAtom, ...args)
+    },
+    [SCOPE]: scope,
+    // TODO: update this patch to support devtools
+  }
+  return Object.assign(Object.create(PatchedStore.prototype), store)
+}
+
+/**
+ * @returns true if the current scope is the first descendant scope under Provider
+ */
+export function isTopLevelScope(parentStore: Store) {
+  return !(parentStore instanceof PatchedStore)
 }
