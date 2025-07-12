@@ -5,7 +5,7 @@ import { createScope } from '../src/ScopeProvider/scope'
 
 describe('open issues', () => {
   // FIXME:
-  it.fails('https://github.com/jotaijs/jotai-scope/issues/25', () => {
+  it.skip('https://github.com/jotaijs/jotai-scope/issues/25', () => {
     const a = atom(vi.fn(), () => {})
     a.debugLabel = 'atomA'
     a.onMount = vi.fn()
