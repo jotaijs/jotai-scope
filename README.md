@@ -1,84 +1,168 @@
 # jotai-scope
 
-👻🔭
+👻🔭 *Isolate Jotai atoms with scope*
 
-https://jotai.org/docs/integrations/scope
+## ScopeProvider
 
-## Scoped Atom resolution rules
+---
 
-1. Each ScopeProvider creates a new scope pool.
-2. If a primitive atom is scoped, its scoped copy will be stored within the scope pool.
-3. If a derived atom is scoped, itself and all of its dependencies will be stored within the scope pool.
-4. If a derived atom is not scoped, but its dependency is scoped, it will access its scoped dependency.
-5. In each scope pool, each atom has at most one scoped copy, so the same scoped atom is shared in the pool.
-6. If a derived atom is nested scoped, itself and all of its dependencies will be stored within the scope pool where the atom is marked as scoped.
+### Why
 
-Taking the following setting in mind:
+`<ScopeProvider>` lets you reuse the *same* atoms in different parts of the React tree **without sharing state** while still be able to read other atoms from the parent store.
 
-```javascript
-const base = atom(0)
-const derived1 = atom((get) => get(base))
-const derived2 = atom((get) => get(base))
+---
 
-const Component = () => {
-  useAtom(base)
-  useAtom(derived1)
-  useAtom(derived2)
-}
+### At‑a‑glance
+
+* Scopes are opt‑in. Only atoms listed in `atoms` or `atomFamilies`.
+* **Derived atoms** work intuitively.
+
+  * **Unscoped derived** atoms can read both unscoped and scoped atoms.
+  * **Implicit dependency scoping.** When you scope a derived atom, every atom it touches (recursive) is scoped automatically, but only when read by the derived atom. Outside the derived atom, it continues to be unscoped.
+* **Nested lookup.** If a scope can’t find the atom in the current scope, it bubbles to the nearest parent scope, up to the nearest store.
+* Works for both reading from atoms *and* writing to atoms.
+
+---
+
+### Quick Start
+
+```tsx
+import { Provider, atom, useAtom, useAtomValue } from 'jotai'
+import { ScopeProvider } from 'jotai-scope'
 ```
 
-### Example1: base and derived1 are scoped
+**1 · Isolating a counter**
 
-```javascript
-const App() {
+```tsx
+const countAtom = atom(0)
+const doubledAtom = atom((get) => get(countAtom) * 2)
+
+function Counter() {
+  const [count, setCount] = useAtom(countAtom)
+  const doubled = useAtomValue(doubledAtom)
   return (
     <>
-      <Component />
-      <ScopeProvider atoms={[base, derived1]}>
-        <Component />
-      </ScopeProvider>
+      <button onClick={() => setCount(c => c + 1)}>+1</button>
+      <span>{count} → {doubled}</span>
     </>
-  );
+  )
 }
-```
 
-Example 1 illustrates 1, 2, 3, 4, 5.
-
-In unscoped `Component`, `base`, `derived1` and `derived2` are globally shared.
-
-In scoped `Component`, `base` and `derived1` are scoped, so `derived1`'s dependency `base` is also scoped. Since exactly one scoped copy is stored in the scope pool, `base` and `derived1`'s dependency `base` are the same, so `derived1` and `base` are shared.
-
-In scoped `Component`, `derived2` is not scoped, but its dependency `base` is scoped. So `derived2` will access the scoped copy of `base` in the scope pool. Therefore, `derived1`, `derived2` and `base` are scoped and shared.
-
-### Example2: derived1 is scoped, base and derived2 are nested scoped
-
-```javascript
-const App() {
+export default function App() {
   return (
-    <>
-      <ScopeProvider atoms={[derived1]}>
-        <Component />
-        <ScopeProvider atoms={[base, derived2]}>
-          <Component />
-        </ScopeProvider>
+    <Provider>
+      <Counter /> {/* doubledAtom uses the parent store */}
+      <ScopeProvider atoms={[doubledAtom]}>
+        <Counter /> {/* doubledAtom is isolated */}
       </ScopeProvider>
-    </>
-  );
+    </Provider>
+  )
 }
 ```
 
-Example 2 illustrates 6.
+The second counter owns a private `doubledAtom` *and* a private `countAtom` because`doubledAtom` is scoped.
 
-In the first `ScopeProvider`, `derived1` is scoped, so `derived1`'s dependency `base` is also scoped.
+---
 
-In the second `ScopeProvider`, `base` and `derived2` are scoped, so `base` and `derived2` will access nested scope's atoms.
+**2 · Nested scopes**
 
-In the second `ScopeProvider`, `derived1` is scoped in the first `ScopeProvider`, but its dependency `base` is scoped in current `ScopeProvider`. Here, `derived1` will first access its scoped copy in the first `ScopeProvider`, and then access the scoped copy of `base` in the first `ScopeProvider`, too.
+```tsx
+<ScopeProvider atoms={[countAtom]} debugName="S1">
+  <Counter />         {/* countAtom is read from S1 */}
+  <ScopeProvider atoms={[nameAtom]} debugName="S2">
+    <Counter />       {/* count is read from S1 & nameAtom is read from S2 */}
+  </ScopeProvider>
+</ScopeProvider>
+```
 
-Therefore, first `ScopeProvider`'s `base` and `derived2` are globally shared. First `ScopeProvider` and second `ScopeProvider`'s `derived1` are shared. Second `ScopeProvider`'s `base` and `derived2` are shared.
+* Outer scope (S1) isolates `countAtom`.
+* Inner scope (S2) isolates `nameAtom` and looks up the tree and finds `countAtom` in S1
 
-## Pro Tips
+---
 
-1. Within a `ScopeProvider`, although an atom may not be scoped, its `atom.read` function could be called multiple times. **Therefore, do not use `atom.read` to perform side effects.**
+**3 · Providing default values**
 
-   NOTE: Async atoms always have side effects. To handle it, add additional code to prevent extra side effects. You can check this [issue](https://github.com/jotaijs/jotai-scope/issues/25#issuecomment-2014498893) as an example.
+```tsx
+<ScopeProvider atoms={[[countAtom, 42]]}>
+  <Counter />   {/* starts at 42 inside this scope, yay! */}
+</ScopeProvider>
+```
+
+Mix tuples and plain atoms as needed: `atoms={[[countAtom, 1], anotherAtom]}`.
+
+---
+
+**4 · Scoping an atomFamily**
+
+```tsx
+import { atom, atomFamily, useAtom } from 'jotai'
+import { ScopeProvider } from 'jotai-scope'
+
+const itemFamily = atomFamily((id: number) => atom(id))
+
+<Component />     {/* Unscoped items */}
+<ScopeProvider atomFamilies={[itemFamily]}>
+  <Component />   {/* Isolated items */}
+</ScopeProvider>
+
+```
+
+Inside the `<ScopeProvider>` every `itemFamily(id)` call resolves to a scoped copy, so items rendered inside the provider are independent from the global ones and from any sibling scopes.
+
+---
+
+**A helpful syntax for describing nested scopes**
+
+```
+a, b, C(a + b), D(a + C)
+S1[a]: a1, b0, C0(a1 + b0), D0(a1 + C0(a1 + b0))
+S2[C, D]: a1, b0, C2(a2 + b2), D2(a2 + C2(a2 + b2))
+```
+Above:
+  - Scope S1 is the first scope under the store provider (S0). S1 scopes a, so a1 refers to the scoped a in S1.
+  - C is a derived atom. C reads a and b. In S1, C is not scoped so it reads a1 and b0 from S1.
+  - C is scoped in S2, so it reads a from S2 and b from S2. This is because atom dependencies of scoped atoms are _implicitly scoped_.
+  - Outside C and D in S2, a and b still inherit from S1.
+  - C and D are both scoped in S2, so they both reads a2 and b2. C and D share the same atom dependencies. a2 in C2 and a2 in D2 are the same atom.
+
+### API
+
+```ts
+interface ScopeProviderProps {
+  atoms: (Atom<any> | [WritableAtom<any, any[], any>, any])[]
+  atomFamilies: AtomFamily<any, any>[]
+  children: React.ReactNode
+  debugName?: string
+}
+```
+
+---
+
+### Caveats
+
+* Avoid side effects inside `get`—it may run multiple times per scope. For async atoms, use an abort controller or move it to an atom effect. The extra renders are a known limitation and rewrite solutions are being researched. If you are interested in helping, please [join the discussion](https://github.com/jotaijs/jotai-scope/issues/25).
+
+---
+
+## createIsolation
+
+`createIsolation` is useful for library authors to create a private store for libraries that use Jotai. It provides a private `Provider` and hooks that do not share state with the global store.
+
+```tsx
+import { createIsolation } from 'jotai-scope'
+
+const { Provider, useStore, useAtom, useAtomValue, useSetAtom } =
+  createIsolation()
+
+function Library() {
+  return (
+    <Provider>
+      <LibraryComponent />
+    </Provider>
+  )
+}
+```
+
+---
+
+MIT © 2025 jotai‑scope team
