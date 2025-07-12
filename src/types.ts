@@ -3,6 +3,10 @@ import type { AtomFamily } from 'jotai/vanilla/utils/atomFamily'
 
 export type Store = ReturnType<typeof createStore>
 
+export type ScopedStore = Store & {
+  [SCOPE]: Scope
+}
+
 export type AnyAtom = Atom<any> | AnyWritableAtom
 
 export type AnyAtomFamily = AtomFamily<any, AnyAtom>
@@ -44,5 +48,7 @@ export type Scope = {
    */
   toString?: () => string
 }
+
+export const SCOPE = Symbol('scope')
 
 export type AtomDefault = readonly [AnyWritableAtom, unknown]

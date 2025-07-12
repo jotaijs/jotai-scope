@@ -1,31 +1,32 @@
 import { atom, createStore } from 'jotai'
 import { describe, expect, it, vi } from 'vitest'
-import { createPatchedStore } from '../src/ScopeProvider/patchedStore'
 import { createScope } from '../src/ScopeProvider/scope'
 
 describe('open issues', () => {
   // FIXME:
   it.skip('https://github.com/jotaijs/jotai-scope/issues/25', () => {
-    const a = atom(vi.fn(), () => {})
+    const a = atom(
+      vi.fn(() => {
+        console.log('reading atomA')
+      }),
+      () => {}
+    )
     a.debugLabel = 'atomA'
-    a.onMount = vi.fn()
+    a.onMount = vi.fn(() => {
+      console.log('mounting atomA')
+    })
 
     const s0 = createStore()
     s0.sub(a, () => {
       console.log('S0: atomA changed')
     })
 
-    const s1 = createPatchedStore(
-      s0,
-      createScope(
-        ...(Object.values({
-          atoms: new Set([a]),
-          atomFamilies: new Set(),
-          parentScope: undefined,
-          scopeName: 's1',
-        }) as Parameters<typeof createScope>)
-      )
-    )
+    const s1 = createScope({
+      atomSet: new Set([a]),
+      atomFamilySet: new Set(),
+      parentStore: s0,
+      scopeName: 's1',
+    })
 
     s1.sub(a, () => {
       console.log('S1: atomA changed')
@@ -50,26 +51,21 @@ describe('open issues', () => {
     c.debugLabel = 'atomC'
 
     function createStores() {
-      const s0Store = createStore()
-      s0Store.sub(a, () => {
-        console.log('S1', s0Store.get(a))
+      const s0 = createStore()
+      s0.sub(a, () => {
+        console.log('S1', s0.get(a))
       })
 
-      const s1Store = createPatchedStore(
-        s0Store,
-        createScope(
-          ...(Object.values({
-            atoms: new Set([a]),
-            atomFamilies: new Set(),
-            parentScope: undefined,
-            scopeName: 's1',
-          }) as Parameters<typeof createScope>)
-        )
-      )
-      s1Store.sub(a, () => {
-        console.log('S1', s1Store.get(a))
+      const s1 = createScope({
+        atomSet: new Set([a]),
+        atomFamilySet: new Set(),
+        parentStore: s0,
+        scopeName: 's1',
       })
-      return { s0Store, s1Store }
+      s1.sub(a, () => {
+        console.log('S1', s1.get(a))
+      })
+      return { s0Store: s0, s1Store: s1 }
     }
     {
       const { s0Store, s1Store } = createStores()
