@@ -4,15 +4,15 @@
 
 ## ScopeProvider
 
-`<ScopeProvider>` lets you reuse the *same* atoms in different parts of the React tree **without sharing state** while still be able to read other atoms from the parent store.
+`<ScopeProvider>` lets you reuse the *same* atoms in different parts of the React tree **without sharing state** while still being able to read other atoms from the parent store.
 
 ---
 
 ### At‑a‑glance
 
-* Scopes are opt‑in. Only atoms listed in `atoms` or `atomFamilies`.
+* Scopes are opt‑in. Only atoms listed in `atoms` or `atomFamilies` are explicitly scoped.
 * **Unscoped derived** atoms can read both unscoped and scoped atoms.
-* **Scoped derived** atoms implicitly scope their atom dependencies. When you scope a derived atom, every atom it touches (recursive) is scoped automatically, but only when read by the derived atom. Outside the derived atom, it continues to be unscoped.
+* **Scoped derived** atoms implicitly scope their atom dependencies. When you scope a derived atom, every atom it touches (recursively) is scoped automatically, but only when read by the derived atom. Outside the derived atom, it continues to be unscoped.
 * **Nested lookup.** If a scope can’t find the atom in the current scope, it inherits from the nearest parent scope, up to the nearest store.
 * Scoping works for both reading from atoms *and* writing to atoms.
 
@@ -54,7 +54,7 @@ export default function App() {
 }
 ```
 
-The second counter owns a private `doubledAtom` *and* a private `countAtom` because`doubledAtom` is scoped.
+The second counter owns a private `doubledAtom` *and* a private `countAtom` because `doubledAtom` is scoped.
 
 ---
 
@@ -70,7 +70,7 @@ The second counter owns a private `doubledAtom` *and* a private `countAtom` b
 ```
 
 * Outer scope (S1) isolates `countAtom`.
-* Inner scope (S2) isolates `nameAtom` and looks up the tree and finds `countAtom` in S1
+* Inner scope (S2) isolates `nameAtom`, then looks up the tree and finds `countAtom` in S1.
 
 ---
 
@@ -78,7 +78,7 @@ The second counter owns a private `doubledAtom` *and* a private `countAtom` b
 
 ```tsx
 <ScopeProvider atoms={[[countAtom, 42]]}>
-  <Counter />   {/* starts at 42 inside this scope, yay! */}
+  <Counter />   {/* starts at 42 inside this scope */}
 </ScopeProvider>
 ```
 
@@ -113,18 +113,18 @@ S1[a]:    a1, b0, c0(a1 + b0), d0(a1 + c0(a1 + b0))
 S2[c, d]: a1, b0, c2(a2 + b2), d2(a2 + c2(a2 + b2))
 ```
 Above:
-  - Scope **S1** is the first scope under the store provider (**S0**). **S1** scopes **a**, so **a1** refers to the scoped **a** in **S1**.
-  - **c** is a derived atom. **c** reads **a** and **b**. In **S1**, **c** is not scoped so it reads **a1** and **b0** from **S1**.
-  - **c** is scoped in **S2**, so it reads **a** from **S2** and **b** from **S2**. This is because atom dependencies of scoped atoms are _implicitly scoped_.
-  - Outside **c** and **d** in **S2**, **a** and **b** still inherit from **S1**.
-  - **c** and **d** are both scoped in **S2**, so they both reads **a2** and **b2**. **c** and **d** share the same atom dependencies. **a2** in **c2** and **a2** in **d2** are the same atom.
+- Scope **S1** is the first scope under the store provider (**S0**). **S1** scopes **a**, so **a1** refers to the scoped **a** in **S1**.
+- **c** is a derived atom. **c** reads **a** and **b**. In **S1**, **c** is not scoped so it reads **a1** and **b0** from **S1**.
+- **c** is scoped in **S2**, so it reads **a** from **S2** and **b** from **S2**. This is because atom dependencies of scoped atoms are _implicitly scoped_.
+- Outside **c** and **d** in **S2**, **a** and **b** still inherit from **S1**.
+- **c** and **d** are both scoped in **S2**, so they both read **a2**. Implicit dependencies are shared across scoped atoms in the same scope so **a2** in **c2** and **a2** in **d2** are the same atom.
 
 ### API
 
 ```ts
 interface ScopeProviderProps {
-  atoms: (Atom<any> | [WritableAtom<any, any[], any>, any])[]
-  atomFamilies: AtomFamily<any, any>[]
+  atoms?: (Atom<any> | [WritableAtom<any, any[], any>, any])[]
+  atomFamilies?: AtomFamily<any, any>[]
   children: React.ReactNode
   debugName?: string
 }
@@ -156,7 +156,3 @@ function Library() {
   )
 }
 ```
-
----
-
-MIT © 2025 jotai‑scope team
