@@ -1,13 +1,13 @@
 import type { Atom, WritableAtom, createStore } from 'jotai/vanilla'
-import { AtomFamily } from 'jotai/vanilla/utils/atomFamily'
+import type { AtomFamily } from 'jotai/vanilla/utils/atomFamily'
 
 export type Store = ReturnType<typeof createStore>
 
-export type AnyAtom = Atom<unknown> | WritableAtom<unknown, unknown[], unknown>
+export type AnyAtom = Atom<any> | AnyWritableAtom
 
-export type AnyAtomFamily = AtomFamily<unknown, AnyAtom>
+export type AnyAtomFamily = AtomFamily<any, AnyAtom>
 
-export type AnyWritableAtom = WritableAtom<unknown, unknown[], unknown>
+export type AnyWritableAtom = WritableAtom<any, any[], any>
 
 export type Scope = {
   /**
@@ -44,3 +44,5 @@ export type Scope = {
    */
   toString?: () => string
 }
+
+export type AtomDefault = readonly [AnyWritableAtom, unknown]
