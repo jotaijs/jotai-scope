@@ -4,10 +4,6 @@
 
 ## ScopeProvider
 
----
-
-### Why
-
 `<ScopeProvider>` lets you reuse the *same* atoms in different parts of the React tree **without sharing state** while still be able to read other atoms from the parent store.
 
 ---
@@ -15,12 +11,10 @@
 ### At‑a‑glance
 
 * Scopes are opt‑in. Only atoms listed in `atoms` or `atomFamilies`.
-* **Derived atoms** work intuitively.
-
-  * **Unscoped derived** atoms can read both unscoped and scoped atoms.
-  * **Implicit dependency scoping.** When you scope a derived atom, every atom it touches (recursive) is scoped automatically, but only when read by the derived atom. Outside the derived atom, it continues to be unscoped.
-* **Nested lookup.** If a scope can’t find the atom in the current scope, it bubbles to the nearest parent scope, up to the nearest store.
-* Works for both reading from atoms *and* writing to atoms.
+* **Unscoped derived** atoms can read both unscoped and scoped atoms.
+* **Scoped derived** atoms implicitly scope their atom dependencies. When you scope a derived atom, every atom it touches (recursive) is scoped automatically, but only when read by the derived atom. Outside the derived atom, it continues to be unscoped.
+* **Nested lookup.** If a scope can’t find the atom in the current scope, it inherits from the nearest parent scope, up to the nearest store.
+* Scoping works for both reading from atoms *and* writing to atoms.
 
 ---
 
@@ -42,7 +36,7 @@ function Counter() {
   const doubled = useAtomValue(doubledAtom)
   return (
     <>
-      <button onClick={() => setCount(c => c + 1)}>+1</button>
+      <button onClick={() => setCount((c) => c + 1)}>+1</button>
       <span>{count} → {doubled}</span>
     </>
   )
@@ -53,7 +47,7 @@ export default function App() {
     <Provider>
       <Counter /> {/* doubledAtom uses the parent store */}
       <ScopeProvider atoms={[doubledAtom]}>
-        <Counter /> {/* doubledAtom is isolated */}
+        <Counter /> {/* doubledAtom is scoped */}
       </ScopeProvider>
     </Provider>
   )
@@ -70,7 +64,7 @@ The second counter owns a private `doubledAtom` *and* a private `countAtom` b
 <ScopeProvider atoms={[countAtom]} debugName="S1">
   <Counter />         {/* countAtom is read from S1 */}
   <ScopeProvider atoms={[nameAtom]} debugName="S2">
-    <Counter />       {/* count is read from S1 & nameAtom is read from S2 */}
+    <Counter />       {/* countAtom is read from S1 & nameAtom is read from S2 */}
   </ScopeProvider>
 </ScopeProvider>
 ```
@@ -114,16 +108,16 @@ Inside the `<ScopeProvider>` every `itemFamily(id)` call resolves to a scoped co
 **A helpful syntax for describing nested scopes**
 
 ```
-a, b, C(a + b), D(a + C)
-S1[a]: a1, b0, C0(a1 + b0), D0(a1 + C0(a1 + b0))
-S2[C, D]: a1, b0, C2(a2 + b2), D2(a2 + C2(a2 + b2))
+a, b, c(a + b), d(a + c)
+S1[a]:    a1, b0, c0(a1 + b0), d0(a1 + c0(a1 + b0))
+S2[c, d]: a1, b0, c2(a2 + b2), d2(a2 + c2(a2 + b2))
 ```
 Above:
-  - Scope S1 is the first scope under the store provider (S0). S1 scopes a, so a1 refers to the scoped a in S1.
-  - C is a derived atom. C reads a and b. In S1, C is not scoped so it reads a1 and b0 from S1.
-  - C is scoped in S2, so it reads a from S2 and b from S2. This is because atom dependencies of scoped atoms are _implicitly scoped_.
-  - Outside C and D in S2, a and b still inherit from S1.
-  - C and D are both scoped in S2, so they both reads a2 and b2. C and D share the same atom dependencies. a2 in C2 and a2 in D2 are the same atom.
+  - Scope **S1** is the first scope under the store provider (**S0**). **S1** scopes **a**, so **a1** refers to the scoped **a** in **S1**.
+  - **c** is a derived atom. **c** reads **a** and **b**. In **S1**, **c** is not scoped so it reads **a1** and **b0** from **S1**.
+  - **c** is scoped in **S2**, so it reads **a** from **S2** and **b** from **S2**. This is because atom dependencies of scoped atoms are _implicitly scoped_.
+  - Outside **c** and **d** in **S2**, **a** and **b** still inherit from **S1**.
+  - **c** and **d** are both scoped in **S2**, so they both reads **a2** and **b2**. **c** and **d** share the same atom dependencies. **a2** in **c2** and **a2** in **d2** are the same atom.
 
 ### API
 
@@ -140,7 +134,7 @@ interface ScopeProviderProps {
 
 ### Caveats
 
-* Avoid side effects inside `get`—it may run multiple times per scope. For async atoms, use an abort controller or move it to an atom effect. The extra renders are a known limitation and rewrite solutions are being researched. If you are interested in helping, please [join the discussion](https://github.com/jotaijs/jotai-scope/issues/25).
+* Avoid side effects inside atom read—it may run multiple times per scope. For async atoms, use an abort controller. The extra renders are a known limitation and solutions are being researched. If you are interested in helping, please [join the discussion](https://github.com/jotaijs/jotai-scope/issues/25).
 
 ---
 
