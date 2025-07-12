@@ -1,14 +1,19 @@
 import {
-  type EffectCallback,
   type PropsWithChildren,
   createContext,
   useContext,
   useEffect,
-  useRef,
   useState,
 } from 'react'
 import { Provider, useStore } from 'jotai/react'
-import type { AnyAtom, AnyAtomFamily, Scope, Store } from '../types'
+import { useHydrateAtoms } from 'jotai/utils'
+import type {
+  AnyAtom,
+  AnyAtomFamily,
+  AtomDefault,
+  Scope,
+  Store,
+} from '../types'
 import { createPatchedStore, isTopLevelScope } from './patchedStore'
 import { createScope } from './scope'
 
@@ -17,36 +22,36 @@ const ScopeContext = createContext<{
   baseStore: Store | undefined
 }>({ scope: undefined, baseStore: undefined })
 
-export function ScopeProvider({
-  atoms,
-  atomFamilies,
-  children,
-  debugName,
-}: PropsWithChildren<{
-  atoms: Iterable<AnyAtom>
+type ScopeProviderBaseProps = PropsWithChildren<{
+  atoms?: Iterable<AnyAtom | AtomDefault>
   atomFamilies?: Iterable<AnyAtomFamily>
   debugName?: string
-}>): React.JSX.Element
+}>
+
 export function ScopeProvider({
   atoms,
   atomFamilies,
   children,
   debugName,
-}: PropsWithChildren<{
-  atoms?: Iterable<AnyAtom>
+}: {
+  atoms: Iterable<AnyAtom | AtomDefault>
+} & ScopeProviderBaseProps): React.JSX.Element
+
+export function ScopeProvider({
+  atoms,
+  atomFamilies,
+  children,
+  debugName,
+}: {
   atomFamilies: Iterable<AnyAtomFamily>
-  debugName?: string
-}>): React.JSX.Element
+} & ScopeProviderBaseProps): React.JSX.Element
+
 export function ScopeProvider({
-  atoms,
+  atoms: atomsOrTuples = [],
   atomFamilies,
   children,
   debugName,
-}: PropsWithChildren<{
-  atoms?: Iterable<AnyAtom>
-  atomFamilies?: Iterable<AnyAtomFamily>
-  debugName?: string
-}>) {
+}: ScopeProviderBaseProps) {
   const parentStore: Store = useStore()
   let { scope: parentScope, baseStore = parentStore } = useContext(ScopeContext)
   // if this ScopeProvider is the first descendant scope under Provider then it is the top level scope
@@ -55,6 +60,8 @@ export function ScopeProvider({
     parentScope = undefined
     baseStore = parentStore
   }
+
+  const atoms = Array.from(atomsOrTuples, (a) => (Array.isArray(a) ? a[0] : a))
 
   // atomSet is used to detect if the atoms prop has changed.
   const atomSet = new Set(atoms)
@@ -87,8 +94,11 @@ export function ScopeProvider({
     scopeContext.scope?.cleanup()
     setState(initialize)
   }
-  const { cleanup } = scopeContext.scope
-  useEvent(() => cleanup, [])
+  useHydrateAtoms(
+    Array.from(atomsOrTuples).filter(Array.isArray) as AtomDefault[],
+    { store: patchedStore }
+  )
+  useEffect(() => scopeContext.scope.cleanup, [scopeContext.scope])
   return (
     <ScopeContext.Provider value={scopeContext}>
       <Provider store={patchedStore}>{children}</Provider>
@@ -97,11 +107,5 @@ export function ScopeProvider({
 }
 
 function isEqualSet(a: Set<unknown>, b: Set<unknown>) {
-  return a === b || (a.size === b.size && Array.from(a).every((v) => b.has(v)))
-}
-
-function useEvent(fn: EffectCallback, deps: unknown[]) {
-  const ref = useRef(fn)
-  ref.current = fn
-  useEffect(() => ref.current(), deps)
+  return a === b || (a.size === b.size && Array.from(a).every(b.has.bind(b)))
 }
