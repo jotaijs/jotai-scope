@@ -3,7 +3,7 @@ import path from 'path'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vitest/config'
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode, command }) => {
   const isDevOrTest = mode === 'development' || mode === 'test'
   const localJotai = path.resolve(__dirname, 'jotai/src')
   const hasLocalJotai = fs.existsSync(localJotai)
@@ -15,7 +15,9 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
-    plugins: [react()],
+    plugins: [
+      react({ jsxRuntime: command === 'build' ? 'classic' : 'automatic' }),
+    ],
     resolve: { alias },
     build: {
       lib: {

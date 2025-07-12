@@ -51,7 +51,7 @@
   "license": "MIT",
   "peerDependencies": {
     "jotai": ">=2.9.3",
-    "react": ">=18.0.0"
+    "react": ">=16.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",
