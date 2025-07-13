@@ -7,6 +7,7 @@ import type {
   Scope,
   ScopedStore,
   Store,
+  WithOriginal,
 } from '../types'
 import { SCOPE } from '../types'
 
@@ -184,10 +185,11 @@ export function createScope({
    */
   function cloneAtom<T>(originalAtom: Atom<T>, implicitScope?: Scope) {
     // avoid reading `init` to preserve lazy initialization
-    const scopedAtom: Atom<T> = Object.create(
+    const scopedAtom: WithOriginal<Atom<T>> = Object.create(
       Object.getPrototypeOf(originalAtom),
       Object.getOwnPropertyDescriptors(originalAtom)
     )
+    scopedAtom.originalAtom = originalAtom
 
     if (scopedAtom.read !== defaultRead) {
       scopedAtom.read = createScopedRead<typeof scopedAtom>(

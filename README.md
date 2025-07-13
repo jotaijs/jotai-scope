@@ -2,11 +2,19 @@
 
 👻🔭 *Isolate Jotai atoms with scope*
 
+### Install
+
+```
+npm install jotai-scope
+```
+
 ## ScopeProvider
 
-`<ScopeProvider>` lets you reuse the *same* atoms in different parts of the React tree **without sharing state** while still being able to read other atoms from the parent store.
+While Jotai's Provider allows to scope Jotai's store under a subtree, we can't use the store above the tree within the subtree.
 
----
+A workaround is to use `store` option in useAtom and other hooks.
+
+Instead of specifying the `store` option, `<ScopeProvider>` lets you reuse the *same* atoms in different parts of the React tree **without sharing state** while still being able to read other atoms from the parent store.
 
 ### At‑a‑glance
 
@@ -15,8 +23,6 @@
 * **Scoped derived** atoms implicitly scope their atom dependencies. When you scope a derived atom, every atom it touches (recursively) is scoped automatically, but only when read by the derived atom. Outside the derived atom, it continues to be unscoped.
 * **Nested lookup.** If a scope can’t find the atom in the current scope, it inherits from the nearest parent scope, up to the nearest store.
 * Scoping works for both reading from atoms *and* writing to atoms.
-
----
 
 ### Quick Start
 
@@ -56,8 +62,6 @@ export default function App() {
 
 The second counter owns a private `doubledAtom` *and* a private `countAtom` because `doubledAtom` is scoped.
 
----
-
 **2 · Nested scopes**
 
 ```tsx
@@ -72,8 +76,6 @@ The second counter owns a private `doubledAtom` *and* a private `countAtom` b
 * Outer scope (S1) isolates `countAtom`.
 * Inner scope (S2) isolates `nameAtom`, then looks up the tree and finds `countAtom` in S1.
 
----
-
 **3 · Providing default values**
 
 ```tsx
@@ -83,8 +85,6 @@ The second counter owns a private `doubledAtom` *and* a private `countAtom` b
 ```
 
 Mix tuples and plain atoms as needed: `atoms={[[countAtom, 1], anotherAtom]}`.
-
----
 
 **4 · Scoping an atomFamily**
 
@@ -102,8 +102,6 @@ const itemFamily = atomFamily((id: number) => atom(id))
 ```
 
 Inside the `<ScopeProvider>` every `itemFamily(id)` call resolves to a scoped copy, so items rendered inside the provider are independent from the global ones and from any sibling scopes.
-
----
 
 **A helpful syntax for describing nested scopes**
 
@@ -130,17 +128,24 @@ interface ScopeProviderProps {
 }
 ```
 
----
-
 ### Caveats
 
 * Avoid side effects inside atom read—it may run multiple times per scope. For async atoms, use an abort controller. The extra renders are a known limitation and solutions are being researched. If you are interested in helping, please [join the discussion](https://github.com/jotaijs/jotai-scope/issues/25).
 
----
+
+<Stackblitz id="vitejs-vite-ctcuhj" file="src%2FApp.tsx" />
 
 ## createIsolation
 
-`createIsolation` is useful for library authors to create a private store for libraries that use Jotai. It provides a private `Provider` and hooks that do not share state with the global store.
+Both Jotai's Provider and `jotai-scope`'s scoped provider
+are still using global contexts.
+
+If you are developing a library that depends on Jotai and
+the library user may use Jotai separately in their apps,
+they can share the same context. This can be troublesome
+because they point to unexpected Jotai stores.
+
+To avoid conflicting the contexts, a utility function called `createIsolation` is exported from `jotai-scope`.
 
 ```tsx
 import { createIsolation } from 'jotai-scope'

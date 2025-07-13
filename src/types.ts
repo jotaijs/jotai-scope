@@ -52,3 +52,7 @@ export type Scope = {
 export const SCOPE = Symbol('scope')
 
 export type AtomDefault = readonly [AnyWritableAtom, unknown]
+
+export type WithOriginal<T extends AnyAtom> = T & {
+  originalAtom: T
+}
