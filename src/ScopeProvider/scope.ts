@@ -1,14 +1,14 @@
 import { type Atom, atom } from 'jotai'
 import { __DEV__ } from '../env'
-import {
-  type AnyAtom,
-  type AnyAtomFamily,
-  type AnyWritableAtom,
-  SCOPE,
-  type Scope,
-  type ScopedStore,
-  type Store,
+import type {
+  AnyAtom,
+  AnyAtomFamily,
+  AnyWritableAtom,
+  Scope,
+  ScopedStore,
+  Store,
 } from '../types'
+import { SCOPE } from '../types'
 
 const globalScopeKey: { name?: string } = {}
 if (__DEV__) {
