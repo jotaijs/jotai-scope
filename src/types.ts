@@ -1,11 +1,11 @@
-import type { Atom, WritableAtom, createStore } from 'jotai/vanilla'
+import type { Atom, WritableAtom } from 'jotai/vanilla'
+import {
+  INTERNAL_getBuildingBlocksRev1 as INTERNAL_getBuildingBlocks,
+  INTERNAL_Store as Store,
+} from 'jotai/vanilla/internals'
 import type { AtomFamily } from 'jotai/vanilla/utils/atomFamily'
 
-export type Store = ReturnType<typeof createStore>
-
-export type ScopedStore = Store & {
-  [SCOPE]: Scope
-}
+export type ScopedStore = Store & { [SCOPE]: Scope }
 
 export type AnyAtom = Atom<any> | AnyWritableAtom
 
@@ -53,6 +53,21 @@ export const SCOPE = Symbol('scope')
 
 export type AtomDefault = readonly [AnyWritableAtom, unknown]
 
-export type WithOriginal<T extends AnyAtom> = T & {
-  originalAtom: T
+export type CloneAtom<T extends AnyAtom> = T & {
+  /** original atom */
+  o: T
+  /** clone type */
+  x: EXPLICIT | CONSUMER | undefined
 }
+
+export const EXPLICIT = Symbol('explicit')
+export const CONSUMER = Symbol('consumer')
+export type EXPLICIT = typeof EXPLICIT
+export type CONSUMER = typeof CONSUMER
+
+type Mutable<T> = {
+  -readonly [K in keyof T]: T[K]
+}
+export type BuildingBlocks = Partial<
+  Mutable<ReturnType<typeof INTERNAL_getBuildingBlocks>>
+>

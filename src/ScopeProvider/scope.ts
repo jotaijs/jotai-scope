@@ -1,15 +1,23 @@
 import { type Atom, atom } from 'jotai'
+import {
+  INTERNAL_Mounted,
+  INTERNAL_buildStoreRev1 as INTERNAL_buildStore,
+  INTERNAL_getBuildingBlocksRev1 as INTERNAL_getBuildingBlocks,
+  INTERNAL_isSelfAtom,
+  type INTERNAL_Store as Store,
+} from 'jotai/vanilla/internals'
 import { __DEV__ } from '../env'
 import type {
   AnyAtom,
   AnyAtomFamily,
   AnyWritableAtom,
+  BuildingBlocks,
+  CloneAtom,
   Scope,
   ScopedStore,
-  Store,
-  WithOriginal,
 } from '../types'
-import { SCOPE } from '../types'
+import { CONSUMER, EXPLICIT, SCOPE } from '../types'
+import { isCloneAtom, isEqualSet } from '../utils'
 
 const globalScopeKey: { name?: string } = {}
 if (__DEV__) {
@@ -73,7 +81,10 @@ export function createScope({
 
   // populate explicitly scoped atoms
   for (const anAtom of atomSet) {
-    explicit.set(anAtom, [cloneAtom(anAtom, currentScope), currentScope])
+    explicit.set(anAtom, [
+      cloneAtom(anAtom, currentScope, EXPLICIT),
+      currentScope,
+    ])
   }
 
   const cleanupFamiliesSet = new Set<() => void>()
@@ -183,13 +194,18 @@ export function createScope({
   /**
    * @returns a scoped copy of the atom
    */
-  function cloneAtom<T>(originalAtom: Atom<T>, implicitScope?: Scope) {
-    // avoid reading `init` to preserve lazy initialization
-    const scopedAtom: WithOriginal<Atom<T>> = Object.create(
+  function cloneAtom<T>(
+    originalAtom: Atom<T>,
+    implicitScope?: Scope,
+    cloneType?: EXPLICIT | CONSUMER
+  ) {
+    const scopedAtom: CloneAtom<Atom<T>> = Object.create(
+      // avoid reading `init` to preserve lazy initialization
       Object.getPrototypeOf(originalAtom),
       Object.getOwnPropertyDescriptors(originalAtom)
     )
-    scopedAtom.originalAtom = originalAtom
+    scopedAtom.o = originalAtom
+    scopedAtom.x = cloneType
 
     if (scopedAtom.read !== defaultRead) {
       scopedAtom.read = createScopedRead<typeof scopedAtom>(
@@ -263,6 +279,125 @@ export function createScope({
 
   const scopedStore = createPatchedStore(parentStore, currentScope)
   return scopedStore
+
+  /**
+   * @returns a patched store that intercepts get and set calls to apply the scope
+   */
+  function createPatchedStore(baseStore: Store, scope: Scope): ScopedStore {
+    const baseBuildingBlocks = INTERNAL_getBuildingBlocks(baseStore)
+    const [atomStateMap, mountedMap, invalidatedAtoms, changedAtoms] =
+      baseBuildingBlocks
+    const ensureAtomState = baseBuildingBlocks[11]
+    const readAtomState = baseBuildingBlocks[14]
+    const buildingBlocks: BuildingBlocks = [
+      atomStateMap,
+      undefined,
+      invalidatedAtoms,
+      changedAtoms,
+    ]
+    const internalMountedMap = new WeakMap<AnyAtom, INTERNAL_Mounted>()
+    buildingBlocks[1] = {
+      get: (atom) => {
+        if (!isCloneAtom(atom)) return mountedMap.get(atom)
+        if (!checkConsumer(atom)) return mountedMap.get(atom.o)
+        return internalMountedMap.get(atom)
+      },
+      set: (atom, mounted) => {
+        if (!isCloneAtom(atom)) return mountedMap.set(atom, mounted)
+        if (!checkConsumer(atom)) return mountedMap.set(atom.o, mounted)
+        return internalMountedMap.set(atom, mounted)
+      },
+      has: (atom) => {
+        if (!isCloneAtom(atom)) return mountedMap.has(atom)
+        if (!checkConsumer(atom)) return mountedMap.has(atom.o)
+        return internalMountedMap.has(atom)
+      },
+      delete: (atom) => {
+        if (!isCloneAtom(atom)) return mountedMap.delete(atom)
+        if (!checkConsumer(atom)) return mountedMap.delete(atom.o)
+        return internalMountedMap.delete(atom)
+      },
+    }
+    buildingBlocks[14] = (atom) => {
+      checkConsumer(atom)
+      const deps = new Set(ensureAtomState(atom).d.keys())
+      if (isCloneAtom(atom) && atom.x === undefined) {
+        const newAtomState = readAtomState(atom.o)
+        // deps changed?
+        const newDeps = new Set(newAtomState.d.keys())
+        if (!isEqualSet(deps, newDeps)) {
+          checkConsumer(atom)
+        }
+        return newAtomState
+      }
+      return readAtomState(atom)
+    }
+    const wrappedBaseStore = INTERNAL_buildStore(...buildingBlocks)
+    const storeShim: ScopedStore = {
+      get(anAtom, ...args) {
+        const [scopedAtom] = scope.getAtom(anAtom)
+        return wrappedBaseStore.get(scopedAtom, ...args)
+      },
+      set(anAtom, ...args) {
+        const [scopedAtom, implicitScope] = scope.getAtom(anAtom)
+        const restore = scope.prepareWriteAtom(
+          scopedAtom,
+          anAtom,
+          implicitScope,
+          scope
+        )
+        try {
+          return wrappedBaseStore.set(scopedAtom, ...args)
+        } finally {
+          restore?.()
+        }
+      },
+      sub(anAtom, ...args) {
+        const [scopedAtom] = scope.getAtom(anAtom)
+        return wrappedBaseStore.sub(scopedAtom, ...args)
+      },
+      [SCOPE]: scope,
+    }
+    return Object.assign(wrappedBaseStore, storeShim) as ScopedStore
+
+    /**
+     * Check if the atom is a consumer.
+     * Looks at the atom's dependencies to determine if it is a consumer.
+     * Updates the atom's clone type with the new value if it changed.
+     * Recursively checks the dependents if mounted.
+     * @param atom
+     * @returns true if the atom is a consumer
+     */
+    function checkConsumer(atom: AnyAtom): boolean {
+      let atomState = ensureAtomState(atom)
+      const mountedState = mountedMap.get(atom)
+      if (!isCloneAtom(atom) || atom.x === EXPLICIT) {
+        return false
+      }
+
+      if (!mountedState && mountedMap.has(atom.o)) {
+        atomState = ensureAtomState(atom.o)
+      }
+
+      const dependencies = Array.from(atomState.d.keys()).filter(
+        (a) => !INTERNAL_isSelfAtom(atom, a)
+      )
+
+      const isConsumer = dependencies.some(
+        (atom) =>
+          (isCloneAtom(atom) && (atom.x === CONSUMER || atom.x === EXPLICIT)) ||
+          explicit.has(atom) // TODO: a consumer can also read consumers and inherited too.
+      )
+      if (atom.x === CONSUMER || atom.x === undefined) {
+        const newValue = isConsumer ? CONSUMER : undefined
+        if (atom.x !== newValue) {
+          atom.x = newValue
+          mountedState?.t.forEach(checkConsumer)
+        }
+      }
+      return isConsumer
+    }
+  }
 }
 
 function isWritableAtom(anAtom: AnyAtom): anAtom is AnyWritableAtom {
@@ -281,47 +416,4 @@ function combineVoidFunctions(...fns: (() => void)[]) {
       fn()
     }
   }
-}
-
-function PatchedStore() {}
-
-/**
- * @returns a patched store that intercepts get and set calls to apply the scope
- */
-function createPatchedStore(baseStore: Store, scope: Scope): ScopedStore {
-  const store: ScopedStore = {
-    ...baseStore,
-    get(anAtom, ...args) {
-      const [scopedAtom] = scope.getAtom(anAtom)
-      return baseStore.get(scopedAtom, ...args)
-    },
-    set(anAtom, ...args) {
-      const [scopedAtom, implicitScope] = scope.getAtom(anAtom)
-      const restore = scope.prepareWriteAtom(
-        scopedAtom,
-        anAtom,
-        implicitScope,
-        scope
-      )
-      try {
-        return baseStore.set(scopedAtom, ...args)
-      } finally {
-        restore?.()
-      }
-    },
-    sub(anAtom, ...args) {
-      const [scopedAtom] = scope.getAtom(anAtom)
-      return baseStore.sub(scopedAtom, ...args)
-    },
-    [SCOPE]: scope,
-    // TODO: update this patch to support devtools
-  }
-  return Object.assign(Object.create(PatchedStore.prototype), store)
-}
-
-/**
- * @returns true if the current scope is the first descendant scope under Provider
- */
-export function isTopLevelScope(parentStore: Store) {
-  return !(parentStore instanceof PatchedStore)
 }

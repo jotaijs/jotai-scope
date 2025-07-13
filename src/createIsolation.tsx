@@ -8,7 +8,8 @@ import {
 } from 'jotai/react'
 import { useHydrateAtoms } from 'jotai/react/utils'
 import { createStore } from 'jotai/vanilla'
-import type { AnyWritableAtom, Store } from './types'
+import { INTERNAL_Store as Store } from 'jotai/vanilla/internals'
+import type { AnyWritableAtom } from './types'
 
 type CreateIsolationResult = {
   Provider: (props: {
