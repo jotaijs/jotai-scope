@@ -3,21 +3,17 @@ import path from 'path'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vitest/config'
 
-export default defineConfig(({ mode, command }) => {
-  const isDevOrTest = mode === 'development' || mode === 'test'
+export default defineConfig(({ mode }) => {
   const localJotai = path.resolve(__dirname, 'jotai/src')
   const hasLocalJotai = fs.existsSync(localJotai)
-  const alias = {
-    'jotai-scope': path.resolve(__dirname, 'src'),
-  }
-  if (isDevOrTest && hasLocalJotai) {
+  const alias = {}
+  if ((mode === 'development' || mode === 'test') && hasLocalJotai) {
     alias['jotai'] = localJotai
+    alias['jotai-scope'] = path.resolve(__dirname, 'src')
   }
 
   return {
-    plugins: [
-      react({ jsxRuntime: command === 'build' ? 'classic' : 'automatic' }),
-    ],
+    plugins: [react()],
     resolve: { alias },
     build: {
       lib: {

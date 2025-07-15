@@ -1,4 +1,4 @@
-import { createContext, useContext, useRef } from 'react'
+import { createContext, createElement, useContext, useRef } from 'react'
 import type { ReactNode } from 'react'
 import {
   useAtom as useAtomOrig,
@@ -39,11 +39,10 @@ export function createIsolation(): CreateIsolationResult {
       storeRef.current = createStore()
     }
     useHydrateAtoms(initialValues as any, { store: storeRef.current })
-    return (
-      <StoreContext.Provider value={storeRef.current}>
-        {children}
-      </StoreContext.Provider>
-    )
+    return createElement(StoreContext.Provider, {
+      value: storeRef.current,
+      children,
+    })
   }
 
   const useStore = ((options?: any) => {

@@ -1,4 +1,9 @@
-import { type PropsWithChildren, useEffect, useState } from 'react'
+import {
+  type PropsWithChildren,
+  createElement,
+  useEffect,
+  useState,
+} from 'react'
 import { Provider, useStore } from 'jotai/react'
 import { useHydrateAtoms } from 'jotai/utils'
 import {
@@ -82,7 +87,7 @@ export function ScopeProvider({
     { store: scopedStore }
   )
   useEffect(() => scopedStore[SCOPE].cleanup, [scopedStore])
-  return <Provider store={scopedStore}>{children}</Provider>
+  return createElement(Provider, { store: scopedStore }, children)
 }
 
 function isEqualSet(a: Set<unknown>, b: Set<unknown>) {
