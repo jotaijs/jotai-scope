@@ -1,5 +1,5 @@
 import { fireEvent } from '@testing-library/react'
-import { Store } from 'src/types'
+import { INTERNAL_Store as Store } from 'jotai/vanilla/internals'
 
 function getElements(
   container: HTMLElement,
@@ -39,7 +39,7 @@ type DevStoreRev4 = Omit<
 
 export function getDevStore(store: Store): PrdStore & DevStoreRev4 {
   if (!isDevStore(store)) {
-    throw new Error('Store is not a dev store')
+    throw new Error('INTERNAL_Store is not a dev store')
   }
   return store
 }
@@ -56,7 +56,7 @@ export function assertIsDevStore(
   store: Store
 ): asserts store is PrdStore & DevStoreRev4 {
   if (!isDevStore(store)) {
-    throw new Error('Store is not a dev store')
+    throw new Error('INTERNAL_Store is not a dev store')
   }
 }
 

@@ -6,14 +6,10 @@ import {
 } from 'react'
 import { Provider, useStore } from 'jotai/react'
 import { useHydrateAtoms } from 'jotai/utils'
-import {
-  type AnyAtom,
-  type AnyAtomFamily,
-  type AtomDefault,
-  SCOPE,
-  ScopedStore,
-  type Store,
-} from '../types'
+import type { INTERNAL_Store as Store } from 'jotai/vanilla/internals'
+import type { AnyAtom, AnyAtomFamily, AtomDefault, ScopedStore } from '../types'
+import { SCOPE } from '../types'
+import { isEqualSet } from '../utils'
 import { createScope } from './scope'
 
 type ScopeProviderBaseProps = PropsWithChildren<{
@@ -88,8 +84,4 @@ export function ScopeProvider({
   )
   useEffect(() => scopedStore[SCOPE].cleanup, [scopedStore])
   return createElement(Provider, { store: scopedStore }, children)
-}
-
-function isEqualSet(a: Set<unknown>, b: Set<unknown>) {
-  return a === b || (a.size === b.size && Array.from(a).every(b.has.bind(b)))
 }

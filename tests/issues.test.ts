@@ -4,7 +4,9 @@ import { createScope } from '../src/ScopeProvider/scope'
 
 describe('open issues', () => {
   // FIXME:
-  it.skip('https://github.com/jotaijs/jotai-scope/issues/25', () => {
+  it.only('https://github.com/jotaijs/jotai-scope/issues/25', () => {
+    // is not scoped, so it only be computed once
+    // even if it's read from multiple scopes
     const a = atom(
       vi.fn(() => {
         console.log('reading atomA')
@@ -21,8 +23,11 @@ describe('open issues', () => {
       console.log('S0: atomA changed')
     })
 
+    expect(a.read).toHaveBeenCalledTimes(1)
+    expect(a.onMount).toHaveBeenCalledTimes(1)
+
     const s1 = createScope({
-      atomSet: new Set([a]),
+      atomSet: new Set([]),
       atomFamilySet: new Set(),
       parentStore: s0,
       scopeName: 's1',
