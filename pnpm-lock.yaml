@@ -56,8 +56,11 @@ devDependencies:
     specifier: ^2.4.2
     version: 2.4.2
   jotai:
-    specifier: ^2.12.5
+    specifier: 2.12.5
     version: 2.12.5(@types/react@19.0.8)(react@19.0.0)
+  jotai-effect:
+    specifier: 2.0.5
+    version: 2.0.5(jotai@2.12.5)
   prettier:
     specifier: ^3.4.2
     version: 3.4.2
@@ -2583,6 +2586,15 @@ packages:
   /jiti@2.4.2:
     resolution: {integrity: sha512-rg9zJN+G4n2nfJl5MW3BMygZX56zKPNVEYYqq7adpmMh4Jn2QNEwhvQlFy6jPVdcod7txZtKHWnyZiA3a0zP7A==}
     hasBin: true
+    dev: true
+
+  /jotai-effect@2.0.5(jotai@2.12.5):
+    resolution: {integrity: sha512-SUCStiMDWMQIV5Wh95Dq0qvl3tsI1vKDSRHFBQg2bHS5BCIyDB6ykFpIFYhX+d2yYk3dJjOgNKZaTJEUmFFcdA==}
+    engines: {node: '>=12.20.0'}
+    peerDependencies:
+      jotai: '>=2.12.1'
+    dependencies:
+      jotai: 2.12.5(@types/react@19.0.8)(react@19.0.0)
     dev: true
 
   /jotai@2.12.5(@types/react@19.0.8)(react@19.0.0):
