@@ -125,6 +125,7 @@ interface ScopeProviderProps {
   atomFamilies?: AtomFamily<any, any>[]
   children: React.ReactNode
   debugName?: string
+  scope?: ScopedStore
 }
 ```
 
@@ -134,6 +135,40 @@ interface ScopeProviderProps {
 
 
 <Stackblitz id="vitejs-vite-ctcuhj" file="src%2FApp.tsx" />
+
+## createScope
+
+`createScope` is a low-level API that allows you to create a scoped store
+from a parent store. It is useful when you want to create a scope
+outside of React.
+
+```tsx
+import { createScope } from 'jotai-scope'
+
+const parentStore = createStore()
+const scopedStore = createScope({
+  parentStore,
+  atomSet: new Set([atomA, atomB]),
+  atomFamilySet: new Set([atomFamilyA, atomFamilyB]),
+})
+```
+
+### Nesting Scopes
+You can create a scope from another scope.
+```tsx
+const parentStore = createStore()
+const scope1 = createScope({
+  parentStore,
+  atomSet: new Set([atomA, atomB]),
+  atomFamilySet: new Set([atomFamilyA, atomFamilyB]),
+  scopeName: 'level1',
+})
+const scope2 = createScope({
+  parentStore: scope1,
+  atomSet: new Set([atomC, atomD]),
+  scopeName: 'level2',
+})
+```
 
 ## createIsolation
 

@@ -21,7 +21,7 @@ type ScopeProviderBaseProps = PropsWithChildren<{
   atoms?: Iterable<AnyAtom | AtomDefault>
   atomFamilies?: Iterable<AnyAtomFamily>
   debugName?: string
-  store?: ScopedStore
+  scope?: ScopedStore
 }>
 
 export function ScopeProvider(
@@ -41,7 +41,7 @@ export function ScopeProvider({
   atomFamilies,
   children,
   debugName: scopeName,
-  store,
+  scope: providedScope,
 }: ScopeProviderBaseProps) {
   const parentStore: Store | ScopedStore = useStore()
 
@@ -53,8 +53,8 @@ export function ScopeProvider({
 
   function initialize() {
     return {
-      scopedStore:
-        store ??
+      scope:
+        providedScope ??
         createScope({
           atomSet,
           atomFamilySet,
@@ -65,28 +65,28 @@ export function ScopeProvider({
         parentStore: Store | ScopedStore
         atomSet: Set<AnyAtom>
         atomFamilySet: Set<AnyAtomFamily>
-        store: ScopedStore | undefined
+        providedScope: ScopedStore | undefined
       }) {
         return (
           parentStore !== current.parentStore ||
           !isEqualSet(atomSet, current.atomSet) ||
           !isEqualSet(atomFamilySet, current.atomFamilySet) ||
-          store !== current.store
+          providedScope !== current.providedScope
         )
       },
     }
   }
 
   const [state, setState] = useState(initialize)
-  const { hasChanged, scopedStore } = state
-  if (hasChanged({ atomSet, atomFamilySet, parentStore, store })) {
-    scopedStore[SCOPE].cleanup()
+  const { hasChanged, scope } = state
+  if (hasChanged({ atomSet, atomFamilySet, parentStore, providedScope })) {
+    scope[SCOPE].cleanup()
     setState(initialize)
   }
   useHydrateAtoms(
     Array.from(atomsOrTuples).filter(Array.isArray) as AtomDefault[],
-    { store: scopedStore }
+    { store: scope }
   )
-  useEffect(() => scopedStore[SCOPE].cleanup, [scopedStore])
-  return createElement(Provider, { store: scopedStore }, children)
+  useEffect(() => scope[SCOPE].cleanup, [scope])
+  return createElement(Provider, { store: scope }, children)
 }
