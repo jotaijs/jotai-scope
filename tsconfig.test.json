@@ -11,5 +11,5 @@
     },
     "types": ["vitest/globals"]
   },
-  "include": ["src", "jotai/src", "tests"]
+  "include": ["src", "jotai/src", "jotai-effect/src", "tests"]
 }

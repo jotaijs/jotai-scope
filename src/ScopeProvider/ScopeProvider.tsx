@@ -14,37 +14,34 @@ import {
   ScopedStore,
   type Store,
 } from '../types'
+import { isEqualSet } from '../utils'
 import { createScope } from './scope'
 
 type ScopeProviderBaseProps = PropsWithChildren<{
   atoms?: Iterable<AnyAtom | AtomDefault>
   atomFamilies?: Iterable<AnyAtomFamily>
   debugName?: string
+  store?: ScopedStore
 }>
 
-export function ScopeProvider({
-  atoms,
-  atomFamilies,
-  children,
-  debugName,
-}: {
-  atoms: Iterable<AnyAtom | AtomDefault>
-} & ScopeProviderBaseProps): React.JSX.Element
+export function ScopeProvider(
+  props: {
+    atoms: Iterable<AnyAtom | AtomDefault>
+  } & ScopeProviderBaseProps
+): React.JSX.Element
 
-export function ScopeProvider({
-  atoms,
-  atomFamilies,
-  children,
-  debugName,
-}: {
-  atomFamilies: Iterable<AnyAtomFamily>
-} & ScopeProviderBaseProps): React.JSX.Element
+export function ScopeProvider(
+  props: {
+    atomFamilies: Iterable<AnyAtomFamily>
+  } & ScopeProviderBaseProps
+): React.JSX.Element
 
 export function ScopeProvider({
   atoms: atomsOrTuples = [],
   atomFamilies,
   children,
   debugName: scopeName,
+  store,
 }: ScopeProviderBaseProps) {
   const parentStore: Store | ScopedStore = useStore()
 
@@ -56,21 +53,25 @@ export function ScopeProvider({
 
   function initialize() {
     return {
-      scopedStore: createScope({
-        atomSet,
-        atomFamilySet,
-        parentStore,
-        scopeName,
-      }),
+      scopedStore:
+        store ??
+        createScope({
+          atomSet,
+          atomFamilySet,
+          parentStore,
+          scopeName,
+        }),
       hasChanged(current: {
         parentStore: Store | ScopedStore
         atomSet: Set<AnyAtom>
         atomFamilySet: Set<AnyAtomFamily>
+        store: ScopedStore | undefined
       }) {
         return (
           parentStore !== current.parentStore ||
           !isEqualSet(atomSet, current.atomSet) ||
-          !isEqualSet(atomFamilySet, current.atomFamilySet)
+          !isEqualSet(atomFamilySet, current.atomFamilySet) ||
+          store !== current.store
         )
       },
     }
@@ -78,7 +79,7 @@ export function ScopeProvider({
 
   const [state, setState] = useState(initialize)
   const { hasChanged, scopedStore } = state
-  if (hasChanged({ atomSet, atomFamilySet, parentStore })) {
+  if (hasChanged({ atomSet, atomFamilySet, parentStore, store })) {
     scopedStore[SCOPE].cleanup()
     setState(initialize)
   }
@@ -88,8 +89,4 @@ export function ScopeProvider({
   )
   useEffect(() => scopedStore[SCOPE].cleanup, [scopedStore])
   return createElement(Provider, { store: scopedStore }, children)
-}
-
-function isEqualSet(a: Set<unknown>, b: Set<unknown>) {
-  return a === b || (a.size === b.size && Array.from(a).every(b.has.bind(b)))
 }

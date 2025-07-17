@@ -89,7 +89,7 @@ export default tseslint.config(
     },
   },
   {
-    ignores: ['dist/', 'jotai/**'],
+    ignores: ['dist/', 'jotai/**', 'jotai-effect/**'],
   },
 
   // ─────────────────────────────────────────────────────────────

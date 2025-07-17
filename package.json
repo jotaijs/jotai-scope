@@ -31,7 +31,9 @@
     "dist"
   ],
   "scripts": {
-    "setup": "git clone https://github.com/pmndrs/jotai.git && $(cd jotai && pnpm install && pnpm build)",
+    "setup": "pnpm run '/^setup:.*/'",
+    "setup:jotai": "git clone https://github.com/pmndrs/jotai.git && $(cd jotai && pnpm install && pnpm build)",
+    "setup:jotai-effect": "git clone https://github.com/jotaijs/jotai-effect.git && $(cd jotai-effect && pnpm install && pnpm build)",
     "build": "vite build && tsc -p tsconfig.build.json",
     "fix": "pnpm run '/^fix:.*/'",
     "fix:format": "prettier --write .",
@@ -50,7 +52,7 @@
   ],
   "license": "MIT",
   "peerDependencies": {
-    "jotai": ">=2.9.3",
+    "jotai": ">=2.12.0",
     "react": ">=16.0.0"
   },
   "devDependencies": {
@@ -69,7 +71,8 @@
     "eslint-plugin-prettier": "^5.2.3",
     "happy-dom": "^15.11.7",
     "jiti": "^2.4.2",
-    "jotai": "^2.12.5",
+    "jotai": "2.12.5",
+    "jotai-effect": "2.0.5",
     "prettier": "^3.4.2",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.21.0",

@@ -4,12 +4,19 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig(({ mode }) => {
-  const localJotai = path.resolve(__dirname, 'jotai/src')
-  const hasLocalJotai = fs.existsSync(localJotai)
   const alias = {}
-  if ((mode === 'development' || mode === 'test') && hasLocalJotai) {
-    alias['jotai'] = localJotai
+  if (mode === 'development' || mode === 'test') {
     alias['jotai-scope'] = path.resolve(__dirname, 'src')
+    const localJotai = path.resolve(__dirname, 'jotai/src')
+    const hasLocalJotai = fs.existsSync(localJotai)
+    if (hasLocalJotai) {
+      alias['jotai'] = localJotai
+    }
+    const localJotaiEffect = path.resolve(__dirname, 'jotai-effect/src')
+    const hasLocalJotaiEffect = fs.existsSync(localJotaiEffect)
+    if (hasLocalJotaiEffect) {
+      alias['jotai-effect'] = localJotaiEffect
+    }
   }
 
   return {
