@@ -25,7 +25,7 @@ describe('open issues', () => {
       atomSet: new Set([a]),
       atomFamilySet: new Set(),
       parentStore: s0,
-      scopeName: 's1',
+      name: 's1',
     })
 
     s1.sub(a, () => {
@@ -60,7 +60,7 @@ describe('open issues', () => {
         atomSet: new Set([a]),
         atomFamilySet: new Set(),
         parentStore: s0,
-        scopeName: 's1',
+        name: 's1',
       })
       s1.sub(a, () => {
         console.log('S1', s1.get(a))

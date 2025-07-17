@@ -65,9 +65,9 @@ The second counter owns a private `doubledAtom` *and* a private `countAtom` b
 **2 · Nested scopes**
 
 ```tsx
-<ScopeProvider atoms={[countAtom]} debugName="S1">
+<ScopeProvider atoms={[countAtom]} name="S1">
   <Counter />         {/* countAtom is read from S1 */}
-  <ScopeProvider atoms={[nameAtom]} debugName="S2">
+  <ScopeProvider atoms={[nameAtom]} name="S2">
     <Counter />       {/* countAtom is read from S1 & nameAtom is read from S2 */}
   </ScopeProvider>
 </ScopeProvider>
@@ -124,8 +124,10 @@ interface ScopeProviderProps {
   atoms?: (Atom<any> | [WritableAtom<any, any[], any>, any])[]
   atomFamilies?: AtomFamily<any, any>[]
   children: React.ReactNode
-  debugName?: string
-  scope?: ScopedStore
+  name?: string
+} | {
+  scope: ScopedStore
+  children: React.ReactNode
 }
 ```
 
@@ -143,7 +145,7 @@ from a parent store. It is useful when you want to create a scope
 outside of React.
 
 ```tsx
-import { createScope } from 'jotai-scope'
+import { createScope, ScopeProvider } from 'jotai-scope'
 
 const parentStore = createStore()
 const scopedStore = createScope({
@@ -151,6 +153,14 @@ const scopedStore = createScope({
   atomSet: new Set([atomA, atomB]),
   atomFamilySet: new Set([atomFamilyA, atomFamilyB]),
 })
+
+function Component() {
+  return (
+    <ScopeProvider scope={scopedStore}>
+      <YourComponent />
+    </ScopeProvider>
+  )
+}
 ```
 
 ### Nesting Scopes

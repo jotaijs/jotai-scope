@@ -17,37 +17,42 @@ import {
 import { isEqualSet } from '../utils'
 import { createScope } from './scope'
 
-type ScopeProviderBaseProps = PropsWithChildren<{
+type BaseProps = PropsWithChildren<{
   atoms?: Iterable<AnyAtom | AtomDefault>
   atomFamilies?: Iterable<AnyAtomFamily>
-  debugName?: string
-  scope?: ScopedStore
+  name?: string
+}>
+
+type ProvidedScope = PropsWithChildren<{
+  scope: ScopedStore
 }>
 
 export function ScopeProvider(
   props: {
     atoms: Iterable<AnyAtom | AtomDefault>
-  } & ScopeProviderBaseProps
+  } & BaseProps
 ): React.JSX.Element
 
 export function ScopeProvider(
   props: {
     atomFamilies: Iterable<AnyAtomFamily>
-  } & ScopeProviderBaseProps
+  } & BaseProps
 ): React.JSX.Element
 
-export function ScopeProvider({
-  atoms: atomsOrTuples = [],
-  atomFamilies,
-  children,
-  debugName: scopeName,
-  scope: providedScope,
-}: ScopeProviderBaseProps) {
+export function ScopeProvider(
+  props: PropsWithChildren<{ scope: ScopedStore }>
+): React.JSX.Element
+
+export function ScopeProvider(props: BaseProps | ProvidedScope) {
+  const {
+    atoms: atomsOrTuples = [],
+    atomFamilies = [],
+    children,
+    scope: providedScope,
+    name: scopeName,
+  } = props as BaseProps & ProvidedScope
   const parentStore: Store | ScopedStore = useStore()
-
   const atoms = Array.from(atomsOrTuples, (a) => (Array.isArray(a) ? a[0] : a))
-
-  // atomSet is used to detect if the atoms prop has changed.
   const atomSet = new Set(atoms)
   const atomFamilySet = new Set(atomFamilies)
 
@@ -59,7 +64,7 @@ export function ScopeProvider({
           atomSet,
           atomFamilySet,
           parentStore,
-          scopeName,
+          name: scopeName,
         }),
       hasChanged(current: {
         parentStore: Store | ScopedStore

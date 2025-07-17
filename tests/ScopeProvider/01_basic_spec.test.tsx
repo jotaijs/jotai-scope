@@ -42,7 +42,7 @@ describe('Counter', () => {
           <h1>Unscoped</h1>
           <Counter level="level0" />
           <h1>Scoped Provider</h1>
-          <ScopeProvider atoms={[]} debugName="level1">
+          <ScopeProvider atoms={[]} name="level1">
             <Counter level="level1" />
           </ScopeProvider>
         </div>
@@ -105,7 +105,7 @@ describe('Counter', () => {
           <h1>Unscoped</h1>
           <Counter level="level0" />
           <h1>Scoped Provider</h1>
-          <ScopeProvider atoms={[]} debugName="level1">
+          <ScopeProvider atoms={[]} name="level1">
             <Counter level="level1" />
           </ScopeProvider>
         </div>
@@ -163,7 +163,7 @@ describe('Counter', () => {
           <h1>Unscoped</h1>
           <Counter level="level0" />
           <h1>Scoped Provider</h1>
-          <ScopeProvider atoms={[baseAtom]} debugName="level1">
+          <ScopeProvider atoms={[baseAtom]} name="level1">
             <Counter level="level1" />
           </ScopeProvider>
         </div>
@@ -322,7 +322,7 @@ describe('Counter', () => {
           <Counter level="level0" />
           <IncreaseUnscoped />
           <h1>Scoped Provider</h1>
-          <ScopeProvider atoms={[baseAtom]} debugName="level1">
+          <ScopeProvider atoms={[baseAtom]} name="level1">
             <Counter level="level1" />
           </ScopeProvider>
         </div>
@@ -409,7 +409,7 @@ describe('Counter', () => {
           <h1>Unscoped</h1>
           <Counter level="level0" />
           <h1>Scoped Provider</h1>
-          <ScopeProvider atoms={[derivedAtom]} debugName="level1">
+          <ScopeProvider atoms={[derivedAtom]} name="level1">
             <Counter level="level1" />
           </ScopeProvider>
         </div>
@@ -961,9 +961,9 @@ describe('Counter', () => {
         <div>
           <h1>Unscoped</h1>
           <h1>Scoped Provider</h1>
-          <ScopeProvider atoms={[baseBAtom, derivedAtom]} debugName="level1">
+          <ScopeProvider atoms={[baseBAtom, derivedAtom]} name="level1">
             <Counter level="level1" />
-            <ScopeProvider atoms={[baseBAtom]} debugName="level2">
+            <ScopeProvider atoms={[baseBAtom]} name="level2">
               <Counter level="level2" />
             </ScopeProvider>
           </ScopeProvider>

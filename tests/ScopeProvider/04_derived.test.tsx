@@ -79,24 +79,24 @@ function clickButtonGetResults(buttonSelector: string) {
       <div>
         <h1>Only base is scoped</h1>
         <p>derivedA and derivedB should also be scoped</p>
-        <ScopeProvider atoms={[baseAtom]} debugName="case1">
+        <ScopeProvider atoms={[baseAtom]} name="case1">
           <Counter counterClass="case1" />
         </ScopeProvider>
         <h1>Both derivedA an derivedB are scoped</h1>
         <p>base should be global, derivedA and derivedB are shared</p>
-        <ScopeProvider atoms={[derivedAtomA, derivedAtomB]} debugName="case2">
+        <ScopeProvider atoms={[derivedAtomA, derivedAtomB]} name="case2">
           <Counter counterClass="case2" />
         </ScopeProvider>
         <h1>Layer1: Only derivedA is scoped</h1>
         <p>base and derivedB should be global</p>
-        <ScopeProvider atoms={[derivedAtomA]} debugName="layer1">
+        <ScopeProvider atoms={[derivedAtomA]} name="layer1">
           <Counter counterClass="layer1" />
           <h2>Layer2: Base and derivedB are scoped</h2>
           <p>
             derivedA should use layer2&apos;s atom, base and derivedB are layer
             2 scoped
           </p>
-          <ScopeProvider atoms={[baseAtom, derivedAtomB]} debugName="layer2">
+          <ScopeProvider atoms={[baseAtom, derivedAtomB]} name="layer2">
             <Counter counterClass="layer2" />
           </ScopeProvider>
         </ScopeProvider>

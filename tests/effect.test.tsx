@@ -25,7 +25,7 @@ describe('atomEffect', () => {
     }
     const { container } = render(
       <Provider store={s0}>
-        <ScopeProvider atoms={[a]} debugName="S1">
+        <ScopeProvider atoms={[a]} name="S1">
           <Component />
         </ScopeProvider>
       </Provider>

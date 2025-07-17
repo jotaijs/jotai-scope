@@ -69,11 +69,11 @@ function renderWithOrder(level1: 'BD' | 'DB', level2: 'BD' | 'DB') {
       <div>
         <h1>Layer 1: Scope derived</h1>
         <p>base should be globally shared</p>
-        <ScopeProvider atoms={[derivedAtom]} debugName="layer1">
+        <ScopeProvider atoms={[derivedAtom]} name="layer1">
           <Level1Counter level="layer1" />
           <h1>Layer 2: Scope base</h1>
           <p>base should be globally shared</p>
-          <ScopeProvider atoms={[]} debugName="layer2">
+          <ScopeProvider atoms={[]} name="layer2">
             <Level2Counter level="layer2" />
           </ScopeProvider>
         </ScopeProvider>

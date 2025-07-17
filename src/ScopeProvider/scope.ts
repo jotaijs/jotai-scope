@@ -33,12 +33,12 @@ export function createScope({
   atomSet = new Set(),
   atomFamilySet = new Set(),
   parentStore,
-  scopeName,
+  name: scopeName,
 }: {
   atomSet?: Set<AnyAtom>
   atomFamilySet?: Set<AnyAtomFamily>
   parentStore: Store | ScopedStore
-  scopeName?: string
+  name?: string
 }): ScopedStore {
   const parentScope = SCOPE in parentStore ? parentStore[SCOPE] : undefined
   const explicit = new WeakMap<AnyAtom, [AnyAtom, Scope?]>()

@@ -64,7 +64,7 @@ function renderTest(targetAtom: WritableNumberAtom) {
       <>
         <h1>unscoped</h1>
         <Component level="level0" />
-        <ScopeProvider atoms={[baseAtom]} debugName="level1">
+        <ScopeProvider atoms={[baseAtom]} name="level1">
           <h1>scoped</h1>
           <p>
             writable atom should update its value in both scoped and unscoped
@@ -186,7 +186,7 @@ describe('scope chains', () => {
       atomSet: new Set(atoms),
       atomFamilySet: undefined,
       parentStore: s0,
-      scopeName: 'S1',
+      name: 'S1',
     })
     return { s0, s1 }
   }

@@ -39,7 +39,7 @@ describe('AtomFamily with ScopeProvider', () => {
           <Counter level="level0" param="a" />
           <Counter level="level0" param="b" />
           <h1>Scoped Provider</h1>
-          <ScopeProvider atomFamilies={[aFamily]} debugName="level1">
+          <ScopeProvider atomFamilies={[aFamily]} name="level1">
             <Counter level="level1" param="a" />
             <Counter level="level1" param="b" />
           </ScopeProvider>
@@ -126,7 +126,7 @@ describe('AtomFamily with ScopeProvider', () => {
             remove a from atomFamily
           </button>
           <h1>Scoped Provider</h1>
-          <ScopeProvider atomFamilies={[aFamily]} debugName="level1">
+          <ScopeProvider atomFamilies={[aFamily]} name="level1">
             <Counter level="level1" param="a" />
           </ScopeProvider>
         </div>
@@ -211,7 +211,7 @@ describe('AtomFamily with ScopeProvider', () => {
           <Counter level="level0" param="a" />
           <Counter level="level0" param="b" />
           <h1>Scoped Provider</h1>
-          <ScopeProvider atomFamilies={[aFamily]} debugName="level1">
+          <ScopeProvider atomFamilies={[aFamily]} name="level1">
             <Counter level="level1" param="a" />
             <Counter level="level1" param="b" />
           </ScopeProvider>

@@ -28,7 +28,7 @@ describe('ScopeProvider atom defaults', () => {
     {
       // without defaults
       const { container } = render(
-        <ScopeProvider debugName="withoutDefaults" atoms={[a, b]}>
+        <ScopeProvider name="withoutDefaults" atoms={[a, b]}>
           <Component />
         </ScopeProvider>
       )
@@ -40,7 +40,7 @@ describe('ScopeProvider atom defaults', () => {
       // with defaults
       const { container } = render(
         <ScopeProvider
-          debugName="withDefaults"
+          name="withDefaults"
           atoms={[
             [a, 1],
             [b, 2],
