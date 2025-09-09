@@ -1,9 +1,9 @@
 import { render } from '@testing-library/react'
-import { Provider, atom, createStore, useAtomValue } from 'jotai'
-import { INTERNAL_getBuildingBlocksRev1 } from 'jotai/vanilla/internals'
+import { Provider, atom, useAtomValue } from 'jotai'
 import { atomEffect } from 'jotai-effect'
 import { describe, expect, test } from 'vitest'
 import { ScopeProvider } from 'jotai-scope'
+import { createDebugStore } from './utils'
 
 describe('atomEffect', () => {
   test('should work with atomEffect', () => {
@@ -14,9 +14,7 @@ describe('atomEffect', () => {
       set(a, (v) => v + 1)
     })
     e.debugLabel = 'effect'
-    const s0 = createStore()
-    ;(s0 as any).name = 's0'
-    ;(globalThis as any).atomStateMap = INTERNAL_getBuildingBlocksRev1(s0)[0]
+    const s0 = createDebugStore('s0')
 
     function Component() {
       useAtomValue(e)

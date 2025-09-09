@@ -1,12 +1,6 @@
 import { render } from '@testing-library/react'
-import {
-  type SetStateAction,
-  type WritableAtom,
-  atom,
-  useAtom,
-  useAtomValue,
-  useSetAtom,
-} from 'jotai'
+import type { SetStateAction, WritableAtom } from 'jotai'
+import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { atomWithReducer } from 'jotai/vanilla/utils'
 import { describe, expect, test } from 'vitest'
 import { ScopeProvider } from 'jotai-scope'

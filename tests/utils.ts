@@ -1,5 +1,56 @@
 import { fireEvent } from '@testing-library/react'
-import { Store } from 'src/types'
+import type {
+  INTERNAL_BuildingBlocks,
+  INTERNAL_Store as Store,
+} from 'jotai/vanilla/internals'
+import {
+  INTERNAL_buildStoreRev2 as buildStore,
+  INTERNAL_getBuildingBlocksRev2 as getBuildingBlocks,
+  INTERNAL_initializeStoreHooksRev2 as initializeStoreHooks,
+} from 'jotai/vanilla/internals'
+
+//
+// Debug Store
+//
+
+type Mutable<T> = { -readonly [P in keyof T]: T[P] }
+
+type BuildingBlocks = Mutable<INTERNAL_BuildingBlocks>
+
+type DebugStore = Store & {
+  name: string
+  state: {
+    atomStateMap: BuildingBlocks[0]
+    mountedMap: BuildingBlocks[1]
+    invalidatedAtoms: BuildingBlocks[2]
+    changedAtoms: BuildingBlocks[3]
+    mountCallbacks: BuildingBlocks[4]
+    unmountCallbacks: BuildingBlocks[5]
+    storeHooks: BuildingBlocks[6]
+  }
+}
+
+let storeId = 0
+export function createDebugStore(
+  name: string = `debug${storeId++}`
+): DebugStore {
+  const buildingBlocks: BuildingBlocks = [...getBuildingBlocks(buildStore())]
+  const ensureAtomState = buildingBlocks[11]
+  buildingBlocks[11] = (store, atom) =>
+    Object.assign(ensureAtomState(store, atom), { label: atom.debugLabel })
+  const debugStore = buildStore(...buildingBlocks) as DebugStore
+  debugStore.name = name
+  debugStore.state = {
+    atomStateMap: buildingBlocks[0],
+    mountedMap: buildingBlocks[1],
+    invalidatedAtoms: buildingBlocks[2],
+    changedAtoms: buildingBlocks[3],
+    mountCallbacks: buildingBlocks[4],
+    unmountCallbacks: buildingBlocks[5],
+    storeHooks: initializeStoreHooks(buildingBlocks[6]),
+  }
+  return debugStore
+}
 
 function getElements(
   container: HTMLElement,
@@ -29,35 +80,6 @@ export function clickButton(container: HTMLElement, querySelector: string) {
     throw new Error(`Button not found: ${querySelector}`)
   }
   fireEvent.click(button)
-}
-
-type PrdStore = Exclude<Store, { dev4_get_internal_weak_map: any }>
-type DevStoreRev4 = Omit<
-  Extract<Store, { dev4_get_internal_weak_map: any }>,
-  keyof PrdStore
->
-
-export function getDevStore(store: Store): PrdStore & DevStoreRev4 {
-  if (!isDevStore(store)) {
-    throw new Error('Store is not a dev store')
-  }
-  return store
-}
-
-export function isDevStore(store: Store): store is PrdStore & DevStoreRev4 {
-  return (
-    'dev4_get_internal_weak_map' in store &&
-    'dev4_get_mounted_atoms' in store &&
-    'dev4_restore_atoms' in store
-  )
-}
-
-export function assertIsDevStore(
-  store: Store
-): asserts store is PrdStore & DevStoreRev4 {
-  if (!isDevStore(store)) {
-    throw new Error('Store is not a dev store')
-  }
 }
 
 export function delay(ms: number) {

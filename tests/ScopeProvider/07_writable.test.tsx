@@ -1,16 +1,11 @@
 import { render } from '@testing-library/react'
-import {
-  type PrimitiveAtom,
-  type WritableAtom,
-  atom,
-  createStore,
-  useAtom,
-} from 'jotai'
+import type { PrimitiveAtom, WritableAtom } from 'jotai'
+import { atom, useAtom } from 'jotai'
 import { describe, expect, test } from 'vitest'
 import { ScopeProvider } from '../../src'
 import { createScope } from '../../src/ScopeProvider/scope'
 import { AnyAtom } from '../../src/types'
-import { clickButton, getTextContents } from '../utils'
+import { clickButton, createDebugStore, getTextContents } from '../utils'
 
 let baseAtom: PrimitiveAtom<number>
 
@@ -181,7 +176,7 @@ describe('scope chains', () => {
   b.debugLabel = 'b'
   c.debugLabel = 'c'
   function createScopes(atoms: AnyAtom[] = []) {
-    const s0 = createStore()
+    const s0 = createDebugStore()
     const s1 = createScope({
       atomSet: new Set(atoms),
       atomFamilySet: undefined,
