@@ -1,5 +1,6 @@
 import { atom } from 'jotai'
 import { describe, expect, it, vi } from 'vitest'
+import { createDebugStore } from './utils'
 import { createScope } from '../src/ScopeProvider/scope'
 import { createDebugStore } from './utils'
 
