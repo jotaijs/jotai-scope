@@ -1,9 +1,6 @@
 import type { Atom, WritableAtom } from 'jotai'
 import { atom as createAtom } from 'jotai'
-import {
-  INTERNAL_buildStoreRev2 as buildStore,
-  INTERNAL_getBuildingBlocksRev2 as getBuildingBlocks,
-} from 'jotai/vanilla/internals'
+import { INTERNAL_buildStoreRev2 as buildStore } from 'jotai/vanilla/internals'
 import type { INTERNAL_Store as Store } from 'jotai/vanilla/internals'
 import { __DEV__ } from '../env'
 import type {
