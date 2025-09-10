@@ -5,7 +5,7 @@ import { describe, expect, test } from 'vitest'
 import { ScopeProvider } from 'jotai-scope'
 import { createDebugStore } from './utils'
 
-describe.skip('atomEffect', () => {
+describe('atomEffect', () => {
   test('should work with atomEffect', () => {
     // const effect = vi.fn()
     const a = atom(0)
@@ -15,7 +15,6 @@ describe.skip('atomEffect', () => {
     })
     e.debugLabel = 'effect'
     const s0 = createDebugStore('s0')
-
     function Component() {
       useAtomValue(e)
       const v = useAtomValue(a)

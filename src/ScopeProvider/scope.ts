@@ -7,10 +7,13 @@ import type {
   AnyAtom,
   AnyAtomFamily,
   AnyWritableAtom,
+  BuildingBlocks,
   Scope,
   ScopedStore,
   StoreHookForAtoms,
   StoreHooks,
+  WeakMapForAtoms,
+  WeakSetForAtoms,
   WithOriginal,
 } from '../types'
 import { SCOPE } from '../types'
@@ -323,81 +326,25 @@ function createPatchedStore(parentStore: Store, scope: Scope): ScopedStore {
   } as StoreHooks
 
   const scopedBuildingBlocks: BuildingBlocks = [...storeState]
-  // scopedBuildingBlocks[0] = patchWeakMap(storeState[0]) // atomStateMap
-  // scopedBuildingBlocks[1] = patchWeakMap(storeState[1]) // mountedMap
+  scopedBuildingBlocks[0] = patchWeakMap(storeState[0]) // atomStateMap
+  scopedBuildingBlocks[1] = patchWeakMap(storeState[1]) // mountedMap
   scopedBuildingBlocks[2] = patchWeakMap(storeState[2]) // invalidatedAtoms
-  // scopedBuildingBlocks[3] = patchSet(storeState[3]) // changedAtoms
-  scopedBuildingBlocks[4] = storeState[4] // mountCallbacks
-  scopedBuildingBlocks[5] = storeState[5] // unmountCallbacks
+  scopedBuildingBlocks[3] = patchSet(storeState[3]) // changedAtoms
   scopedBuildingBlocks[6] = storeHooks // storeHooks
-  // scopedBuildingBlocks[7] = toScopedStoreAtomFn(storeState[7]) // atomRead
-  scopedBuildingBlocks[8] = toScopedStoreAtomFn(storeState[8]) // atomWrite
-  scopedBuildingBlocks[9] = storeState[9] // atomOnInit
-  scopedBuildingBlocks[10] = toScopedStoreAtomFn(storeState[10]) // atomOnMount
-  // scopedBuildingBlocks[11] = toScopedStoreAtomFn(storeState[11]) // ensureAtomState
-  scopedBuildingBlocks[12] = storeState[12] // flushCallbacks
-  scopedBuildingBlocks[13] = storeState[13] // recomputeInvalidatedAtoms
-  // scopedBuildingBlocks[14] = toScopedStoreAtomFn(storeState[14]) // readAtomState
-  scopedBuildingBlocks[15] = toScopedStoreAtomFn(storeState[15]) // invalidateDependents
-  scopedBuildingBlocks[16] = toScopedStoreAtomFn(storeState[16]) // writeAtomState
-  scopedBuildingBlocks[17] = toScopedStoreAtomFn(storeState[17]) // mountDependencies
-  // scopedBuildingBlocks[18] = toScopedStoreAtomFn(storeState[18]) // mountAtom
-  // scopedBuildingBlocks[19] = toScopedStoreAtomFn(storeState[19]) // unmountAtom
-  scopedBuildingBlocks[20] = toScopedStoreAtomFn(storeState[20]) // setAtomStateValueOrPromise
-  scopedBuildingBlocks[21] = scopedGet
-  scopedBuildingBlocks[22] = scopedSet
-  scopedBuildingBlocks[23] = scopedSub
+  scopedBuildingBlocks[7] = scopeStoreFn(storeState[7]) // atomRead
+  scopedBuildingBlocks[8] = scopeStoreFn(storeState[8]) // atomWrite
+  scopedBuildingBlocks[9] = scopeStoreFn(storeState[9]) // atomOnInit
+  scopedBuildingBlocks[10] = scopeStoreFn(storeState[10]) // atomOnMount
+  scopedBuildingBlocks[11] = scopeStoreFn(storeState[11]) // ensureAtomState
+  scopedBuildingBlocks[14] = scopeStoreFn(storeState[14]) // readAtomState
+  scopedBuildingBlocks[15] = scopeStoreFn(storeState[15]) // invalidateDependents
+  scopedBuildingBlocks[16] = scopeStoreFn(storeState[16]) // writeAtomState
+  scopedBuildingBlocks[17] = scopeStoreFn(storeState[17]) // mountDependencies
+  scopedBuildingBlocks[18] = scopeStoreFn(storeState[18]) // mountAtom
+  scopedBuildingBlocks[19] = scopeStoreFn(storeState[19]) // unmountAtom
+  scopedBuildingBlocks[20] = scopeStoreFn(storeState[20]) // setAtomStateValueOrPromise
 
   const scopedStore = buildStore(...scopedBuildingBlocks) as ScopedStore
-  scopedStore[SCOPE] = scope
-  setOriginalBuildingBlocks(scopedStore, storeState)
-
-  scopedStore[SCOPE] = scope
-  return scopedStore
-
-  // ---------------------------------------------------------------------------------
-
-  function scopedGet(store: Store, atom: AnyAtom) {
-    const [scopedAtom] = scope.getAtom(atom)
-    return storeGet(store, scopedAtom)
-  }
-
-  function scopedSet<Value, Args extends any[], Result>(
-    store: Store,
-    atom: WritableAtom<Value, Args, Result>,
-    ...args: Args
-  ) {
-    const [scopedAtom, implicitScope] = scope.getAtom(atom)
-    const restore = scope.prepareWriteAtom(
-      scopedAtom,
-      atom,
-      implicitScope,
-      scope
-    )
-    try {
-      return storeSet(store, scopedAtom, ...args)
-    } finally {
-      restore?.()
-    }
-  }
-
-  function scopedSub(store: Store, atom: AnyAtom, callback: () => void) {
-    const [scopedAtom] = scope.getAtom(atom)
-    return storeSub(store, scopedAtom, callback)
-  }
-
-  // ---------------------------------------------------------------------------------
-
-  function toScopedStoreAtomFn<T extends AnyAtom | AnyWritableAtom>(
-    fn: (store: Store, atom: T, ...args: any[]) => any
-  ) {
-    return (store: Store, atom: AnyAtom, ...args: any[]) => {
-      const [scopedAtom] = scope.getAtom(atom)
-      return fn(store, scopedAtom as T, ...args)
-    }
-  }
-
-  const scopedStore = buildStore(...storeState) as ScopedStore
   // TODO: We need a way to patch the building blocks after the store is created
   // TODO: So that atomEffect and other utilities will work correctly
   // TODO: The patch ensures the correct store, atom, and atomState are used
@@ -429,6 +376,8 @@ function createPatchedStore(parentStore: Store, scope: Scope): ScopedStore {
     }
   }
 
+  // ---------------------------------------------------------------------------------
+
   function scopeStoreFn<T extends AnyAtom | AnyWritableAtom>(
     fn: (store: Store, atom: T, ...args: any[]) => any
   ) {
@@ -438,16 +387,25 @@ function createPatchedStore(parentStore: Store, scope: Scope): ScopedStore {
     }
   }
 
+  function scopeAtomFn<T extends AnyAtom | AnyWritableAtom>(
+    fn: (atom: T, ...args: any[]) => any
+  ) {
+    return (atom: AnyAtom, ...args: any[]) => {
+      const [scopedAtom] = scope.getAtom(atom)
+      return fn(scopedAtom as T, ...args)
+    }
+  }
+
   function patchWeakMap<T extends WeakMapForAtoms>(wm: T): T {
     const patchedWm: any = {
-      get: toScopedAtomFn(wm.get.bind(wm)),
-      set: toScopedAtomFn(wm.set.bind(wm)),
+      get: scopeAtomFn(wm.get.bind(wm)),
+      set: scopeAtomFn(wm.set.bind(wm)),
     }
     if ('has' in wm) {
-      patchedWm.has = toScopedAtomFn(wm.has.bind(wm))
+      patchedWm.has = scopeAtomFn(wm.has.bind(wm))
     }
     if ('delete' in wm) {
-      patchedWm.delete = toScopedAtomFn(wm.delete.bind(wm))
+      patchedWm.delete = scopeAtomFn(wm.delete.bind(wm))
     }
     return patchedWm
   }
@@ -457,10 +415,10 @@ function createPatchedStore(parentStore: Store, scope: Scope): ScopedStore {
       get size() {
         return s.size
       },
-      add: toScopedAtomFn(s.add.bind(s)),
-      has: toScopedAtomFn(s.has.bind(s)),
+      add: scopeAtomFn(s.add.bind(s)),
+      has: scopeAtomFn(s.has.bind(s)),
       clear: s.clear.bind(s),
-      forEach: (cb) => s.forEach(toScopedAtomFn(cb)),
+      forEach: (cb) => s.forEach(scopeAtomFn(cb)),
       *[Symbol.iterator](): IterableIterator<AnyAtom> {
         for (const atom of s) yield scope.getAtom(atom)[0]
       },
@@ -471,7 +429,7 @@ function createPatchedStore(parentStore: Store, scope: Scope): ScopedStore {
     if (!fn) {
       return undefined
     }
-    const storeHook = toScopedAtomFn(fn) as typeof fn
+    const storeHook = scopeAtomFn(fn) as typeof fn
     storeHook.add = (atom, callback) => {
       if (atom === undefined) {
         return fn.add(undefined, callback)
