@@ -56,11 +56,11 @@ devDependencies:
     specifier: ^2.4.2
     version: 2.4.2
   jotai:
-    specifier: 2.12.5
-    version: 2.12.5(@types/react@19.0.8)(react@19.0.0)
+    specifier: 2.14.0
+    version: 2.14.0(@babel/core@7.26.0)(@types/react@19.0.8)(react@19.0.0)
   jotai-effect:
-    specifier: 2.0.5
-    version: 2.0.5(jotai@2.12.5)
+    specifier: 2.1.0
+    version: 2.1.0(jotai@2.14.0)
   prettier:
     specifier: ^3.4.2
     version: 3.4.2
@@ -2588,27 +2588,34 @@ packages:
     hasBin: true
     dev: true
 
-  /jotai-effect@2.0.5(jotai@2.12.5):
-    resolution: {integrity: sha512-SUCStiMDWMQIV5Wh95Dq0qvl3tsI1vKDSRHFBQg2bHS5BCIyDB6ykFpIFYhX+d2yYk3dJjOgNKZaTJEUmFFcdA==}
+  /jotai-effect@2.1.0(jotai@2.14.0):
+    resolution: {integrity: sha512-1nD6D4JizwCH3z2kun71ZUkxeeE5PknUkuP98NqQdCanidct2BHIhSwRxnfA0C2CPAn9H+5NF0EHU6gPkdhh7Q==}
     engines: {node: '>=12.20.0'}
     peerDependencies:
       jotai: '>=2.12.1'
     dependencies:
-      jotai: 2.12.5(@types/react@19.0.8)(react@19.0.0)
+      jotai: 2.14.0(@babel/core@7.26.0)(@types/react@19.0.8)(react@19.0.0)
     dev: true
 
-  /jotai@2.12.5(@types/react@19.0.8)(react@19.0.0):
-    resolution: {integrity: sha512-G8m32HW3lSmcz/4mbqx0hgJIQ0ekndKWiYP7kWVKi0p6saLXdSoye+FZiOFyonnd7Q482LCzm8sMDl7Ar1NWDw==}
+  /jotai@2.14.0(@babel/core@7.26.0)(@types/react@19.0.8)(react@19.0.0):
+    resolution: {integrity: sha512-JQkNkTnqjk1BlSUjHfXi+pGG/573bVN104gp6CymhrWDseZGDReTNniWrLhJ+zXbM6pH+82+UNJ2vwYQUkQMWQ==}
     engines: {node: '>=12.20.0'}
     peerDependencies:
+      '@babel/core': '>=7.0.0'
+      '@babel/template': '>=7.0.0'
       '@types/react': '>=17.0.0'
       react: '>=17.0.0'
     peerDependenciesMeta:
+      '@babel/core':
+        optional: true
+      '@babel/template':
+        optional: true
       '@types/react':
         optional: true
       react:
         optional: true
     dependencies:
+      '@babel/core': 7.26.0
       '@types/react': 19.0.8
       react: 19.0.0
     dev: true

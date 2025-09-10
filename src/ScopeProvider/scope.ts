@@ -1,25 +1,24 @@
-import { type Atom, type WritableAtom, atom as createAtom } from 'jotai'
-import {
-  INTERNAL_buildStoreRev1 as INTERNAL_buildStore,
-  INTERNAL_getBuildingBlocksRev1 as INTERNAL_getBuildingBlocks,
-} from 'jotai/vanilla/internals'
+import type { Atom, WritableAtom } from 'jotai'
+import { atom as createAtom } from 'jotai'
+import { INTERNAL_buildStoreRev2 as buildStore } from 'jotai/vanilla/internals'
+import type { INTERNAL_Store as Store } from 'jotai/vanilla/internals'
 import { __DEV__ } from '../env'
 import type {
   AnyAtom,
   AnyAtomFamily,
   AnyWritableAtom,
-  BuildingBlocks,
   Scope,
   ScopedStore,
-  Store,
-  StoreHookForAtoms,
   StoreHooks,
-  WeakMapForAtoms,
-  WeakSetForAtoms,
   WithOriginal,
 } from '../types'
-import { ORIGINAL_BUILDING_BLOCKS, SCOPE } from '../types'
-import { getBaseStoreState, isWritableAtom, toNameString } from '../utils'
+import { SCOPE } from '../types'
+import {
+  getBaseStoreState,
+  isWritableAtom,
+  setOriginalBuildingBlocks,
+  toNameString,
+} from '../utils'
 
 const globalScopeKey: { name?: string } = {}
 if (__DEV__) {
@@ -176,9 +175,7 @@ export function createScope({
     )
   }
 
-  /**
-   * @returns a copy of the atom for derived atoms or the original atom for primitive and writable atoms
-   */
+  /** @returns a copy of the atom for derived atoms or the original atom for primitive and writable atoms */
   function inheritAtom<T>(
     atom: Atom<T>,
     originalAtom: Atom<T>,
@@ -190,9 +187,7 @@ export function createScope({
     return atom
   }
 
-  /**
-   * @returns a scoped copy of the atom
-   */
+  /** @returns a scoped copy of the atom */
   function cloneAtom<T>(originalAtom: Atom<T>, implicitScope?: Scope) {
     // avoid reading `init` to preserve lazy initialization
     const propertyDescriptors = Object.getOwnPropertyDescriptors(originalAtom)
@@ -286,150 +281,57 @@ export function createScope({
 
 const { read: defaultRead, write: defaultWrite } = createAtom<unknown>(null)
 
-/**
- * @returns a patched store that intercepts get and set calls to apply the scope
- */
+/** @returns a patched store that intercepts get and set calls to apply the scope */
 function createPatchedStore(parentStore: Store, scope: Scope): ScopedStore {
   const storeState = getBaseStoreState(parentStore)
-  const internalStoreHooks: StoreHooks = {}
+  const storeGet = storeState[21]
+  const storeSet = storeState[22]
+  const storeSub = storeState[23]
+
+  const internalStoreHooks = {} as StoreHooks
   storeState[6] = internalStoreHooks
-  storeState[9] = (atom: AnyAtom) => atom.unstable_onInit?.(scopedStore)
-  const scopedStore = INTERNAL_buildStore(...storeState)
-  const prototypeBuildingBlocks = INTERNAL_getBuildingBlocks(scopedStore)
-  const buildingBlocks = [...prototypeBuildingBlocks] as BuildingBlocks
+  storeState[21] = scopeStoreFn(storeGet)
+  storeState[22] = scopedSet
+  storeState[23] = scopeStoreFn(storeSub)
 
-  function toScopedAtomFn<T extends AnyAtom | AnyWritableAtom>(
-    fn: (atom: T, ...args: any[]) => any
+  const scopedStore = buildStore(...storeState) as ScopedStore
+  // TODO: We need a way to patch the building blocks after the store is created
+  // TODO: So that atomEffect and other utilities will work correctly
+  // TODO: The patch ensures the correct store, atom, and atomState are used
+  // TODO: By referencing the original atom as input and returning the scoped atom and state
+  scopedStore[SCOPE] = scope
+  setOriginalBuildingBlocks(scopedStore, storeState)
+
+  scopedStore[SCOPE] = scope
+  return scopedStore
+
+  // ---------------------------------------------------------------------------------
+
+  function scopedSet<Value, Args extends any[], Result>(
+    store: Store,
+    atom: WritableAtom<Value, Args, Result>,
+    ...args: Args
   ) {
-    return (atom: AnyAtom, ...args: any[]) => {
+    const [scopedAtom, implicitScope] = scope.getAtom(atom)
+    const restore = scope.prepareWriteAtom(
+      scopedAtom,
+      atom,
+      implicitScope,
+      scope
+    )
+    try {
+      return storeSet(store, scopedAtom, ...args)
+    } finally {
+      restore?.()
+    }
+  }
+
+  function scopeStoreFn<T extends AnyAtom | AnyWritableAtom>(
+    fn: (store: Store, atom: T, ...args: any[]) => any
+  ) {
+    return (store: Store, atom: AnyAtom, ...args: any[]) => {
       const [scopedAtom] = scope.getAtom(atom)
-      return fn(scopedAtom as T, ...args)
+      return fn(store, scopedAtom as T, ...args)
     }
   }
-
-  function patchWeakMap<T extends WeakMapForAtoms>(wm: T): T {
-    const patchedWm: any = {
-      get: toScopedAtomFn(wm.get.bind(wm)),
-      set: toScopedAtomFn(wm.set.bind(wm)),
-    }
-    if ('has' in wm) {
-      patchedWm.has = toScopedAtomFn(wm.has.bind(wm))
-    }
-    if ('delete' in wm) {
-      patchedWm.delete = toScopedAtomFn(wm.delete.bind(wm))
-    }
-    return patchedWm
-  }
-
-  function patchSet(s: WeakSetForAtoms) {
-    return {
-      get size() {
-        return s.size
-      },
-      add: toScopedAtomFn(s.add.bind(s)),
-      has: toScopedAtomFn(s.has.bind(s)),
-      clear: s.clear.bind(s),
-      forEach: (cb) => s.forEach(toScopedAtomFn(cb)),
-      *[Symbol.iterator](): IterableIterator<AnyAtom> {
-        for (const atom of s) yield scope.getAtom(atom)[0]
-      },
-    } as WeakSetForAtoms
-  }
-
-  function patchStoreHook(fn: StoreHookForAtoms | undefined) {
-    if (!fn) {
-      return undefined
-    }
-    const storeHook = toScopedAtomFn(fn) as typeof fn
-    storeHook.add = (atom, callback) => {
-      if (atom === undefined) {
-        return fn.add(undefined, callback)
-      }
-      return fn.add(scope.getAtom(atom)[0], callback as () => void)
-    }
-    return storeHook
-  }
-
-  const storeHooks: StoreHooks = {
-    get c() {
-      return patchStoreHook(internalStoreHooks.c)
-    },
-    set c(v) {
-      internalStoreHooks.c = v
-    },
-    get m() {
-      return patchStoreHook(internalStoreHooks.m)
-    },
-    set m(v) {
-      internalStoreHooks.m = v
-    },
-    get u() {
-      return patchStoreHook(internalStoreHooks.u)
-    },
-    set u(v) {
-      internalStoreHooks.u = v
-    },
-    get f() {
-      return internalStoreHooks.f
-    },
-    set f(v) {
-      internalStoreHooks.f = v
-    },
-  }
-
-  const scopedBuildingBlock: BuildingBlocks = [
-    patchWeakMap(buildingBlocks[0]), // atomStateMap
-    patchWeakMap(buildingBlocks[1]), // mountedMap
-    patchWeakMap(buildingBlocks[2]), // invalidatedAtoms
-    patchSet(buildingBlocks[3]), // changedAtoms
-    buildingBlocks[4], // mountCallbacks
-    buildingBlocks[5], // unmountCallbacks
-    storeHooks, // storeHooks
-    toScopedAtomFn(buildingBlocks[7]), // atomRead
-    toScopedAtomFn(buildingBlocks[8]), // atomWrite
-    buildingBlocks[9], // atomOnInit
-    toScopedAtomFn(buildingBlocks[10]), // atomOnMount
-    toScopedAtomFn(buildingBlocks[11]), // ensureAtomState
-    buildingBlocks[12], // flushCallbacks
-    buildingBlocks[13], // recomputeInvalidatedAtoms
-    toScopedAtomFn(buildingBlocks[14]), // readAtomState
-    toScopedAtomFn(buildingBlocks[15]), // invalidateDependents
-    toScopedAtomFn(buildingBlocks[16]), // writeAtomState
-    toScopedAtomFn(buildingBlocks[17]), // mountDependencies
-    toScopedAtomFn(buildingBlocks[18]), // mountAtom
-    toScopedAtomFn(buildingBlocks[19]), // unmountAtom
-  ]
-  Object.assign(prototypeBuildingBlocks, scopedBuildingBlock)
-
-  const { get, set, sub } = scopedStore
-
-  return Object.assign(scopedStore, {
-    get(atom) {
-      const [scopedAtom] = scope.getAtom(atom)
-      return get(scopedAtom)
-    },
-    set<Value, Args extends any[], Result>(
-      atom: WritableAtom<Value, Args, Result>,
-      ...args: Args
-    ) {
-      const [scopedAtom, implicitScope] = scope.getAtom(atom)
-      const restore = scope.prepareWriteAtom(
-        scopedAtom,
-        atom,
-        implicitScope,
-        scope
-      )
-      try {
-        return set(scopedAtom, ...args)
-      } finally {
-        restore?.()
-      }
-    },
-    sub(atom, callback) {
-      const [scopedAtom] = scope.getAtom(atom)
-      return sub(scopedAtom, callback)
-    },
-    [SCOPE]: scope,
-    [ORIGINAL_BUILDING_BLOCKS]: buildingBlocks as BuildingBlocks,
-  } as ScopedStore)
 }

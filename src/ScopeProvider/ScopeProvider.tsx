@@ -1,19 +1,10 @@
-import {
-  type PropsWithChildren,
-  createElement,
-  useEffect,
-  useState,
-} from 'react'
+import type { PropsWithChildren } from 'react'
+import { createElement, useEffect, useState } from 'react'
 import { Provider, useStore } from 'jotai/react'
 import { useHydrateAtoms } from 'jotai/utils'
-import {
-  type AnyAtom,
-  type AnyAtomFamily,
-  type AtomDefault,
-  SCOPE,
-  ScopedStore,
-  type Store,
-} from '../types'
+import { INTERNAL_Store as Store } from 'jotai/vanilla/internals'
+import type { AnyAtom, AnyAtomFamily, AtomDefault, ScopedStore } from '../types'
+import { SCOPE } from '../types'
 import { isEqualSet } from '../utils'
 import { createScope } from './scope'
 
