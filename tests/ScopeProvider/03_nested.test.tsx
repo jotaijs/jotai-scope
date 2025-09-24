@@ -60,14 +60,14 @@ function App() {
       <Counter counterClass="unscoped" />
       <h1>Layer 1: Scope base 1</h1>
       <p>base 2 and base should be globally shared</p>
-      <ScopeProvider atoms={[baseAtom1]}>
+      <ScopeProvider atoms={[baseAtom1]} name="layer1">
         <Counter counterClass="layer1" />
         <h1>Layer 2: Scope base 2</h1>
         <p>
           base 1 should be shared between layer 1 and layer 2, base should be
           globally shared
         </p>
-        <ScopeProvider atoms={[baseAtom2]}>
+        <ScopeProvider atoms={[baseAtom2]} name="layer2">
           <Counter counterClass="layer2" />
         </ScopeProvider>
       </ScopeProvider>

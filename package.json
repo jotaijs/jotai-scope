@@ -71,7 +71,7 @@
     "eslint-plugin-prettier": "^5.2.3",
     "happy-dom": "^15.11.7",
     "jiti": "^2.4.2",
-    "jotai": "2.14.0",
+    "jotai": "https://pkg.csb.dev/pmndrs/jotai/commit/12214901/jotai",
     "jotai-effect": "2.1.0",
     "prettier": "^3.4.2",
     "typescript": "^5.7.2",
