@@ -5,8 +5,8 @@ import { useHydrateAtoms } from 'jotai/utils'
 import { INTERNAL_Store as Store } from 'jotai/vanilla/internals'
 import type { AnyAtom, AnyAtomFamily, AtomDefault, ScopedStore } from '../types'
 import { storeScopeMap } from '../types'
-import { isEqualSet } from '../utils'
-import { scope } from './scope'
+import { isEqualSize } from '../utils'
+import { createScope } from './scope'
 
 type BaseProps = PropsWithChildren<{
   atoms?: Iterable<AnyAtom | AtomDefault>
@@ -14,9 +14,7 @@ type BaseProps = PropsWithChildren<{
   name?: string
 }>
 
-type ProvidedScope = PropsWithChildren<{
-  scope: ScopedStore
-}>
+type ProvidedScope = PropsWithChildren<{ scope: ScopedStore }>
 
 export function ScopeProvider(
   props: {
@@ -40,42 +38,32 @@ export function ScopeProvider(props: BaseProps | ProvidedScope) {
     atomFamilies = [],
     children,
     scope: providedScope,
-    name: scopeName,
+    name,
   } = props as BaseProps & ProvidedScope
-  const parentStore: Store | ScopedStore = useStore()
+  const parentStore: Store = useStore()
   const atoms = Array.from(atomsOrTuples, (a) => (Array.isArray(a) ? a[0] : a))
-  const atomSet = new Set(atoms)
-  const atomFamilySet = new Set(atomFamilies)
 
   function initialize() {
-    return {
-      store:
-        providedScope ??
-        scope({
-          atomSet,
-          atomFamilySet,
-          parentStore,
-          name: scopeName,
-        }),
-      hasChanged(current: {
-        parentStore: Store | ScopedStore
-        atomSet: Set<AnyAtom>
-        atomFamilySet: Set<AnyAtomFamily>
-        providedScope: ScopedStore | undefined
+    return [
+      providedScope ?? createScope({ atoms, atomFamilies, parentStore, name }),
+      function hasChanged(current: {
+        parentStore: Store
+        atoms: Iterable<AnyAtom | AtomDefault>
+        atomFamilies: Iterable<AnyAtomFamily>
+        providedScope: Store | undefined
       }) {
         return (
           parentStore !== current.parentStore ||
-          !isEqualSet(atomSet, current.atomSet) ||
-          !isEqualSet(atomFamilySet, current.atomFamilySet) ||
+          !isEqualSize(atoms, current.atoms) ||
+          !isEqualSize(atomFamilies, current.atomFamilies) ||
           providedScope !== current.providedScope
         )
       },
-    }
+    ] as const
   }
 
-  const [state, setState] = useState(initialize)
-  const { hasChanged, store } = state
-  if (hasChanged({ atomSet, atomFamilySet, parentStore, providedScope })) {
+  const [[store, hasChanged], setState] = useState(initialize)
+  if (hasChanged({ atoms, atomFamilies, parentStore, providedScope })) {
     storeScopeMap.get(store)?.cleanup()
     setState(initialize)
   }

@@ -1,8 +1,9 @@
 import { render } from '@testing-library/react'
 import { Provider, atom, useAtomValue } from 'jotai'
 import { atomEffect } from 'jotai-effect'
-import { describe, expect, test } from 'vitest'
 import { ScopeProvider } from 'jotai-scope'
+// eslint-disable-next-line import/order
+import { describe, expect, test } from 'vitest'
 import { createDebugStore } from './utils'
 
 describe('atomEffect', () => {

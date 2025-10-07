@@ -3,7 +3,6 @@ import { atom as createAtom } from 'jotai'
 import {
   INTERNAL_buildStoreRev2 as buildStore,
   INTERNAL_getBuildingBlocksRev2 as getBuildingBlocks,
-  INTERNAL_initializeStoreHooksRev2 as initializeStoreHooks,
 } from 'jotai/vanilla/internals'
 import type {
   INTERNAL_BuildingBlocks as BuildingBlocks,
@@ -34,18 +33,19 @@ if (__DEV__) {
 
 type GlobalScopeKey = typeof globalScopeKey
 
-export function scope({
-  atomSet = new Set(),
-  atomFamilySet = new Set(),
+export function createScope({
+  atoms = [],
+  atomFamilies = [],
   parentStore,
   name: scopeName,
 }: {
-  atomSet?: Set<AnyAtom>
-  atomFamilySet?: Set<AnyAtomFamily>
+  atoms?: Iterable<AnyAtom>
+  atomFamilies?: Iterable<AnyAtomFamily>
   parentStore: Store | ScopedStore
   name?: string
 }): ScopedStore {
-  // Get parent scope from WeakMap if it exists
+  const atomsSet = new Set(atoms)
+  const atomFamilySet = new Set(atomFamilies)
   const parentScope = storeScopeMap.get(parentStore)
   // Get the base store - either from parent scope or use parentStore as base
   const baseStore = parentScope?.baseStore ?? parentStore
@@ -59,8 +59,8 @@ export function scope({
     getAtom,
     baseStore,
     cleanup() {
-      for (const cleanup of cleanupFamiliesSet) {
-        cleanup()
+      for (const cleanupFamilyListeners of cleanupFamiliesSet) {
+        cleanupFamilyListeners()
       }
     },
     prepareWriteAtom(atom, originalAtom, implicitScope, writeScope) {
@@ -96,7 +96,7 @@ export function scope({
   }
 
   // populate explicitly scoped atoms
-  for (const atom of atomSet) {
+  for (const atom of atomsSet) {
     explicit.set(atom, [cloneAtom(atom, currentScope), currentScope])
   }
 
@@ -111,7 +111,7 @@ export function scope({
     const cleanupFamily = atomFamily.unstable_listen((e) => {
       if (e.type === 'CREATE' && !explicit.has(e.atom)) {
         explicit.set(e.atom, [cloneAtom(e.atom, currentScope), currentScope])
-      } else if (!atomSet.has(e.atom)) {
+      } else if (!atomsSet.has(e.atom)) {
         explicit.delete(e.atom)
       }
     })
@@ -201,14 +201,12 @@ export function scope({
   /** @returns a scoped copy of the atom */
   function cloneAtom<T>(originalAtom: Atom<T>, implicitScope?: Scope) {
     // avoid reading `init` to preserve lazy initialization
-    const propertyDescriptors = Object.getOwnPropertyDescriptors(originalAtom)
-    Object.entries(propertyDescriptors)
-      .filter(([k]) => ['read', 'write', 'debugLabel'].includes(k))
-      .forEach(([, v]) => (v.configurable = true))
-    const scopedAtom: WithOriginal<Atom<T>> = Object.create(
-      Object.getPrototypeOf(originalAtom),
-      propertyDescriptors
-    )
+    const propDesc = Object.getOwnPropertyDescriptors(originalAtom)
+    Object.keys(propDesc)
+      .filter((k) => ['read', 'write', 'debugLabel'].includes(k))
+      .forEach((k) => (propDesc[k].configurable = true))
+    const atomProto = Object.getPrototypeOf(originalAtom)
+    const scopedAtom: WithOriginal<Atom<T>> = Object.create(atomProto, propDesc)
     scopedAtom.originalAtom = originalAtom
 
     if (scopedAtom.read !== defaultRead) {
@@ -287,68 +285,13 @@ export function scope({
   }
 
   const scopedStore = createPatchedStore(currentScope)
-  // Store the scope in the WeakMap
   storeScopeMap.set(scopedStore, currentScope)
   return scopedStore
 }
 
 const { read: defaultRead, write: defaultWrite } = createAtom<unknown>(null)
 
-// TODO: This works for everything but effect
-/** @returns a patched store that intercepts get and set calls to apply the scope */
-function createPatchedStore2(scope: Scope): ScopedStore {
-  const buildingBlocks: BuildingBlocks = [...getBuildingBlocks(scope.baseStore)]
-  const storeGet = buildingBlocks[21]
-  const storeSet = buildingBlocks[22]
-  const storeSub = buildingBlocks[23]
-
-  const internalStoreHooks = {} as StoreHooks
-  buildingBlocks[6] = internalStoreHooks
-  buildingBlocks[21] = scopeStoreFn(storeGet)
-  buildingBlocks[22] = scopedSet
-  buildingBlocks[23] = scopeStoreFn(storeSub)
-  buildingBlocks[24] = ([...buildingBlocks]) => {
-    return buildingBlocks
-  }
-
-  const scopedStore = buildStore(...buildingBlocks) as ScopedStore
-  // TODO: We need a way to patch the building blocks after the store is created
-  // TODO: So that atomEffect and other utilities will work correctly
-  // TODO: The patch ensures the correct store, atom, and atomState are used
-  // TODO: By referencing the original atom as input and returning the scoped atom and state
-  return scopedStore
-
-  // ---------------------------------------------------------------------------------
-
-  function scopedSet<Value, Args extends any[], Result>(
-    store: Store,
-    atom: WritableAtom<Value, Args, Result>,
-    ...args: Args
-  ) {
-    const [scopedAtom, implicitScope] = scope.getAtom(atom)
-    const restore = scope.prepareWriteAtom(
-      scopedAtom,
-      atom,
-      implicitScope,
-      scope
-    )
-    try {
-      return storeSet(store, scopedAtom, ...args)
-    } finally {
-      restore?.()
-    }
-  }
-
-  function scopeStoreFn<T extends (...args: any[]) => any>(fn: T): T {
-    return ((store, atom, ...args) => {
-      const [scopedAtom] = scope.getAtom(atom)
-      return fn(store, scopedAtom, ...args)
-    }) as T
-  }
-}
-
-// TODO: This should work for effect but doesn't work for other tests
-/** @returns a patched store that intercepts get and set calls to apply the scope */
+/** @returns a patched store that intercepts atom access to apply the scope */
 function createPatchedStore(scope: Scope): ScopedStore {
   const storeState: BuildingBlocks = [...getBuildingBlocks(scope.baseStore)]
   const storeGet = storeState[21]
@@ -391,44 +334,6 @@ function createPatchedStore(scope: Scope): ScopedStore {
   return scopedStore
 
   // ---------------------------------------------------------------------------------
-
-  function patchStoreHooks(storeHooks: INTERNAL_StoreHooks) {
-    const internalStoreHooks: Partial<StoreHooks> = {}
-    const patchedStoreHooks = {
-      get r() {
-        return internalStoreHooks.r
-      },
-      set r(v) {
-        internalStoreHooks.r = patchStoreHook(v)
-      },
-      get c() {
-        return internalStoreHooks.c
-      },
-      set c(v) {
-        internalStoreHooks.c = patchStoreHook(v)
-      },
-      get m() {
-        return internalStoreHooks.m
-      },
-      set m(v) {
-        internalStoreHooks.m = patchStoreHook(v)
-      },
-      get u() {
-        return internalStoreHooks.u
-      },
-      set u(v) {
-        internalStoreHooks.u = patchStoreHook(v)
-      },
-      get f() {
-        return internalStoreHooks.f
-      },
-      set f(v) {
-        internalStoreHooks.f = v
-      },
-    }
-    Object.assign(patchedStoreHooks, storeHooks)
-    return patchedStoreHooks
-  }
 
   function scopedSet<Value, Args extends any[], Result>(
     store: Store,
@@ -506,5 +411,43 @@ function createPatchedStore(scope: Scope): ScopedStore {
       return fn.add(scope.getAtom(atom)[0], callback as () => void)
     }
     return storeHook
+  }
+
+  function patchStoreHooks(storeHooks: INTERNAL_StoreHooks | undefined) {
+    const internalStoreHooks: Partial<StoreHooks> = {}
+    const patchedStoreHooks = {
+      get r() {
+        return internalStoreHooks.r
+      },
+      set r(v) {
+        internalStoreHooks.r = patchStoreHook(v)
+      },
+      get c() {
+        return internalStoreHooks.c
+      },
+      set c(v) {
+        internalStoreHooks.c = patchStoreHook(v)
+      },
+      get m() {
+        return internalStoreHooks.m
+      },
+      set m(v) {
+        internalStoreHooks.m = patchStoreHook(v)
+      },
+      get u() {
+        return internalStoreHooks.u
+      },
+      set u(v) {
+        internalStoreHooks.u = patchStoreHook(v)
+      },
+      get f() {
+        return internalStoreHooks.f
+      },
+      set f(v) {
+        internalStoreHooks.f = v
+      },
+    }
+    Object.assign(patchedStoreHooks, storeHooks)
+    return patchedStoreHooks
   }
 }

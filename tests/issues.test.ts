@@ -1,6 +1,6 @@
 import { atom } from 'jotai'
 import { describe, expect, it, vi } from 'vitest'
-import { scope } from '../src/ScopeProvider/scope'
+import { createScope } from '../src/ScopeProvider/scope'
 import { createDebugStore } from './utils'
 
 describe('open issues', () => {
@@ -22,9 +22,8 @@ describe('open issues', () => {
       console.log('S0: atomA changed')
     })
 
-    const s1 = scope({
-      atomSet: new Set([a]),
-      atomFamilySet: new Set(),
+    const s1 = createScope({
+      atoms: [a],
       parentStore: s0,
       name: 's1',
     })
@@ -57,9 +56,8 @@ describe('open issues', () => {
         console.log('S1', s0.get(a))
       })
 
-      const s1 = scope({
-        atomSet: new Set([a]),
-        atomFamilySet: new Set(),
+      const s1 = createScope({
+        atoms: [a],
         parentStore: s0,
         name: 's1',
       })
