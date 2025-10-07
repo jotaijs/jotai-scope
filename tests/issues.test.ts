@@ -23,8 +23,7 @@ describe('open issues', () => {
     })
 
     const s1 = createScope({
-      atomSet: new Set([a]),
-      atomFamilySet: new Set(),
+      atoms: [a],
       parentStore: s0,
       name: 's1',
     })
@@ -58,8 +57,7 @@ describe('open issues', () => {
       })
 
       const s1 = createScope({
-        atomSet: new Set([a]),
-        atomFamilySet: new Set(),
+        atoms: [a],
         parentStore: s0,
         name: 's1',
       })

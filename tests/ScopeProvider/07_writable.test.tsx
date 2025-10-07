@@ -177,12 +177,7 @@ describe('scope chains', () => {
   c.debugLabel = 'c'
   function createScopes(atoms: AnyAtom[] = []) {
     const s0 = createDebugStore()
-    const s1 = createScope({
-      atomSet: new Set(atoms),
-      atomFamilySet: undefined,
-      parentStore: s0,
-      name: 'S1',
-    })
+    const s1 = createScope({ atoms, parentStore: s0, name: 'S1' })
     return { s0, s1 }
   }
   test('S1[a]: a1, b0(,a1), c0(,b0(,a1))', () => {

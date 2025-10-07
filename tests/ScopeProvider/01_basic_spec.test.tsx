@@ -1,9 +1,11 @@
 import { render } from '@testing-library/react'
-import type { SetStateAction, WritableAtom } from 'jotai'
-import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai'
+import type { SetStateAction } from 'jotai'
+import { atom, createStore, useAtom, useAtomValue, useSetAtom } from 'jotai'
+import { INTERNAL_Store as Store } from 'jotai/vanilla/internals'
 import { atomWithReducer } from 'jotai/vanilla/utils'
 import { describe, expect, test } from 'vitest'
 import { ScopeProvider } from 'jotai-scope'
+import { createScope } from '../../src/ScopeProvider/scope'
 import { clickButton, getTextContents } from '../utils'
 
 describe('Counter', () => {
@@ -617,297 +619,44 @@ describe('Counter', () => {
     S1[baseB]: derived(baseA0 + baseB1 + baseC0)
     S2[baseC]: derived(baseA0 + baseB1 + baseC2)
   */
-  test('09. unscoped derived atoms in nested scoped can read and write to scoped primitive atoms at every level', async () => {
-    function clickButtonGetResults(buttonSelector: string) {
-      const baseAAtom = atom(0)
-      baseAAtom.debugLabel = 'baseA'
-      const baseBAtom = atom(0)
-      baseBAtom.debugLabel = 'baseB'
-      const baseCAtom = atom(0)
-      baseCAtom.debugLabel = 'baseC'
-      const derivedAtom = atom(
-        (get) => ({
-          baseA: get(baseAAtom),
-          baseB: get(baseBAtom),
-          baseC: get(baseCAtom),
-        }),
-        (get, set) => {
-          set(baseAAtom, get(baseAAtom) + 1)
-          set(baseBAtom, get(baseBAtom) + 1)
-          set(baseCAtom, get(baseCAtom) + 1)
-        }
-      )
-      derivedAtom.debugLabel = 'derived'
-
-      function Counter({
-        level,
-        baseAtom,
-      }: {
-        level: string
-        baseAtom: WritableAtom<number, [SetStateAction<number>], void>
-      }) {
-        const setBase = useSetAtom(baseAtom)
-        const [{ baseA, baseB, baseC }, increaseAll] = useAtom(derivedAtom)
-        const valueA = useAtomValue(baseAAtom)
-        const valueB = useAtomValue(baseBAtom)
-        const valueC = useAtomValue(baseCAtom)
-        return (
-          <div>
-            baseA:<span className={`${level} baseA`}>{baseA}</span>
-            baseB:<span className={`${level} baseB`}>{baseB}</span>
-            baseC:<span className={`${level} baseC`}>{baseC}</span>
-            valueA:<span className={`${level} valueA`}>{valueA}</span>
-            valueB:<span className={`${level} valueB`}>{valueB}</span>
-            valueC:<span className={`${level} valueC`}>{valueC}</span>
-            <button
-              className={`${level} increaseBase`}
-              type="button"
-              onClick={() => {
-                setBase((c) => c + 1)
-              }}>
-              increase base
-            </button>
-            <button
-              className={`${level} increaseAll`}
-              type="button"
-              onClick={() => {
-                increaseAll()
-              }}>
-              increase all
-            </button>
-          </div>
-        )
-      }
-
-      function App() {
-        return (
-          <div>
-            <h1>Unscoped</h1>
-            <Counter level="level0" baseAtom={baseAAtom} />
-            <h1>Scoped Provider</h1>
-            <ScopeProvider atoms={[baseBAtom]}>
-              <Counter level="level1" baseAtom={baseBAtom} />
-              <ScopeProvider atoms={[baseCAtom]}>
-                <Counter level="level2" baseAtom={baseCAtom} />
-              </ScopeProvider>
-            </ScopeProvider>
-          </div>
-        )
-      }
-      const { container } = render(<App />)
-      expectAllZeroes(container)
-      clickButton(container, buttonSelector)
-      return getTextContents(container, atomValueSelectors).join('')
+  test('09. unscoped derived atoms in nested scoped can read and write to scoped primitive atoms at every level (vanilla)', () => {
+    const a = atomWithReducer(0, (v) => v + 1)
+    const b = atomWithReducer(0, (v) => v + 1)
+    const c = atomWithReducer(0, (v) => v + 1)
+    const d = atom(
+      (get) => [get(a), get(b), get(c)],
+      (_, set) => [set(a), set(b), set(c)]
+    )
+    function when(fn?: (s: readonly [Store, Store, Store]) => void) {
+      const s0 = createStore()
+      const s1 = createScope({
+        atoms: [b],
+        parentStore: s0,
+        name: 'S1',
+      })
+      const s2 = createScope({
+        atoms: [c],
+        parentStore: s1,
+        name: 'S2',
+      })
+      const s = [s0, s1, s2] as const
+      s0.sub(a, () => {})
+      s0.sub(d, () => {})
+      s1.sub(b, () => {})
+      s1.sub(d, () => {})
+      s2.sub(c, () => {})
+      s2.sub(d, () => {})
+      fn?.(s)
+      return s
+        .map((sx) => [sx.get(a), sx.get(b), sx.get(c), ...sx.get(d)].join(''))
+        .join('|')
     }
-    function expectAllZeroes(container: HTMLElement) {
-      expect(getTextContents(container, atomValueSelectors).join('')).toEqual(
-        [
-          // level0
-          '0', // baseA0
-          '0', // baseB0
-          '0', // baseC0
-          '0', // valueA0
-          '0', // valueB0
-          '0', // valueC0
-          // level1
-          '0', // baseA0
-          '0', // baseB1
-          '0', // baseC0
-          '0', // valueA0
-          '0', // valueB1
-          '0', // valueC0
-          // level2
-          '0', // baseA0
-          '0', // baseB1
-          '0', // baseC2
-          '0', // valueA0
-          '0', // valueB1
-          '0', // valueC2
-        ].join('')
-      )
-    }
-    const atomValueSelectors = [
-      '.level0.baseA',
-      '.level0.baseB',
-      '.level0.baseC',
-      '.level0.valueA',
-      '.level0.valueB',
-      '.level0.valueC',
-      '.level1.baseA',
-      '.level1.baseB',
-      '.level1.baseC',
-      '.level1.valueA',
-      '.level1.valueB',
-      '.level1.valueC',
-      '.level2.baseA',
-      '.level2.baseB',
-      '.level2.baseC',
-      '.level2.valueA',
-      '.level2.valueB',
-      '.level2.valueC',
-    ]
-    const increaseLevel0BaseA = '.level0.increaseBase'
-    const increaseLevel1BaseB = '.level1.increaseBase'
-    const increaseLevel2BaseC = '.level2.increaseBase'
-    const increaseLevel0All = '.level0.increaseAll'
-    const increaseLevel1All = '.level1.increaseAll'
-    const increaseLevel2All = '.level2.increaseAll'
-
-    expect(clickButtonGetResults(increaseLevel0BaseA)).toEqual(
-      [
-        // level0
-        '1', // baseA0
-        '0', // baseB0
-        '0', // baseC0
-        '1', // valueA0
-        '0', // valueB0
-        '0', // valueC0
-        // level1
-        '1', // baseA0
-        '0', // baseB1
-        '0', // baseC0
-        '1', // valueA0
-        '0', // valueB1
-        '0', // valueC0
-        // level2
-        '1', // baseA0
-        '0', // baseB1
-        '0', // baseC2
-        '1', // valueA0
-        '0', // valueB1
-        '0', // valueC2
-      ].join('')
-    )
-
-    expect(clickButtonGetResults(increaseLevel1BaseB)).toEqual(
-      [
-        // level0
-        '0', // baseA0
-        '0', // baseB0
-        '0', // baseC0
-        '0', // valueA0
-        '0', // valueB0
-        '0', // valueC0
-        // level1
-        '0', // baseA0
-        '1', // baseB1
-        '0', // baseC0
-        '0', // valueA0
-        '1', // valueB1
-        '0', // valueC0
-        // level2
-        '0', // baseA0
-        '1', // baseB1
-        '0', // baseC2
-        '0', // valueA0
-        '1', // valueB1
-        '0', // valueC2
-      ].join('')
-    )
-
-    expect(clickButtonGetResults(increaseLevel2BaseC)).toEqual(
-      [
-        // level0
-        '0', // baseA0
-        '0', // baseB0
-        '0', // baseC0
-        '0', // valueA0
-        '0', // valueB0
-        '0', // valueC0
-        // level1
-        '0', // baseA0
-        '0', // baseB1
-        '0', // baseC0
-        '0', // valueA0
-        '0', // valueB1
-        '0', // valueC0
-        // level2
-        '0', // baseA0
-        '0', // baseB1
-        '1', // baseC2
-        '0', // valueA0
-        '0', // valueB1
-        '1', // valueC2
-      ].join('')
-    )
-
-    expect(clickButtonGetResults(increaseLevel0All)).toEqual(
-      [
-        // level0
-        '1', // baseA0
-        '1', // baseB0
-        '1', // baseC0
-        '1', // valueA0
-        '1', // valueB0
-        '1', // valueC0
-        // level1
-        '1', // baseA0
-        '0', // baseB1
-        '1', // baseC0
-        '1', // valueA0
-        '0', // valueB1
-        '1', // valueC0
-        // level2
-        '1', // baseA0
-        '0', // baseB1
-        '0', // baseC2
-        '1', // valueA0
-        '0', // valueB1
-        '0', // valueC2
-      ].join('')
-    )
-
-    expect(clickButtonGetResults(increaseLevel1All)).toEqual(
-      [
-        // level0
-        '1', // baseA0
-        '0', // baseB0
-        '1', // baseC0
-        '1', // valueA0
-        '0', // valueB0
-        '1', // valueC0
-        // level1
-        '1', // baseA0
-        '1', // baseB1
-        '1', // baseC0
-        '1', // valueA0
-        '1', // valueB1
-        '1', // valueC0
-        // level2
-        '1', // baseA0
-        '1', // baseB1
-        '0', // baseC2
-        '1', // valueA0
-        '1', // valueB1
-        '0', // valueC2
-      ].join('')
-    )
-
-    expect(clickButtonGetResults(increaseLevel2All)).toEqual(
-      [
-        // level0
-        '1', // baseA0
-        '0', // baseB0
-        '0', // baseC0
-        '1', // valueA0
-        '0', // valueB0
-        '0', // valueC0
-        // level1
-        '1', // baseA0
-        '1', // baseB1
-        '0', // baseC0
-        '1', // valueA0
-        '1', // valueB1
-        '0', // valueC0
-        // level2
-        '1', // baseA0
-        '1', // baseB1
-        '1', // baseC2
-        '1', // valueA0
-        '1', // valueB1
-        '1', // valueC2
-      ].join('')
-    )
+    expect(when((s) => s[0].set(a))).toBe('100100|100100|100100')
+    expect(when((s) => s[1].set(b))).toBe('000000|010010|010010')
+    expect(when((s) => s[2].set(c))).toBe('000000|000000|001001')
+    expect(when((s) => s[0].set(d))).toBe('111111|101101|100100')
+    expect(when((s) => s[1].set(d))).toBe('101101|111111|110110')
+    expect(when((s) => s[2].set(d))).toBe('100100|110110|111111')
   })
 
   /*

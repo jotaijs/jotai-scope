@@ -6,3 +6,7 @@ jotai
 jotai-effect
 node_modules
 .DS_Store
+
+# Generated JavaScript files from TypeScript compilation
+src/**/*.js
+src/**/*.js.map
