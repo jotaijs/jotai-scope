@@ -23,7 +23,7 @@ import type {
   WeakSetForAtoms,
   WithOriginal,
 } from '../types'
-import { SCOPE } from '../types'
+import { storeScopeMap } from '../types'
 import { isWritableAtom, toNameString } from '../utils'
 
 const globalScopeKey: { name?: string } = {}
@@ -34,7 +34,7 @@ if (__DEV__) {
 
 type GlobalScopeKey = typeof globalScopeKey
 
-export function createScope({
+export function scope({
   atomSet = new Set(),
   atomFamilySet = new Set(),
   parentStore,
@@ -45,7 +45,11 @@ export function createScope({
   parentStore: Store | ScopedStore
   name?: string
 }): ScopedStore {
-  const parentScope = SCOPE in parentStore ? parentStore[SCOPE] : undefined
+  // Get parent scope from WeakMap if it exists
+  const parentScope = storeScopeMap.get(parentStore)
+  // Get the base store - either from parent scope or use parentStore as base
+  const baseStore = parentScope?.baseStore ?? parentStore
+
   const explicit = new WeakMap<AnyAtom, [AnyAtom, Scope?]>()
   const implicit = new WeakMap<AnyAtom, [AnyAtom, Scope?]>()
   type ScopeMap = WeakMap<AnyAtom, [AnyAtom, Scope?]>
@@ -53,6 +57,7 @@ export function createScope({
 
   const currentScope: Scope = {
     getAtom,
+    baseStore,
     cleanup() {
       for (const cleanup of cleanupFamiliesSet) {
         cleanup()
@@ -281,7 +286,9 @@ export function createScope({
     }
   }
 
-  const scopedStore = createPatchedStore(parentStore, currentScope)
+  const scopedStore = createPatchedStore(currentScope)
+  // Store the scope in the WeakMap
+  storeScopeMap.set(scopedStore, currentScope)
   return scopedStore
 }
 
@@ -289,8 +296,8 @@ const { read: defaultRead, write: defaultWrite } = createAtom<unknown>(null)
 
 // TODO: This works for everything but effect
 /** @returns a patched store that intercepts get and set calls to apply the scope */
-function createPatchedStore2(parentStore: Store, scope: Scope): ScopedStore {
-  const buildingBlocks: BuildingBlocks = [...getBuildingBlocks(parentStore)]
+function createPatchedStore2(scope: Scope): ScopedStore {
+  const buildingBlocks: BuildingBlocks = [...getBuildingBlocks(scope.baseStore)]
   const storeGet = buildingBlocks[21]
   const storeSet = buildingBlocks[22]
   const storeSub = buildingBlocks[23]
@@ -309,7 +316,6 @@ function createPatchedStore2(parentStore: Store, scope: Scope): ScopedStore {
   // TODO: So that atomEffect and other utilities will work correctly
   // TODO: The patch ensures the correct store, atom, and atomState are used
   // TODO: By referencing the original atom as input and returning the scoped atom and state
-  scopedStore[SCOPE] = scope
   return scopedStore
 
   // ---------------------------------------------------------------------------------
@@ -343,8 +349,8 @@ function createPatchedStore2(parentStore: Store, scope: Scope): ScopedStore {
 
 // TODO: This should work for effect but doesn't work for other tests
 /** @returns a patched store that intercepts get and set calls to apply the scope */
-function createPatchedStore(parentStore: Store, scope: Scope): ScopedStore {
-  const storeState: BuildingBlocks = [...getBuildingBlocks(parentStore)]
+function createPatchedStore(scope: Scope): ScopedStore {
+  const storeState: BuildingBlocks = [...getBuildingBlocks(scope.baseStore)]
   const storeGet = storeState[21]
   const storeSet = storeState[22]
   const storeSub = storeState[23]
@@ -382,7 +388,6 @@ function createPatchedStore(parentStore: Store, scope: Scope): ScopedStore {
     undefined, // enhanceBuildingBlocks
   ]
   const scopedStore = buildStore(...storeState) as ScopedStore
-  scopedStore[SCOPE] = scope
   return scopedStore
 
   // ---------------------------------------------------------------------------------

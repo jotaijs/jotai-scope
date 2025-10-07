@@ -3,7 +3,7 @@ import type { PrimitiveAtom, WritableAtom } from 'jotai'
 import { atom, useAtom } from 'jotai'
 import { describe, expect, test } from 'vitest'
 import { ScopeProvider } from '../../src'
-import { createScope } from '../../src/ScopeProvider/scope'
+import { scope } from '../../src/ScopeProvider/scope'
 import { AnyAtom } from '../../src/types'
 import { clickButton, createDebugStore, getTextContents } from '../utils'
 
@@ -177,7 +177,7 @@ describe('scope chains', () => {
   c.debugLabel = 'c'
   function createScopes(atoms: AnyAtom[] = []) {
     const s0 = createDebugStore()
-    const s1 = createScope({
+    const s1 = scope({
       atomSet: new Set(atoms),
       atomFamilySet: undefined,
       parentStore: s0,

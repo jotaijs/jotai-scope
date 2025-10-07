@@ -6,7 +6,7 @@ import type {
 } from 'jotai/vanilla/internals'
 import type { AtomFamily } from 'jotai/vanilla/utils/atomFamily'
 
-export type ScopedStore = Store & { [SCOPE]: Scope }
+export type ScopedStore = Store
 
 export type AnyAtom = Atom<any> | AnyWritableAtom
 
@@ -40,6 +40,11 @@ export type Scope = {
   ) => (() => void) | undefined
 
   /**
+   * The base store (unpatched) that this scope is built on
+   */
+  baseStore: Store
+
+  /**
    * @debug
    */
   name?: string
@@ -50,7 +55,10 @@ export type Scope = {
   toString?: () => string
 }
 
-export const SCOPE = Symbol('scope')
+/**
+ * WeakMap to store the scope associated with each scoped store
+ */
+export const storeScopeMap = new WeakMap<Store, Scope>()
 
 export type AtomDefault = readonly [AnyWritableAtom, unknown]
 
