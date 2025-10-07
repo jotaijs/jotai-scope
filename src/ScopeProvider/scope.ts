@@ -330,7 +330,7 @@ function createPatchedStore(scope: Scope): ScopedStore {
     patchStoreFn(buildingBlocks[23]), // subAtom
     undefined, // enhanceBuildingBlocks
   ]
-  const scopedStore = buildStore(...storeState) as ScopedStore
+  const scopedStore = buildStore(...storeState)
   return scopedStore
 
   // ---------------------------------------------------------------------------------
