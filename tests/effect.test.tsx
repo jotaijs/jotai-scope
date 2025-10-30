@@ -3,7 +3,6 @@ import { Provider, createStore, useAtomValue } from 'jotai'
 import { atomWithReducer } from 'jotai/utils'
 import { atomEffect } from 'jotai-effect'
 import { ScopeProvider } from 'jotai-scope'
-import { atomWithReducer } from 'jotai/utils'
 // eslint-disable-next-line import/order
 import { describe, expect, test } from 'vitest'
 
