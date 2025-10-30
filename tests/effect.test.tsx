@@ -1,10 +1,9 @@
 import { render } from '@testing-library/react'
-import { Provider, atom, useAtomValue } from 'jotai'
+import { Provider, atom, createStore, useAtomValue } from 'jotai'
 import { atomEffect } from 'jotai-effect'
 import { ScopeProvider } from 'jotai-scope'
 // eslint-disable-next-line import/order
 import { describe, expect, test } from 'vitest'
-import { createDebugStore } from './utils'
 
 describe('atomEffect', () => {
   test('should work with atomEffect', () => {
@@ -14,7 +13,7 @@ describe('atomEffect', () => {
       set(a, (v) => v + 1)
     })
     e.debugLabel = 'effect'
-    const s0 = createDebugStore('s0')
+    const s0 = createStore()
     function Component() {
       useAtomValue(e)
       const v = useAtomValue(a)

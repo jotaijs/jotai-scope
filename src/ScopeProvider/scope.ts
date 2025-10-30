@@ -297,6 +297,7 @@ function createPatchedStore(scope: Scope): ScopedStore {
   const storeGet = storeState[21]
   const storeSet = storeState[22]
   const storeSub = storeState[23]
+  const alreadyPatched: Partial<StoreHooks> = {}
 
   storeState[9] = (_: Store, atom: AnyAtom) =>
     atom.unstable_onInit?.(scopedStore)
@@ -408,43 +409,43 @@ function createPatchedStore(scope: Scope): ScopedStore {
       if (atom === undefined) {
         return fn.add(undefined, callback)
       }
-      return fn.add(scope.getAtom(atom)[0], callback as () => void)
+      const [scopedAtom] = scope.getAtom(atom)
+      return fn.add(scopedAtom, callback as () => void)
     }
     return storeHook
   }
 
-  function patchStoreHooks(storeHooks: INTERNAL_StoreHooks | undefined) {
-    const internalStoreHooks: Partial<StoreHooks> = {}
+  function patchStoreHooks(storeHooks: StoreHooks) {
     const patchedStoreHooks = {
       get r() {
-        return internalStoreHooks.r
+        return (alreadyPatched.r ??= patchStoreHook(storeHooks.r))
       },
       set r(v) {
-        internalStoreHooks.r = patchStoreHook(v)
+        storeHooks.r = v!
       },
       get c() {
-        return internalStoreHooks.c
+        return (alreadyPatched.c ??= patchStoreHook(storeHooks.c))
       },
       set c(v) {
-        internalStoreHooks.c = patchStoreHook(v)
+        storeHooks.c = v!
       },
       get m() {
-        return internalStoreHooks.m
+        return (alreadyPatched.m ??= patchStoreHook(storeHooks.m))
       },
       set m(v) {
-        internalStoreHooks.m = patchStoreHook(v)
+        storeHooks.m = v!
       },
       get u() {
-        return internalStoreHooks.u
+        return (alreadyPatched.u ??= patchStoreHook(storeHooks.u))
       },
       set u(v) {
-        internalStoreHooks.u = patchStoreHook(v)
+        storeHooks.u = v!
       },
       get f() {
-        return internalStoreHooks.f
+        return storeHooks.f
       },
       set f(v) {
-        internalStoreHooks.f = v
+        storeHooks.f = v
       },
     }
     Object.assign(patchedStoreHooks, storeHooks)
