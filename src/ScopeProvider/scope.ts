@@ -6,7 +6,6 @@ import {
 } from 'jotai/vanilla/internals'
 import type {
   INTERNAL_BuildingBlocks as BuildingBlocks,
-  INTERNAL_StoreHooks,
   INTERNAL_Store as Store,
 } from 'jotai/vanilla/internals'
 import { __DEV__ } from '../env'
@@ -297,7 +296,7 @@ function createPatchedStore(scope: Scope): ScopedStore {
   const storeGet = storeState[21]
   const storeSet = storeState[22]
   const storeSub = storeState[23]
-  const alreadyPatched: Partial<StoreHooks> = {}
+  const alreadyPatched: StoreHooks = {}
 
   storeState[9] = (_: Store, atom: AnyAtom) =>
     atom.unstable_onInit?.(scopedStore)

@@ -68,9 +68,9 @@ export type WithOriginal<T extends AnyAtom> = T & {
 
 type Mutable<T> = { -readonly [P in keyof T]: T[P] }
 
-export type StoreHooks = Mutable<Required<INTERNAL_StoreHooks>>
+export type StoreHooks = Mutable<INTERNAL_StoreHooks>
 
-export type StoreHookForAtoms = StoreHooks['c']
+export type StoreHookForAtoms = NonNullable<StoreHooks['c']>
 
 export type WeakSetForAtoms = ChangedAtoms
 
