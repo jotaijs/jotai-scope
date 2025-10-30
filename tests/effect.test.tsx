@@ -1,5 +1,6 @@
 import { render } from '@testing-library/react'
-import { Provider, atom, createStore, useAtomValue } from 'jotai'
+import { Provider, createStore, useAtomValue } from 'jotai'
+import { atomWithReducer } from 'jotai/utils'
 import { atomEffect } from 'jotai-effect'
 import { ScopeProvider } from 'jotai-scope'
 import { atomWithReducer } from 'jotai/utils'
