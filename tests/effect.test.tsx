@@ -5,6 +5,7 @@ import { atomWithReducer } from 'jotai/utils'
 import type { INTERNAL_Store as Store } from 'jotai/vanilla/internals'
 import { atomEffect } from 'jotai-effect'
 import { ScopeProvider } from 'jotai-scope'
+// eslint-disable-next-line import/order
 import { describe, expect, test, vi } from 'vitest'
 
 describe('atomEffect', () => {
