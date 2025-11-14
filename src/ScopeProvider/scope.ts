@@ -272,7 +272,7 @@ export function createScope({
   const isPatchAtomRead = 1 //
   const scopedStore = createPatchedStore(currentScope)
   storeScopeMap.set(scopedStore, currentScope)
-  return scopedStore
+  return Object.assign(scopedStore, { name: scopeName })
 
   /** @returns a patched store that intercepts atom access to apply the scope */
   function createPatchedStore(scope: Scope): ScopedStore {
@@ -293,18 +293,18 @@ export function createScope({
         get: <V>(a: Atom<V>) => V,
         options: { readonly signal: AbortSignal; readonly setSelf: never }
       ): Value {
-        if (atom.read === defaultRead) {
-          return get(atom)
-        }
         if (i++ > 10) {
           console.trace()
           throw new Error('infinite loop')
         }
+
         const scope = storeScopeMap.get(store)!
         const [, atomScope] = scope.getAtom(atom)
         function scopedGet<V>(a: Atom<V>): V {
-          const [scopedAtom] = scope.getAtom(a, atomScope)
-          return get(scopedAtom)
+          if (a === (atom as any)) return get(a)
+          if (!cloneToOriginal.has(atom)) return get(a)
+          const [scopedA] = scope.getAtom(a, atomScope)
+          return get(scopedA)
         }
         return atomRead(store, atom, scopedGet, options)
       }

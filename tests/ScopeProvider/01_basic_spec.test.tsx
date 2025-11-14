@@ -369,113 +369,49 @@ describe('Counter', () => {
   })
 
   /*
-    base, derivedA(base), derivemB(base)
-    S0[derivedA, derivedB]: derivedA0(base0), derivedB0(base0)
-    S1[derivedA, derivedB]: derivedA1(base1), derivedB1(base1)
+    S0[b,c]: a0, b0(a0), c0(a0)
+    S1[b,c]: a0, b1(a1), c1(a1)
   */
   test('07. scoped derived atoms can share implicitly scoped dependencies', () => {
-    const baseAtom = atomWithReducer(0, (v) => v + 1)
-    baseAtom.debugLabel = 'base'
-    const derivedAtomA = atom(
-      (get) => get(baseAtom),
-      (_get, set) => set(baseAtom)
+    const a = atom(0)
+    a.debugLabel = 'a'
+    const b = atom(
+      (get) => get(a),
+      (_get, set) => set(a, (v) => v + 1)
     )
-    derivedAtomA.debugLabel = 'derivedAtomA'
-    const derivedAtomB = atom(
-      (get) => get(baseAtom),
-      (_get, set) => set(baseAtom)
+    b.debugLabel = 'b'
+    const c = atom(
+      (get) => get(a),
+      (_get, set) => set(a, (v) => v + 1)
     )
-    derivedAtomB.debugLabel = 'derivedAtomB'
+    c.debugLabel = 'c'
 
-    function Counter({ level }: { level: string }) {
-      const setBase = useSetAtom(baseAtom)
-      const [derivedA, setDerivedA] = useAtom(derivedAtomA)
-      const [derivedB, setDerivedB] = useAtom(derivedAtomB)
-      return (
-        <div>
-          base:<span className={`${level} base`}>{derivedA}</span>
-          derivedA:
-          <span className={`${level} derivedA`}>{derivedA}</span>
-          derivedB:
-          <span className={`${level} derivedB`}>{derivedB}</span>
-          <button
-            className={`${level} setBase`}
-            type="button"
-            onClick={setBase}>
-            set base
-          </button>
-          <button
-            className={`${level} setDerivedA`}
-            type="button"
-            onClick={setDerivedA}>
-            set derivedA
-          </button>
-          <button
-            className={`${level} setDerivedB`}
-            type="button"
-            onClick={setDerivedB}>
-            set derivedB
-          </button>
-        </div>
-      )
+    function getScopes() {
+      const s0 = createStore()
+      const s1 = createScope({ atoms: [b, c], parentStore: s0, name: 'S1' })
+      s0.sub(b, () => {})
+      return [s0, s1] as const
     }
-
-    function App() {
-      return (
-        <div>
-          <h1>Unscoped</h1>
-          <Counter level="level0" />
-          <h1>Scoped Provider</h1>
-          <ScopeProvider atoms={[derivedAtomA, derivedAtomB]}>
-            <Counter level="level1" />
-          </ScopeProvider>
-        </div>
-      )
+    {
+      const s = getScopes()
+      s[0].set(a, (v) => v + 1)
+      expect([s[0].get(b), s[1].get(b), s[1].get(c)].join('')).toBe('100')
     }
-    const { container } = render(<App />)
-    const increaseLevel0Base = '.level0.setBase'
-    const increaseLevel1Base = '.level1.setBase'
-    const increaseLevel1DerivedA = '.level1.setDerivedA'
-    const increaseLevel1DerivedB = '.level1.setDerivedB'
-    const atomValueSelectors = [
-      '.level0.derivedA',
-      '.level1.derivedA',
-      '.level1.derivedB',
-    ]
-
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '0', // level0 derivedA
-      '0', // level1 derivedA
-      '0', // level1 derivedB
-    ])
-
-    clickButton(container, increaseLevel0Base)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '1', // level0 derivedA
-      '0', // level1 derivedA
-      '0', // level1 derivedB
-    ])
-
-    clickButton(container, increaseLevel1Base)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '2', // level0 derivedA
-      '0', // level1 derivedA
-      '0', // level1 derivedB
-    ])
-
-    clickButton(container, increaseLevel1DerivedA)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '2', // level0 derivedA
-      '1', // level1 derivedA
-      '1', // level1 derivedB
-    ])
-
-    clickButton(container, increaseLevel1DerivedB)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '2', // level0 derivedA
-      '2', // level1 derivedA
-      '2', // level1 derivedB
-    ])
+    {
+      const s = getScopes()
+      s[1].set(a, (v) => v + 1)
+      expect([s[0].get(b), s[1].get(b), s[1].get(c)].join('')).toBe('100')
+    }
+    {
+      const s = getScopes()
+      s[1].set(b)
+      expect([s[0].get(b), s[1].get(b), s[1].get(c)].join('')).toBe('011')
+    }
+    {
+      const s = getScopes()
+      s[1].set(c)
+      expect([s[0].get(b), s[1].get(b), s[1].get(c)].join('')).toBe('011')
+    }
   })
 
   /*
