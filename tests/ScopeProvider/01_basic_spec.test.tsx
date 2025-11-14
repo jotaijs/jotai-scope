@@ -68,66 +68,35 @@ describe('Counter', () => {
   })
 
   /*
-    base, Derived(base)
-    S0[]: base0 Derived0(base0)
-    S1[]: base0 Derived0(base0)
+    S0[]: a0 b(a0)
+    S1[]: a0 b(a0)
   */
   test('02. unscoped derived atoms are unaffected in ScopeProvider', () => {
-    const baseAtom = atom(0)
-    const derivedAtom = atom(
-      (get) => get(baseAtom),
-      (_get, set, value: SetStateAction<number>) => set(baseAtom, value)
+    const a = atom(0)
+    a.debugLabel = 'a'
+    const b = atom(
+      (get) => get(a),
+      (_get, set) => set(a, (v) => v + 1)
     )
-    baseAtom.debugLabel = 'base'
-    function Counter({ level }: { level: string }) {
-      const [derived, setDerived] = useAtom(derivedAtom)
-      const increaseDerived = () => setDerived((c) => c + 1)
-      return (
-        <div>
-          base:<span className={`${level} derived`}>{derived}</span>
-          <button
-            className={`${level} setDerived`}
-            type="button"
-            onClick={increaseDerived}>
-            increase
-          </button>
-        </div>
-      )
+    b.debugLabel = 'b'
+
+    function createScopes() {
+      const s0 = createStore()
+      const s1 = createScope({ atoms: [], parentStore: s0, name: 'S1' })
+      return [s0, s1] as const
     }
 
-    function App() {
-      return (
-        <div>
-          <h1>Unscoped</h1>
-          <Counter level="level0" />
-          <h1>Scoped Provider</h1>
-          <ScopeProvider atoms={[]} name="level1">
-            <Counter level="level1" />
-          </ScopeProvider>
-        </div>
-      )
+    {
+      const s = createScopes()
+      s[0].set(a, (v) => v + 1)
+      expect(s.map((s) => s.get(b)).join('')).toBe('11')
     }
-    const { container } = render(<App />)
-    const increaseUnscopedBase = '.level0.setDerived'
-    const increaseScopedBase = '.level1.setDerived'
-    const atomValueSelectors = ['.level0.derived', '.level1.derived']
 
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '0', // level 0 derived
-      '0', // level 1 derived
-    ])
-
-    clickButton(container, increaseUnscopedBase)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '1', // level 0 derived
-      '1', // level 1 derived
-    ])
-
-    clickButton(container, increaseScopedBase)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '2', // level 0 derived
-      '2', // level 1 derived
-    ])
+    {
+      const s = createScopes()
+      s[1].set(a, (v) => v + 1)
+      expect(s.map((s) => s.get(b)).join('')).toBe('11') // Received '10'
+    }
   })
 
   /*
@@ -363,70 +332,40 @@ describe('Counter', () => {
   })
 
   /*
-    base, derived(base),
-    S0[derived]: derived0(base0)
-    S1[derived]: derived1(base1)
+    S0[ ]: a0, b0(a0)
+    S1[b]: a0, b1(a1)
   */
   test('06. dependencies of scoped derived are implicitly scoped', () => {
-    const baseAtom = atomWithReducer(0, (v) => v + 1)
-    baseAtom.debugLabel = 'base'
+    const a = atom(0)
+    a.debugLabel = 'a'
 
-    const derivedAtom = atom(
-      (get) => get(baseAtom),
-      (_get, set) => set(baseAtom)
+    const b = atom(
+      (get) => get(a),
+      (_get, set) => set(a, (v) => v + 1)
     )
-    derivedAtom.debugLabel = 'derived'
+    b.debugLabel = 'b'
 
-    function Counter({ level }: { level: string }) {
-      const increaseBase = useSetAtom(baseAtom)
-      const [derived, setDerived] = useAtom(derivedAtom)
-      return (
-        <div>
-          base:<span className={`${level} base`}>{derived}</span>
-          <button
-            className={`${level} setBase`}
-            type="button"
-            onClick={increaseBase}>
-            increase base
-          </button>
-          <button
-            className={`${level} setDerived`}
-            type="button"
-            onClick={setDerived}>
-            increase derived
-          </button>
-        </div>
-      )
+    function getScopes() {
+      const s0 = createStore()
+      const s1 = createScope({ atoms: [b], parentStore: s0, name: 'S1' })
+      return [s0, s1] as const
     }
 
-    function App() {
-      return (
-        <div>
-          <h1>Unscoped</h1>
-          <Counter level="level0" />
-          <h1>Scoped Provider</h1>
-          <ScopeProvider atoms={[derivedAtom]} name="level1">
-            <Counter level="level1" />
-          </ScopeProvider>
-        </div>
-      )
+    {
+      const s = getScopes()
+      s[0].set(a, (v) => v + 1)
+      expect(s.map((s) => s.get(b)).join('')).toBe('10') // Received '11' <===========
     }
-    const { container } = render(<App />)
-    const increaseUnscopedBase = '.level0.setBase'
-    const increaseScopedBase = '.level1.setBase'
-    const increaseScopedDerived = '.level1.setDerived'
-    const atomValueSelectors = ['.level0.base', '.level1.base']
-
-    expect(getTextContents(container, atomValueSelectors)).toEqual(['0', '0'])
-
-    clickButton(container, increaseUnscopedBase)
-    expect(getTextContents(container, atomValueSelectors)).toEqual(['1', '0'])
-
-    clickButton(container, increaseScopedBase)
-    expect(getTextContents(container, atomValueSelectors)).toEqual(['2', '0'])
-
-    clickButton(container, increaseScopedDerived)
-    expect(getTextContents(container, atomValueSelectors)).toEqual(['2', '1'])
+    {
+      const s = getScopes()
+      s[1].set(a, (v) => v + 1)
+      expect(s.map((s) => s.get(b)).join('')).toBe('10') // Received '11'
+    }
+    {
+      const s = getScopes()
+      s[1].set(b)
+      expect(s.map((s) => s.get(b)).join('')).toBe('01') // Received '00'
+    }
   })
 
   /*
