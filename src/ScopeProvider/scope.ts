@@ -146,63 +146,26 @@ export function createScope({
       }
       return implicit.get(atom) as [T, Scope]
     }
-    const scopeKey = implicitScope ?? globalScopeKey
-    if (parentScope) {
-      // inherited atoms are copied so they can access scoped atoms
-      // but they are not explicitly scoped
-      // dependencies of inherited atoms first check if they are explicitly scoped
-      // otherwise they use their original scope's atom
-      if (!inherited.get(scopeKey)?.has(atom)) {
-        const [ancestorAtom, explicitScope] = parentScope.getAtom(
-          atom,
-          implicitScope
-        )
-        setInheritedAtom(
-          inheritAtom(ancestorAtom, atom, explicitScope),
-          atom,
-          implicitScope,
-          explicitScope
-        )
-      }
-      return inherited.get(scopeKey)!.get(atom) as [T, Scope]
-    }
-    if (!inherited.get(scopeKey)?.has(atom)) {
-      // non-primitive atoms may need to access scoped atoms
-      // so we need to create a copy of the atom
-      setInheritedAtom(inheritAtom(atom, atom), atom)
-    }
-    return inherited.get(scopeKey)!.get(atom) as [T, Scope?]
-  }
-
-  function setInheritedAtom<T extends AnyAtom>(
-    scopedAtom: T,
-    originalAtom: T,
-    implicitScope?: Scope,
-    explicitScope?: Scope
-  ) {
+    // inherited atoms are copied so they can access scoped atoms
+    // dependencies of inherited atoms first check if they are explicitly scoped
+    // otherwise they use their original scope's atom
     const scopeKey = implicitScope ?? globalScopeKey
     if (!inherited.has(scopeKey)) {
       inherited.set(scopeKey, new WeakMap())
     }
-    inherited.get(scopeKey)!.set(
-      originalAtom,
-      [
-        scopedAtom, //
-        explicitScope,
-      ].filter(Boolean) as [T, Scope?]
-    )
-  }
-
-  /** @returns a copy of the atom for derived atoms or the original atom for primitive and writable atoms */
-  function inheritAtom<T>(
-    atom: Atom<T>,
-    originalAtom: Atom<T>,
-    implicitScope?: Scope
-  ) {
-    if (originalAtom.read !== defaultRead) {
-      return cloneAtom(originalAtom, implicitScope)
+    const scopeMap = inherited.get(scopeKey)!
+    if (!scopeMap.has(atom)) {
+      const [
+        ancestorAtom,
+        explicitScope, //
+      ] = parentScope ? parentScope.getAtom(atom, implicitScope) : [atom]
+      const inheritedClone =
+        atom.read === defaultRead
+          ? ancestorAtom
+          : cloneAtom(atom, explicitScope)
+      scopeMap.set(atom, [inheritedClone, explicitScope])
     }
-    return atom
+    return scopeMap.get(atom) as [T, Scope?]
   }
 
   /** @returns a scoped copy of the atom */
