@@ -8,6 +8,7 @@ import {
   INTERNAL_getBuildingBlocksRev2 as getBuildingBlocks,
   INTERNAL_initializeStoreHooksRev2 as initializeStoreHooks,
 } from 'jotai/vanilla/internals'
+import { AnyAtom } from 'src/types'
 
 //
 // Debug Store
@@ -84,4 +85,31 @@ export function clickButton(container: HTMLElement, querySelector: string) {
 
 export function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/**
+ * Order is `S0:A`,`S0:B`,`S1:A`,`S1:B`
+ * ```
+ * [
+ *   [S0:A, S0:B],
+ *   [S1:A, S1:B],
+ * ]
+ * ```
+ */
+export function cross<
+  A extends readonly unknown[],
+  B extends readonly unknown[],
+  R,
+>(
+  a: A,
+  b: B,
+  fn: (a: A[number], b: B[number]) => R
+): {
+  [a in keyof A]: { [b in keyof B]: R }
+} {
+  return a.map((a) => b.map((b) => fn(a, b))) as any
+}
+
+export function storeGet(store: Store, atom: AnyAtom) {
+  return store.get(atom)
 }

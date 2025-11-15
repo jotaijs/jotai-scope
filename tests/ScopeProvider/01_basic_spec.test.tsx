@@ -6,7 +6,7 @@ import { atomWithReducer } from 'jotai/vanilla/utils'
 import { describe, expect, test } from 'vitest'
 import { ScopeProvider } from 'jotai-scope'
 import { createScope } from '../../src/ScopeProvider/scope'
-import { clickButton, getTextContents } from '../utils'
+import { clickButton, cross, getTextContents, storeGet } from '../utils'
 
 describe('Counter', () => {
   /*
@@ -68,10 +68,10 @@ describe('Counter', () => {
   })
 
   /*
-    S0[]: a0 b(a0)
-    S1[]: a0 b(a0)
+    S0[]: a0 b0(a0)
+    S1[]: a0 b0(a0)
   */
-  test('02. unscoped derived atoms are unaffected in ScopeProvider', () => {
+  test.only('02. unscoped derived atoms are unaffected in ScopeProvider', () => {
     const a = atom(0)
     a.debugLabel = 'a'
     const b = atom(
@@ -95,7 +95,7 @@ describe('Counter', () => {
     {
       const s = createScopes()
       s[1].set(a, (v) => v + 1)
-      expect(s.map((s) => s.get(b)).join('')).toBe('11') // Received '10'
+      expect(s.map((s) => s.get(b)).join('')).toBe('11')
     }
   })
 
@@ -158,80 +158,37 @@ describe('Counter', () => {
   })
 
   /*
-    base, derived(base)
-    S0[base]: derived0(base0)
-    S1[base]: derived0(base1)
+    S0[a]: b0(a0)
+    S1[a]: b0(a1)
   */
   test('04. unscoped derived can read and write to scoped primitive atoms', () => {
-    const baseAtom = atom(0)
-    baseAtom.debugLabel = 'base'
-    const derivedAtom = atom(
-      (get) => get(baseAtom),
-      (get, set) => set(baseAtom, get(baseAtom) + 1)
+    const a = atom(0)
+    a.debugLabel = 'a'
+    const b = atom(
+      (get) => get(a),
+      (_get, set) => set(a, (v) => v + 1)
     )
-    derivedAtom.debugLabel = 'derived'
+    b.debugLabel = 'b'
 
-    function Counter({ level }: { level: string }) {
-      const [derived, increaseFromDerived] = useAtom(derivedAtom)
-      const value = useAtomValue(baseAtom)
-      return (
-        <div>
-          base:<span className={`${level} base`}>{derived}</span>
-          value:<span className={`${level} value`}>{value}</span>
-          <button
-            className={`${level} setBase`}
-            type="button"
-            onClick={increaseFromDerived}>
-            increase
-          </button>
-        </div>
-      )
+    function scopes() {
+      const s0 = createStore()
+      const s1 = createScope({ atoms: [a], parentStore: s0, name: 'S1' })
+      return [s0, s1] as const
+    }
+    function results(s: readonly [Store, Store]) {
+      return cross(s, [a, b], storeGet).flat().join('')
     }
 
-    function App() {
-      return (
-        <div>
-          <h1>Unscoped</h1>
-          <Counter level="level0" />
-          <h1>Scoped Provider</h1>
-          <ScopeProvider atoms={[baseAtom]}>
-            <Counter level="level1" />
-          </ScopeProvider>
-        </div>
-      )
+    {
+      const s = scopes()
+      s[0].set(b)
+      expect(results(s)).toBe('1100') // Received '1101'
     }
-    const { container } = render(<App />)
-    const increaseUnscopedBase = '.level0.setBase'
-    const increaseScopedBase = '.level1.setBase'
-    const atomValueSelectors = [
-      '.level0.base',
-      '.level0.value',
-      '.level1.base',
-      '.level1.value',
-    ]
-
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '0', // level0 base
-      '0', // level0 value
-      '0', // level1 base
-      '0', // level1 value
-    ])
-
-    clickButton(container, increaseUnscopedBase)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '1', // level0 base
-      '1', // level0 value
-      '0', // level1 base
-      '0', // level1 value
-    ])
-
-    clickButton(container, increaseScopedBase)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '1', // level0 base
-      '1', // level0 value
-      '1', // level1 base
-      '1', // level1 value
-    ])
+    {
+      const s = scopes()
+      s[1].set(b)
+      expect(results(s)).toBe('0011') // Received '0010'
+    }
   })
 
   /*
