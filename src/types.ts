@@ -24,6 +24,24 @@ export type Scope = {
   getAtom: <T extends AnyAtom>(anAtom: T, implicitScope?: Scope) => [T, Scope?]
 
   /**
+   * Returns the nearest store that the atom belongs to.
+   * The atom belongs to a store when it is a member of explicit or implicit atoms set.
+   * If the parentStore is a regular jotai store, returns that store.
+   * If the atom is a member of the current store, returns the current store.
+   * @param atom
+   * @returns the store that the atom belongs to
+   */
+  getStoreByAtom: (atom: AnyAtom) => Store
+
+  /**
+   * Returns the scope that the atom belongs to.
+   * Returns undefined if the atom belongs to the base (unscoped) store.
+   * @param atom
+   * @returns the scope that the atom belongs to, or undefined for base scope
+   */
+  getAtomScope: (atom: AnyAtom) => Scope | undefined
+
+  /**
    * Cleans up the scope
    */
   cleanup: () => void

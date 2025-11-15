@@ -79,7 +79,7 @@ describe('Counter', () => {
     S0[]: a0 b0(a0)
     S1[]: a0 b0(a0)
   */
-  test('02. unscoped derived atoms are unaffected in ScopeProvider', () => {
+  test.only('02. unscoped derived atoms are unaffected in ScopeProvider', () => {
     const a = atom(0)
     a.debugLabel = 'a'
     const b = atom(

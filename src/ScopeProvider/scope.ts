@@ -13,6 +13,7 @@ import type {
   INTERNAL_EnsureAtomState as EnsureAtomState,
   INTERNAL_Mounted as Mounted,
   INTERNAL_Store as Store,
+  INTERNAL_InvalidateDependents as InvalidateDependents,
 } from 'jotai/vanilla/internals'
 import { __DEV__ } from '../env'
 import type {
@@ -60,13 +61,15 @@ export function createScope({
   type ScopeMap = WeakMap<AnyAtom, [AnyAtom, Scope?]>
   const inherited = new WeakMap<Scope | GlobalScopeKey, ScopeMap>()
   const dependent = new WeakMap<AnyAtom, [AnyAtom, Scope?]>()
-  const cloneToOriginal = new WeakMap<AnyAtom, AnyAtom>()
+  const cloneToOriginal = new WeakMap<AnyAtom, [AnyAtom, Scope?]>()
 
   const scope: Scope = {
     getAtom<T extends AnyAtom>(atom: T, implicitScope?: Scope): [T, Scope?] {
       if (cloneToOriginal.has(atom)) {
-        return scope.getAtom<T>(cloneToOriginal.get(atom) as T, implicitScope)
+        const [originalAtom, originalScope] = cloneToOriginal.get(atom)!
+        return scope.getAtom<T>(originalAtom as T, originalScope)
       }
+
       if (explicit.has(atom)) {
         return explicit.get(atom) as [T, Scope]
       }
@@ -76,7 +79,7 @@ export function createScope({
         // implicitly scoped atoms are only accessed by implicit and explicit scoped atoms
         if (!implicit.has(atom)) {
           const cloned = cloneAtom(atom, implicitScope)
-          cloneToOriginal.set(cloned, atom)
+          cloneToOriginal.set(cloned, [atom, implicitScope])
           implicit.set(atom, [cloned, implicitScope])
         }
         return implicit.get(atom) as [T, Scope]
@@ -103,6 +106,26 @@ export function createScope({
       return scopeMap.get(atom) as [T, Scope?]
     },
     baseStore,
+    getStoreByAtom(atom) {
+      if (explicit.has(atom)) {
+        return scopedStore
+      }
+      if (implicit.has(atom)) {
+        return scopedStore
+      }
+      if (parentScope) {
+        return parentScope.getStoreByAtom(atom)
+      }
+      return parentStore
+    },
+    getAtomScope(atom: AnyAtom): Scope | undefined {
+      const entry = cloneToOriginal.get(atom)
+      if (entry) {
+        return entry[1]
+      }
+      // If not a clone, it's an original atom in the base scope
+      return undefined
+    },
     cleanup() {
       for (const cleanupFamilyListeners of cleanupFamiliesSet) {
         cleanupFamilyListeners()
@@ -201,7 +224,7 @@ export function createScope({
       })
     }
 
-    cloneToOriginal.set(scopedAtom, originalAtom)
+    cloneToOriginal.set(scopedAtom, [originalAtom, implicitScope])
     return scopedAtom
   }
 
@@ -254,19 +277,29 @@ export function createScope({
         options: { readonly signal: AbortSignal; readonly setSelf: never }
       ): Value {
         if (i++ > 10) {
-          console.trace()
           throw new Error('infinite loop')
         }
 
-        const scope = storeScopeMap.get(store)!
-        const [, atomScope] = scope.getAtom(atom)
+        console.log(`[${scope.name}] patchAtomRead: atom=${atom.debugLabel}`)
+        const atomScope = scope.getAtomScope(atom)
+        console.log(
+          `[${scope.name}] patchAtomRead: atomScope=${atomScope?.name || 'none'}`
+        )
         function scopedGet<V>(a: Atom<V>): V {
-          if (a === (atom as any)) return get(a)
-          if (!cloneToOriginal.has(atom)) return get(a)
+          if (a === (atom as any)) {
+            return get(a)
+          }
           const [scopedA] = scope.getAtom(a, atomScope)
+          console.log(
+            `[${scope.name}] patchAtomRead.scopedGet: ${a.debugLabel} → ${scopedA.debugLabel}`
+          )
           return get(scopedA)
         }
-        return atomRead(store, atom, scopedGet, options)
+        const result = atomRead(store, atom, scopedGet, options)
+        console.log(
+          `[${scope.name}] patchAtomRead: atom=${atom.debugLabel} result=${result}`
+        )
+        return result
       }
     }
 
@@ -305,7 +338,7 @@ export function createScope({
         patchStoreFn(buildingBlocks[21]), // getAtom
         patchStoreFn(buildingBlocks[22]), // setAtom
         patchStoreFn(buildingBlocks[23]), // subAtom
-        undefined, // enhanceBuildingBlocks
+        () => buildingBlocks, // enhanceBuildingBlocks (raw)
       ]
       return patchedBuildingBlocks
     }
