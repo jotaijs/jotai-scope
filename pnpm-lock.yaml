@@ -34,6 +34,9 @@ devDependencies:
   '@vitejs/plugin-react':
     specifier: ^4.3.4
     version: 4.3.4(vite@6.0.11)
+  dedent:
+    specifier: ^1.7.0
+    version: 1.7.0
   eslint:
     specifier: ^9.18.0
     version: 9.18.0(jiti@2.4.2)
@@ -1644,6 +1647,15 @@ packages:
         optional: true
     dependencies:
       ms: 2.1.3
+    dev: true
+
+  /dedent@1.7.0:
+    resolution: {integrity: sha512-HGFtf8yhuhGhqO07SV79tRp+br4MnbdjeVxotpn1QBl30pcLLCQjX5b2295ll0fv8RKDKsmWYrl05usHM9CewQ==}
+    peerDependencies:
+      babel-plugin-macros: ^3.1.0
+    peerDependenciesMeta:
+      babel-plugin-macros:
+        optional: true
     dev: true
 
   /deep-eql@5.0.2:
