@@ -279,26 +279,15 @@ export function createScope({
         if (i++ > 10) {
           throw new Error('infinite loop')
         }
-
-        console.log(`[${scope.name}] patchAtomRead: atom=${atom.debugLabel}`)
         const atomScope = scope.getAtomScope(atom)
-        console.log(
-          `[${scope.name}] patchAtomRead: atomScope=${atomScope?.name || 'none'}`
-        )
         function scopedGet<V>(a: Atom<V>): V {
           if (a === (atom as any)) {
             return get(a)
           }
           const [scopedA] = scope.getAtom(a, atomScope)
-          console.log(
-            `[${scope.name}] patchAtomRead.scopedGet: ${a.debugLabel} → ${scopedA.debugLabel}`
-          )
           return get(scopedA)
         }
         const result = atomRead(store, atom, scopedGet, options)
-        console.log(
-          `[${scope.name}] patchAtomRead: atom=${atom.debugLabel} result=${result}`
-        )
         return result
       }
     }

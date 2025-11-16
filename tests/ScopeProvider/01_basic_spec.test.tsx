@@ -1,7 +1,11 @@
 import { render } from '@testing-library/react'
 import dedent from 'dedent'
 import { atom, createStore, useAtom, useAtomValue, useSetAtom } from 'jotai'
-import { INTERNAL_Store as Store } from 'jotai/vanilla/internals'
+import {
+  INTERNAL_AtomState as AtomState,
+  INTERNAL_getBuildingBlocksRev2,
+  INTERNAL_Store as Store,
+} from 'jotai/vanilla/internals'
 import { atomWithReducer } from 'jotai/vanilla/utils'
 import { describe, expect, test } from 'vitest'
 import { ScopeProvider } from 'jotai-scope'
@@ -79,7 +83,7 @@ describe('Counter', () => {
     S0[]: a0 b0(a0)
     S1[]: a0 b0(a0)
   */
-  test.only('02. unscoped derived atoms are unaffected in ScopeProvider', () => {
+  test('02. unscoped derived atoms are unaffected in ScopeProvider', () => {
     const a = atom(0)
     a.debugLabel = 'a'
     const b = atom(

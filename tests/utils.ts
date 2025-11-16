@@ -8,6 +8,7 @@ import {
   INTERNAL_buildStoreRev2 as buildStore,
   INTERNAL_getBuildingBlocksRev2 as getBuildingBlocks,
   INTERNAL_initializeStoreHooksRev2 as initializeStoreHooks,
+  INTERNAL_getBuildingBlocksRev2,
 } from 'jotai/vanilla/internals'
 import { AnyAtom } from 'src/types'
 
