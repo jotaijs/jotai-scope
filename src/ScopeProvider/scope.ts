@@ -58,7 +58,7 @@ export function createScope({
   type ScopeMap = WeakMap<AnyAtom, [AnyAtom, Scope?]>
   const inherited = new WeakMap<Scope | GlobalScopeKey, ScopeMap>()
 
-  const currentScope: Scope = {
+  const scope: Scope = {
     getAtom,
     baseStore,
     cleanup() {
@@ -72,7 +72,7 @@ export function createScope({
         isWritableAtom(originalAtom) &&
         isWritableAtom(atom) &&
         originalAtom.write !== defaultWrite &&
-        currentScope !== implicitScope
+        scope !== implicitScope
       ) {
         // atom is writable with init and holds a value
         // we need to preserve the value, so we don't want to copy the atom
@@ -92,17 +92,17 @@ export function createScope({
       return undefined
     },
   }
-  const scopedStore = createPatchedStore(currentScope)
-  storeScopeMap.set(scopedStore, currentScope)
+  const scopedStore = createPatchedStore(scope)
+  storeScopeMap.set(scopedStore, scope)
 
   if (scopeName && __DEV__) {
-    currentScope.name = scopeName
-    currentScope.toString = toNameString
+    scope.name = scopeName
+    scope.toString = toNameString
   }
 
   // populate explicitly scoped atoms
   for (const atom of atomsSet) {
-    explicit.set(atom, [cloneAtom(atom, currentScope), currentScope])
+    explicit.set(atom, [cloneAtom(atom, scope), scope])
   }
 
   const cleanupFamiliesSet = new Set<() => void>()
@@ -110,12 +110,12 @@ export function createScope({
     for (const param of atomFamily.getParams()) {
       const atom = atomFamily(param)
       if (!explicit.has(atom)) {
-        explicit.set(atom, [cloneAtom(atom, currentScope), currentScope])
+        explicit.set(atom, [cloneAtom(atom, scope), scope])
       }
     }
     const cleanupFamily = atomFamily.unstable_listen((e) => {
       if (e.type === 'CREATE' && !explicit.has(e.atom)) {
-        explicit.set(e.atom, [cloneAtom(e.atom, currentScope), currentScope])
+        explicit.set(e.atom, [cloneAtom(e.atom, scope), scope])
       } else if (!atomsSet.has(e.atom)) {
         explicit.delete(e.atom)
       }
@@ -138,7 +138,7 @@ export function createScope({
     if (explicit.has(atom)) {
       return explicit.get(atom) as [T, Scope]
     }
-    if (implicitScope === currentScope) {
+    if (implicitScope === scope) {
       // dependencies of explicitly scoped atoms are implicitly scoped
       // implicitly scoped atoms are only accessed by implicit and explicit scoped atoms
       if (!implicit.has(atom)) {
@@ -199,7 +199,7 @@ export function createScope({
     if (__DEV__) {
       Object.defineProperty(scopedAtom, 'debugLabel', {
         get() {
-          return `${originalAtom.debugLabel}@${currentScope.name}`
+          return `${originalAtom.debugLabel}@${scope.name}`
         },
         configurable: true,
         enumerable: true,
@@ -237,7 +237,7 @@ export function createScope({
         },
         function scopedSet(a, ...v) {
           const [scopedAtom] = getAtom(a, implicitScope)
-          const restore = currentScope.prepareWriteAtom(
+          const restore = scope.prepareWriteAtom(
             scopedAtom,
             a,
             implicitScope,
