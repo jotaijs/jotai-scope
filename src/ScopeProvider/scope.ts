@@ -59,7 +59,39 @@ export function createScope({
   const inherited = new WeakMap<Scope | GlobalScopeKey, ScopeMap>()
 
   const scope: Scope = {
-    getAtom,
+    getAtom<T extends AnyAtom>(atom: T, implicitScope?: Scope): [T, Scope?] {
+      if (explicit.has(atom)) {
+        return explicit.get(atom) as [T, Scope]
+      }
+      if (implicitScope === scope) {
+        // dependencies of explicitly scoped atoms are implicitly scoped
+        // implicitly scoped atoms are only accessed by implicit and explicit scoped atoms
+        if (!implicit.has(atom)) {
+          implicit.set(atom, [cloneAtom(atom, implicitScope), implicitScope])
+        }
+        return implicit.get(atom) as [T, Scope]
+      }
+      // inherited atoms are copied so they can access scoped atoms
+      // dependencies of inherited atoms first check if they are explicitly scoped
+      // otherwise they use their original scope's atom
+      const scopeKey = implicitScope ?? globalScopeKey
+      if (!inherited.has(scopeKey)) {
+        inherited.set(scopeKey, new WeakMap())
+      }
+      const scopeMap = inherited.get(scopeKey)!
+      if (!scopeMap.has(atom)) {
+        const [
+          ancestorAtom,
+          explicitScope, //
+        ] = parentScope ? parentScope.getAtom(atom, implicitScope) : [atom]
+        const inheritedClone =
+          atom.read === defaultRead
+            ? ancestorAtom
+            : cloneAtom(atom, explicitScope)
+        scopeMap.set(atom, [inheritedClone, explicitScope])
+      }
+      return scopeMap.get(atom) as [T, Scope?]
+    },
     baseStore,
     cleanup() {
       for (const cleanupFamilyListeners of cleanupFamiliesSet) {
@@ -125,49 +157,6 @@ export function createScope({
 
   return scopedStore
 
-  /**
-   * Returns a scoped atom from the original atom.
-   * @param atom
-   * @param implicitScope the atom is implicitly scoped in the provided scope
-   * @returns the scoped atom and the scope of the atom
-   */
-  function getAtom<T extends AnyAtom>(
-    atom: T,
-    implicitScope?: Scope
-  ): [T, Scope?] {
-    if (explicit.has(atom)) {
-      return explicit.get(atom) as [T, Scope]
-    }
-    if (implicitScope === scope) {
-      // dependencies of explicitly scoped atoms are implicitly scoped
-      // implicitly scoped atoms are only accessed by implicit and explicit scoped atoms
-      if (!implicit.has(atom)) {
-        implicit.set(atom, [cloneAtom(atom, implicitScope), implicitScope])
-      }
-      return implicit.get(atom) as [T, Scope]
-    }
-    // inherited atoms are copied so they can access scoped atoms
-    // dependencies of inherited atoms first check if they are explicitly scoped
-    // otherwise they use their original scope's atom
-    const scopeKey = implicitScope ?? globalScopeKey
-    if (!inherited.has(scopeKey)) {
-      inherited.set(scopeKey, new WeakMap())
-    }
-    const scopeMap = inherited.get(scopeKey)!
-    if (!scopeMap.has(atom)) {
-      const [
-        ancestorAtom,
-        explicitScope, //
-      ] = parentScope ? parentScope.getAtom(atom, implicitScope) : [atom]
-      const inheritedClone =
-        atom.read === defaultRead
-          ? ancestorAtom
-          : cloneAtom(atom, explicitScope)
-      scopeMap.set(atom, [inheritedClone, explicitScope])
-    }
-    return scopeMap.get(atom) as [T, Scope?]
-  }
-
   /** @returns a scoped copy of the atom */
   function cloneAtom<T>(originalAtom: Atom<T>, implicitScope?: Scope) {
     // avoid reading `init` to preserve lazy initialization
@@ -216,7 +205,7 @@ export function createScope({
     return function scopedRead(get, opts) {
       return read(
         function scopedGet(a) {
-          const [scopedAtom] = getAtom(a, implicitScope)
+          const [scopedAtom] = scope.getAtom(a, implicitScope)
           return get(scopedAtom)
         }, //
         opts
@@ -232,11 +221,11 @@ export function createScope({
     return function scopedWrite(get, set, ...args) {
       return write(
         function scopedGet(a) {
-          const [scopedAtom] = getAtom(a, implicitScope)
+          const [scopedAtom] = scope.getAtom(a, implicitScope)
           return get(scopedAtom)
         },
         function scopedSet(a, ...v) {
-          const [scopedAtom] = getAtom(a, implicitScope)
+          const [scopedAtom] = scope.getAtom(a, implicitScope)
           const restore = scope.prepareWriteAtom(
             scopedAtom,
             a,
