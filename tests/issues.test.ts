@@ -1,7 +1,6 @@
-import { atom } from 'jotai'
+import { atom, createStore } from 'jotai'
 import { describe, expect, it, vi } from 'vitest'
 import { createScope } from '../src/ScopeProvider/scope'
-import { createDebugStore } from './utils'
 
 describe('open issues', () => {
   // FIXME:
@@ -17,7 +16,7 @@ describe('open issues', () => {
       console.log('mounting atomA')
     })
 
-    const s0 = createDebugStore()
+    const s0 = createStore()
     s0.sub(a, () => {
       console.log('S0: atomA changed')
     })

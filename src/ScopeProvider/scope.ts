@@ -58,8 +58,41 @@ export function createScope({
   type ScopeMap = WeakMap<AnyAtom, [AnyAtom, Scope?]>
   const inherited = new WeakMap<Scope | GlobalScopeKey, ScopeMap>()
 
-  const currentScope: Scope = {
-    getAtom,
+  const scope: Scope = {
+    getAtom<T extends AnyAtom>(atom: T, implicitScope?: Scope): [T, Scope?] {
+      if (explicit.has(atom)) {
+        return explicit.get(atom) as [T, Scope]
+      }
+
+      if (implicitScope === scope) {
+        // dependencies of explicitly scoped atoms are implicitly scoped
+        // implicitly scoped atoms are only accessed by implicit and explicit scoped atoms
+        if (!implicit.has(atom)) {
+          implicit.set(atom, [cloneAtom(atom, implicitScope), implicitScope])
+        }
+        return implicit.get(atom) as [T, Scope]
+      }
+      // inherited atoms are copied so they can access scoped atoms
+      // dependencies of inherited atoms first check if they are explicitly scoped
+      // otherwise they use their original scope's atom
+      const scopeKey = implicitScope ?? globalScopeKey
+      if (!inherited.has(scopeKey)) {
+        inherited.set(scopeKey, new WeakMap())
+      }
+      const scopeMap = inherited.get(scopeKey)!
+      if (!scopeMap.has(atom)) {
+        const [
+          ancestorAtom,
+          explicitScope, //
+        ] = parentScope ? parentScope.getAtom(atom, implicitScope) : [atom]
+        if (atom.read === defaultRead) {
+          scopeMap.set(atom, [ancestorAtom, explicitScope])
+        } else {
+          scopeMap.set(atom, [cloneAtom(atom, explicitScope), explicitScope])
+        }
+      }
+      return scopeMap.get(atom) as [T, Scope?]
+    },
     baseStore,
     cleanup() {
       for (const cleanupFamilyListeners of cleanupFamiliesSet) {
@@ -72,7 +105,7 @@ export function createScope({
         isWritableAtom(originalAtom) &&
         isWritableAtom(atom) &&
         originalAtom.write !== defaultWrite &&
-        currentScope !== implicitScope
+        scope !== implicitScope
       ) {
         // atom is writable with init and holds a value
         // we need to preserve the value, so we don't want to copy the atom
@@ -92,17 +125,18 @@ export function createScope({
       return undefined
     },
   }
-  const scopedStore = createPatchedStore(currentScope)
-  storeScopeMap.set(scopedStore, currentScope)
+  const scopedStore = createPatchedStore(scope)
+  Object.assign(scopedStore, { name: scopeName })
+  storeScopeMap.set(scopedStore, scope)
 
   if (scopeName && __DEV__) {
-    currentScope.name = scopeName
-    currentScope.toString = toNameString
+    scope.name = scopeName
+    scope.toString = toNameString
   }
 
   // populate explicitly scoped atoms
   for (const atom of atomsSet) {
-    explicit.set(atom, [cloneAtom(atom, currentScope), currentScope])
+    explicit.set(atom, [cloneAtom(atom, scope), scope])
   }
 
   const cleanupFamiliesSet = new Set<() => void>()
@@ -110,63 +144,20 @@ export function createScope({
     for (const param of atomFamily.getParams()) {
       const atom = atomFamily(param)
       if (!explicit.has(atom)) {
-        explicit.set(atom, [cloneAtom(atom, currentScope), currentScope])
+        explicit.set(atom, [cloneAtom(atom, scope), scope])
       }
     }
-    const cleanupFamily = atomFamily.unstable_listen((e) => {
-      if (e.type === 'CREATE' && !explicit.has(e.atom)) {
-        explicit.set(e.atom, [cloneAtom(e.atom, currentScope), currentScope])
-      } else if (!atomsSet.has(e.atom)) {
-        explicit.delete(e.atom)
+    const cleanupFamily = atomFamily.unstable_listen(({ type, atom }) => {
+      if (type === 'CREATE' && !explicit.has(atom)) {
+        explicit.set(atom, [cloneAtom(atom, scope), scope])
+      } else if (!atomsSet.has(atom)) {
+        explicit.delete(atom)
       }
     })
     cleanupFamiliesSet.add(cleanupFamily)
   }
 
   return scopedStore
-
-  /**
-   * Returns a scoped atom from the original atom.
-   * @param atom
-   * @param implicitScope the atom is implicitly scoped in the provided scope
-   * @returns the scoped atom and the scope of the atom
-   */
-  function getAtom<T extends AnyAtom>(
-    atom: T,
-    implicitScope?: Scope
-  ): [T, Scope?] {
-    if (explicit.has(atom)) {
-      return explicit.get(atom) as [T, Scope]
-    }
-    if (implicitScope === currentScope) {
-      // dependencies of explicitly scoped atoms are implicitly scoped
-      // implicitly scoped atoms are only accessed by implicit and explicit scoped atoms
-      if (!implicit.has(atom)) {
-        implicit.set(atom, [cloneAtom(atom, implicitScope), implicitScope])
-      }
-      return implicit.get(atom) as [T, Scope]
-    }
-    // inherited atoms are copied so they can access scoped atoms
-    // dependencies of inherited atoms first check if they are explicitly scoped
-    // otherwise they use their original scope's atom
-    const scopeKey = implicitScope ?? globalScopeKey
-    if (!inherited.has(scopeKey)) {
-      inherited.set(scopeKey, new WeakMap())
-    }
-    const scopeMap = inherited.get(scopeKey)!
-    if (!scopeMap.has(atom)) {
-      const [
-        ancestorAtom,
-        explicitScope, //
-      ] = parentScope ? parentScope.getAtom(atom, implicitScope) : [atom]
-      const inheritedClone =
-        atom.read === defaultRead
-          ? ancestorAtom
-          : cloneAtom(atom, explicitScope)
-      scopeMap.set(atom, [inheritedClone, explicitScope])
-    }
-    return scopeMap.get(atom) as [T, Scope?]
-  }
 
   /** @returns a scoped copy of the atom */
   function cloneAtom<T>(originalAtom: Atom<T>, implicitScope?: Scope) {
@@ -199,7 +190,7 @@ export function createScope({
     if (__DEV__) {
       Object.defineProperty(scopedAtom, 'debugLabel', {
         get() {
-          return `${originalAtom.debugLabel}@${currentScope.name}`
+          return `${originalAtom.debugLabel}@${scope.name}`
         },
         configurable: true,
         enumerable: true,
@@ -216,7 +207,7 @@ export function createScope({
     return function scopedRead(get, opts) {
       return read(
         function scopedGet(a) {
-          const [scopedAtom] = getAtom(a, implicitScope)
+          const [scopedAtom] = scope.getAtom(a, implicitScope)
           return get(scopedAtom)
         }, //
         opts
@@ -232,12 +223,12 @@ export function createScope({
     return function scopedWrite(get, set, ...args) {
       return write(
         function scopedGet(a) {
-          const [scopedAtom] = getAtom(a, implicitScope)
+          const [scopedAtom] = scope.getAtom(a, implicitScope)
           return get(scopedAtom)
         },
         function scopedSet(a, ...v) {
-          const [scopedAtom] = getAtom(a, implicitScope)
-          const restore = currentScope.prepareWriteAtom(
+          const [scopedAtom] = scope.getAtom(a, implicitScope)
+          const restore = scope.prepareWriteAtom(
             scopedAtom,
             a,
             implicitScope,
@@ -299,7 +290,7 @@ function createPatchedStore(scope: Scope): ScopedStore {
       patchStoreFn(buildingBlocks[21]), // getAtom
       patchStoreFn(buildingBlocks[22]), // setAtom
       patchStoreFn(buildingBlocks[23]), // subAtom
-      undefined, // enhanceBuildingBlocks
+      () => buildingBlocks, // enhanceBuildingBlocks (raw)
     ]
     return patchedBuildingBlocks
   }
@@ -372,7 +363,7 @@ function createPatchedStore(scope: Scope): ScopedStore {
         },
       } as Mounted
       patchedMM.set(atom, patchedMounted)
-      return mounted
+      return patchedMounted
     } as T
   }
 
