@@ -63,6 +63,7 @@ export function createScope({
       if (explicit.has(atom)) {
         return explicit.get(atom) as [T, Scope]
       }
+
       if (implicitScope === scope) {
         // dependencies of explicitly scoped atoms are implicitly scoped
         // implicitly scoped atoms are only accessed by implicit and explicit scoped atoms
@@ -84,11 +85,11 @@ export function createScope({
           ancestorAtom,
           explicitScope, //
         ] = parentScope ? parentScope.getAtom(atom, implicitScope) : [atom]
-        const inheritedClone =
-          atom.read === defaultRead
-            ? ancestorAtom
-            : cloneAtom(atom, explicitScope)
-        scopeMap.set(atom, [inheritedClone, explicitScope])
+        if (atom.read === defaultRead) {
+          scopeMap.set(atom, [ancestorAtom, explicitScope])
+        } else {
+          scopeMap.set(atom, [cloneAtom(atom, explicitScope), explicitScope])
+        }
       }
       return scopeMap.get(atom) as [T, Scope?]
     },
@@ -125,6 +126,7 @@ export function createScope({
     },
   }
   const scopedStore = createPatchedStore(scope)
+  Object.assign(scopedStore, { name: scopeName })
   storeScopeMap.set(scopedStore, scope)
 
   if (scopeName && __DEV__) {
@@ -145,11 +147,11 @@ export function createScope({
         explicit.set(atom, [cloneAtom(atom, scope), scope])
       }
     }
-    const cleanupFamily = atomFamily.unstable_listen((e) => {
-      if (e.type === 'CREATE' && !explicit.has(e.atom)) {
-        explicit.set(e.atom, [cloneAtom(e.atom, scope), scope])
-      } else if (!atomsSet.has(e.atom)) {
-        explicit.delete(e.atom)
+    const cleanupFamily = atomFamily.unstable_listen(({ type, atom }) => {
+      if (type === 'CREATE' && !explicit.has(atom)) {
+        explicit.set(atom, [cloneAtom(atom, scope), scope])
+      } else if (!atomsSet.has(atom)) {
+        explicit.delete(atom)
       }
     })
     cleanupFamiliesSet.add(cleanupFamily)
@@ -288,7 +290,7 @@ function createPatchedStore(scope: Scope): ScopedStore {
       patchStoreFn(buildingBlocks[21]), // getAtom
       patchStoreFn(buildingBlocks[22]), // setAtom
       patchStoreFn(buildingBlocks[23]), // subAtom
-      undefined, // enhanceBuildingBlocks
+      () => buildingBlocks, // enhanceBuildingBlocks (raw)
     ]
     return patchedBuildingBlocks
   }
@@ -361,7 +363,7 @@ function createPatchedStore(scope: Scope): ScopedStore {
         },
       } as Mounted
       patchedMM.set(atom, patchedMounted)
-      return mounted
+      return patchedMounted
     } as T
   }
 
