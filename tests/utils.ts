@@ -8,7 +8,6 @@ import {
   INTERNAL_buildStoreRev2 as buildStore,
   INTERNAL_getBuildingBlocksRev2 as getBuildingBlocks,
   INTERNAL_initializeStoreHooksRev2 as initializeStoreHooks,
-  INTERNAL_getBuildingBlocksRev2,
 } from 'jotai/vanilla/internals'
 import { AnyAtom } from 'src/types'
 
@@ -99,7 +98,7 @@ export function storeGet(store: Store, atom: AnyAtom) {
 }
 
 export function printAtomState(store: Store) {
-  const buildingBlocks = INTERNAL_getBuildingBlocksRev2(store)
+  const buildingBlocks = getBuildingBlocks(store)
   if (buildingBlocks[0] instanceof WeakMap) {
     throw new Error('Cannot print atomStateMap, store must be debug store')
   }
@@ -124,7 +123,7 @@ export function printAtomState(store: Store) {
 }
 
 export function trackAtomStateMap(store: Store) {
-  const buildingBlocks = INTERNAL_getBuildingBlocksRev2(store)
+  const buildingBlocks = getBuildingBlocks(store)
   if (buildingBlocks[0] instanceof WeakMap) {
     throw new Error('Cannot print atomStateMap, store must be debug store')
   }
