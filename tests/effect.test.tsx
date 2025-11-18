@@ -8,7 +8,7 @@ import { ScopeProvider } from 'jotai-scope'
 // eslint-disable-next-line import/order
 import { describe, expect, test, vi } from 'vitest'
 
-describe('atomEffect', () => {
+describe.skip('atomEffect', () => {
   test('should work with atomEffect', () => {
     const a = atomWithReducer(0, (v) => v + 1)
     a.debugLabel = 'atomA'

@@ -48,6 +48,8 @@ S2[D]| A0, B0, C1(A1 + B0), D2(C2)
 
   ---
 
+  if atom is derived, we will introduce an intermediary atom to use, that atom will either get the original or the clone.
+
   S0.readAtomState is UNMODIFIED!
 */
 S0.readAtomState = (C0) => {

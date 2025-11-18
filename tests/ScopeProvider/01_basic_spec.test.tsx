@@ -492,6 +492,10 @@ describe('Counter', () => {
         b: v=0
         c: v=0
       b@S1: v=0
+      d?@S1: v=00
+        d@S1: v=00
+          b@S1: v=0
+          c: v=0
       d@S1: v=00
         b@S1: v=0
         c: v=0
@@ -504,7 +508,7 @@ describe('Counter', () => {
       2. set b to 1
       3. set c to 1
       4. changedAtoms: [b, c, d]
-      5. invalidatedAtoms: [d, d@S1]
+      5. invalidatedAtoms: [d, d@S1, d?@S1]
       6. changedAtoms: [b, c, d]
     */
     expect(printAtomState(s[0])).toBe(dedent`
@@ -514,6 +518,10 @@ describe('Counter', () => {
         b: v=1
         c: v=1
       b@S1: v=0
+      d?@S1: v=01
+        d@S1: v=01
+          b@S1: v=0
+          c: v=1
       d@S1: v=01
         b@S1: v=0
         c: v=1
