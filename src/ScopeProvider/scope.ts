@@ -1,7 +1,13 @@
 import type { Atom, WritableAtom } from 'jotai'
+import { atom as createAtom } from 'jotai'
 import {
   INTERNAL_buildStoreRev2 as buildStore,
   INTERNAL_getBuildingBlocksRev2 as getBuildingBlocks,
+  INTERNAL_hasInitialValue as hasInitialValue,
+  INTERNAL_returnAtomValue as returnAtomValue,
+  INTERNAL_isAtomStateInitialized as isAtomStateInitialized,
+  INTERNAL_addPendingPromiseToDependency as addPendingPromiseToDependency,
+  INTERNAL_isPendingPromise as isPendingPromise,
 } from 'jotai/vanilla/internals'
 import type {
   INTERNAL_AtomState as AtomState,
@@ -55,7 +61,7 @@ export function createScope({
   const atomFamilySet = new Set(atomFamilies)
   const parentScope = storeScopeMap.get(parentStore)
   // Get the base store - either from parent scope or use parentStore as base
-  const baseStore = parentScope?.baseStore ?? parentStore
+  const store = parentScope?.baseStore ?? parentStore
 
   const explicit = new WeakMap<AnyAtom, [AnyAtom, Scope?]>()
   const implicit = new WeakMap<AnyAtom, [AnyAtom, Scope?]>()
@@ -91,13 +97,13 @@ export function createScope({
           explicitScope, //
         ] = parentScope ? parentScope.getAtom(atom, implicitScope) : [atom]
         const inheritedClone = isDerived(atom)
-          ? cloneAtom(atom, explicitScope)
+          ? processDerivedAtom(atom, explicitScope)
           : ancestorAtom
         scopeMap.set(atom, [inheritedClone, explicitScope])
       }
       return scopeMap.get(atom) as [T, Scope?]
     },
-    baseStore,
+    baseStore: store,
     cleanup() {
       for (const cleanupFamilyListeners of cleanupFamiliesSet) {
         cleanupFamilyListeners()
@@ -220,6 +226,97 @@ export function createScope({
     }
 
     return scopedAtom
+  }
+
+  /**
+   * Process an unscoped derived atom by creating:
+   * 1. A clone of the derived atom (A@S1)
+   * 2. An intermediary atom (A?) that gets/sets A@S1
+   * @returns the intermediary atom
+   */
+  function processDerivedAtom<T extends AnyAtom>(
+    originalAtom: T,
+    implicitScope?: Scope
+  ): T {
+    // Clone the derived atom
+    const buildingBlocks = getBuildingBlocks(scope.baseStore)
+    // const atomStateMap = buildingBlocks[0]
+    const mountedMap = buildingBlocks[1]
+    // const invalidatedAtoms = buildingBlocks[2]
+    // const changedAtoms = buildingBlocks[3]
+    // const mountCallbacks = buildingBlocks[4]
+    // const unmountCallbacks = buildingBlocks[5]
+    // const storeHooks = buildingBlocks[6]
+    // const atomRead = buildingBlocks[7]
+    // const atomWrite = buildingBlocks[8]
+    // const atomOnInit = buildingBlocks[9]
+    // const atomOnMount = buildingBlocks[10]
+    const ensureAtomState = buildingBlocks[11]
+    const flushCallbacks = buildingBlocks[12]
+    const recomputeInvalidatedAtoms = buildingBlocks[13]
+    const readAtomState = buildingBlocks[14]
+    // const invalidateDependents = buildingBlocks[15]
+    // const writeAtomState = buildingBlocks[16]
+    const mountDependencies = buildingBlocks[17]
+    // const mountAtom = buildingBlocks[18]
+    // const unmountAtom = buildingBlocks[19]
+    const setAtomStateValueOrPromise = buildingBlocks[20]
+    // const storeGet = buildingBlocks[21]
+    // const storeSet = buildingBlocks[22]
+    // const storeSub = buildingBlocks[23]
+    const clonedAtom = cloneAtom(originalAtom, implicitScope)
+
+    function mountDependenciesIfAsync() {
+      if (mountedMap.has(atom)) {
+        mountDependencies(store, atom)
+        recomputeInvalidatedAtoms(store)
+        flushCallbacks(store)
+      }
+    }
+    function customReadAtomState<V>(store: Store, a: Atom<V>) {
+      return readAtomState(store, a)
+    }
+    function customRead() {
+      let isSync = true
+      function getter<V>(a: Atom<V>) {
+        const aState = customReadAtomState(store, a)
+        try {
+          return returnAtomValue(aState)
+        } finally {
+          atomState.d.set(a, aState.n)
+          if (isPendingPromise(atomState.v)) {
+            addPendingPromiseToDependency(atom, atomState.v, aState)
+          }
+          mountedMap.get(a)?.t.add(atom)
+          if (!isSync) {
+            mountDependenciesIfAsync()
+          }
+        }
+      }
+      try {
+        return getter(clonedAtom)
+      } finally {
+        isSync = false
+      }
+    }
+    const atom = createAtom(customRead) as T
+    const atomState = ensureAtomState(store, atom)
+    if (isWritableAtom(clonedAtom)) {
+      ;(atom as AnyWritableAtom).write = (_get, set, ...args: unknown[]) => {
+        return set(clonedAtom, ...args)
+      }
+    }
+    if (__DEV__) {
+      Object.defineProperty(atom, 'debugLabel', {
+        get() {
+          return `${originalAtom.debugLabel}?@${scope.name}`
+        },
+        configurable: true,
+        enumerable: true,
+      })
+    }
+
+    return atom
   }
 
   function createScopedRead<T extends Atom<unknown>>(
