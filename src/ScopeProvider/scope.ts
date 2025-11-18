@@ -1,5 +1,4 @@
 import type { Atom, WritableAtom } from 'jotai'
-import { atom as createAtom } from 'jotai'
 import {
   INTERNAL_buildStoreRev2 as buildStore,
   INTERNAL_getBuildingBlocksRev2 as getBuildingBlocks,
@@ -26,7 +25,12 @@ import type {
   WithOriginal,
 } from '../types'
 import { storeScopeMap } from '../types'
-import { isWritableAtom, toNameString } from '../utils'
+import {
+  isCustomWrite,
+  isDerived,
+  isWritableAtom,
+  toNameString,
+} from '../utils'
 
 const globalScopeKey: { name?: string } = {}
 if (__DEV__) {
@@ -55,6 +59,7 @@ export function createScope({
 
   const explicit = new WeakMap<AnyAtom, [AnyAtom, Scope?]>()
   const implicit = new WeakMap<AnyAtom, [AnyAtom, Scope?]>()
+  const dependent = new WeakMap<AnyAtom, [AnyAtom, Scope?]>()
   type ScopeMap = WeakMap<AnyAtom, [AnyAtom, Scope?]>
   const inherited = new WeakMap<Scope | GlobalScopeKey, ScopeMap>()
 
@@ -85,11 +90,10 @@ export function createScope({
           ancestorAtom,
           explicitScope, //
         ] = parentScope ? parentScope.getAtom(atom, implicitScope) : [atom]
-        if (atom.read === defaultRead) {
-          scopeMap.set(atom, [ancestorAtom, explicitScope])
-        } else {
-          scopeMap.set(atom, [cloneAtom(atom, explicitScope), explicitScope])
-        }
+        const inheritedClone = isDerived(atom)
+          ? cloneAtom(atom, explicitScope)
+          : ancestorAtom
+        scopeMap.set(atom, [inheritedClone, explicitScope])
       }
       return scopeMap.get(atom) as [T, Scope?]
     },
@@ -101,10 +105,10 @@ export function createScope({
     },
     prepareWriteAtom(atom, originalAtom, implicitScope, writeScope) {
       if (
-        originalAtom.read === defaultRead &&
+        !isDerived(originalAtom) &&
         isWritableAtom(originalAtom) &&
         isWritableAtom(atom) &&
-        originalAtom.write !== defaultWrite &&
+        isCustomWrite(originalAtom) &&
         scope !== implicitScope
       ) {
         // atom is writable with init and holds a value
@@ -123,6 +127,24 @@ export function createScope({
         }
       }
       return undefined
+    },
+    isScoped(atom) {
+      if (explicit.has(atom)) {
+        return true
+      }
+      if (implicit.has(atom)) {
+        return true
+      }
+      if (dependent.has(atom)) {
+        return true
+      }
+      return parentScope?.isScoped(atom) ?? false
+    },
+    isExplicit(atom) {
+      return explicit.has(atom)
+    },
+    isImplicit(atom) {
+      return implicit.has(atom)
     },
   }
   const scopedStore = createPatchedStore(scope)
@@ -170,7 +192,7 @@ export function createScope({
     const scopedAtom: WithOriginal<Atom<T>> = Object.create(atomProto, propDesc)
     scopedAtom.originalAtom = originalAtom
 
-    if (scopedAtom.read !== defaultRead) {
+    if (isDerived(scopedAtom)) {
       scopedAtom.read = createScopedRead<typeof scopedAtom>(
         originalAtom.read.bind(originalAtom),
         implicitScope
@@ -180,7 +202,7 @@ export function createScope({
     if (
       isWritableAtom(scopedAtom) &&
       isWritableAtom(originalAtom) &&
-      scopedAtom.write !== defaultWrite
+      isCustomWrite(scopedAtom)
     ) {
       scopedAtom.write = createScopedWrite(
         originalAtom.write.bind(originalAtom),
@@ -245,8 +267,6 @@ export function createScope({
     }
   }
 }
-
-const { read: defaultRead, write: defaultWrite } = createAtom<unknown>(null)
 
 /** @returns a patched store that intercepts atom access to apply the scope */
 function createPatchedStore(scope: Scope): ScopedStore {

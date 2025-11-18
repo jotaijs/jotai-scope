@@ -45,6 +45,21 @@ export type Scope = {
   baseStore: Store
 
   /**
+   * Checks if an atom is scoped (explicit, implicit, or dependent) in this scope or parent scopes
+   */
+  isScoped: (atom: AnyAtom) => boolean
+
+  /**
+   * Checks if an atom is explicitly scoped in this scope
+   */
+  isExplicit: (atom: AnyAtom) => boolean
+
+  /**
+   * Checks if an atom is implicitly scoped in this scope
+   */
+  isImplicit: (atom: AnyAtom) => boolean
+
+  /**
    * @debug
    */
   name?: string

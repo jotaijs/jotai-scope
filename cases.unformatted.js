@@ -36,8 +36,15 @@ S2[D]| A0, B0, C1(A1 + B0), D2(C2)
     - mounted
     - invalidated
     - changed
+    - mountCallbacks
+    - unmountCallbacks
 
   Calling S0.readAtomState(X) can NEVER cause X to be scoped.
+  It is NOT POSSIBLE for ALL to simultaneously have both scoped and unscoped of the same atom.
+    - invalidated
+    - changed
+    - mountCallbacks
+    - unmountCallbacks
 
   ---
 
@@ -55,45 +62,69 @@ S0.readAtomState = (C0) => {
 // ------------------------------
 // Changing classification with S1
 // ------------------------------
-S0[_]| A0, B0, C0(A0 + B0), D0(C0)
-S1[A]| A1, B0, C1(A1 + B0), D1(C1)
-S2[D]| A0, B0, C1(A1 + B0), D2(C2)
+S0[___]| A0, B0, C0(A0 + B0), D0(C0)
+S1[A,_]| A1, B0, C1_S1(A1 + B0), D1(C1)
+S2[B,D]| A1, B2, C1_S2(A1 + B2), D2(C2)
 
-S1.readAtomState = (C0) => {
-  if (earlyReturn(C0)) {
-    return S1.atomStateMap.get(C0)
+// pseudocode
+function scopedReadAtomState(C, scope) {
+  if (scope.isExplicit(C)) {
+    return atomRead(C, get)
   }
-  if (isDerived(C0)) { // true
+  if (scope.isImplicit(C)) {
+    return atomRead(C, get)
+  }
+  if (isDerived(C)) { // true
     let hasScoped = false
     let isSync = true
-    const atomState = cloneAtomState(C0)
-    const mounted = cloneMounted(C0)
+    const atomState = cloneAtomState(C)
+    const mounted = cloneMounted(C)
     try {
       function get(A1) {
-        S1.readAtomState(A1)
+        S0.readAtomState(A1) // S0.readAtomState is the unmodified readAtomState
         if (S1.isScoped(A1)) { // true
           if (!isSync && !hasScoped) {
-            throw new Error('Late get of scoped atom A1 inside read of C0 after dependency collection. Scoping/classification is sync-only; make sure you touch scoped atoms synchronously at the top of C0’s read or mark C0 as dependent.')
+            throw new Error('Late get of scoped atom A1 inside read of C after dependency collection. Scoping/classification is sync-only; make sure you touch scoped atoms synchronously at the top of C0’s read or mark C0 as dependent.')
           }
           hasScoped = true
-          const C1 = ensureCloneAtom(C)
+          const C1 = ensureCloneAtom(C, S1)
+          dependents.add(C1)
           S1.atomStateMap.set(C1, atomState)
           S1.mountedMap.set(C1, mounted)
-          deepReplace(C0, C1, mounted.d)
-          deepReplace(C0, C1, mounted.t)
-          deepReplace(C0, C1, atomState.d)
+
+          // replace C -> C1
+          changedAtoms.delete(C) && changedAtoms.add(C1)
+
+          // for each atom in mounted.t, replace with C -> C1 in their mounted.d
+          deepReplaceAll(C, C1, mounted.t, (atom) => mountedMap.get(atom).d)
+
+          // for each atom in mounted.t, replace with C -> C1 in their atomState.d
+          deepReplaceAll(C, C1, mounted.t, (atom) => atomStateMap.get(atom).d)
+          
+          // replace C -> C1
+          invalidatedAtoms.delete(C) && invalidatedAtoms.add(C1, atomState.n)
+
+          // replace C -> C1
+          mountCallbacks.delete(C) && mountCallbacks.set(C1, mounted.n)
+          
+          // replace C -> C1
+          unmountCallbacks.delete(C) && unmountCallbacks.set(C1, mounted.u)
         }
+        // ...
       }
-      atomRead(C0, get)
+      atomRead(C, get)
       // ...
       if (!hasScoped) {
-        const atomStateC0 = S1.atomStateMap.get(C0)
-        Object.assign(atomStateC0, atomState)
+        const atomStateC = S1.atomStateMap.get(C)
+        mergeAtomState(atomStateC, atomState)
+        const mountedC = S1.mountedMap.get(C)
+        mergeMounted(mountedC, mounted)
       }
     } finally {
       isSync = false
     }
   }
+  return atomRead(C, get)
 }
 
 S1.isScoped = (atom) => {

@@ -1,4 +1,7 @@
+import { atom as createAtom } from 'jotai'
 import type { AnyAtom, AnyWritableAtom } from './types'
+
+const { read: defaultRead, write: defaultWrite } = createAtom<unknown>(null)
 
 export function isEqualSize(
   aIter: Iterable<unknown>,
@@ -17,4 +20,12 @@ export function toNameString(this: { name: string }) {
 
 export function isWritableAtom(atom: AnyAtom): atom is AnyWritableAtom {
   return 'write' in atom
+}
+
+export function isDerived(atom: AnyAtom): boolean {
+  return atom.read !== defaultRead
+}
+
+export function isCustomWrite(atom: AnyAtom): boolean {
+  return isWritableAtom(atom) && atom.write !== defaultWrite
 }
