@@ -272,7 +272,7 @@ export function createScope(props: CreateScopeProps): ScopedStore {
         return originalAtomState.v
       }
       const value = get(scopedAtom)
-      if (!processScopeClassification(originalAtom)) {
+      if (!processScopeClassification(scopedAtom)) {
         // scopedAtom is unscoped, return originalAtom's value
         return originalAtomState.v
       }
@@ -289,15 +289,12 @@ export function createScope(props: CreateScopeProps): ScopedStore {
     function processScopeClassification(atom: AnyAtom): boolean {
       const atomState = ensureAtomState(store, atom)
       const originalAtomState = ensureAtomState(store, originalAtom)
-      const scopedAtomState = ensureAtomState(store, scopedAtom)
 
       const hasScopedDeps = () => [...atomState.d.keys()].some(scope.isScoped)
       const depsAreSame = () =>
         isAtomStateInitialized(originalAtomState) &&
-        scopedAtomState.d.size === originalAtomState.d.size &&
-        [...scopedAtomState.d.keys()].every((dep) =>
-          originalAtomState.d.has(dep)
-        )
+        atomState.d.size === atomState.d.size &&
+        [...atomState.d.keys()].every((dep) => originalAtomState.d.has(dep))
       // proxy is unscoped iff:
       // 1. scopedAtom deps are neither explicit nor dependent (no scoped deps)
       // 2. originalAtom deps are the same as scopedAtom deps
@@ -306,12 +303,11 @@ export function createScope(props: CreateScopeProps): ScopedStore {
         ? [originalAtom, scopedAtom]
         : [scopedAtom, originalAtom]
 
-      if (isScoped !== proxyState.hasScoped) {
+      if (isScoped !== proxyState.hasScoped || proxyAtomState.d.size === 0) {
         // update proxyAtomState dep to be toAtom
         const toAtomState = ensureAtomState(store, toAtom)
         proxyAtomState.d.delete(fromAtom)
         proxyAtomState.d.set(toAtom, toAtomState.n)
-        proxyState.hasScoped = isScoped
         const mounted = mountedMap.get(proxyAtom)
         if (mounted) {
           mounted.d.delete(fromAtom)
@@ -329,6 +325,7 @@ export function createScope(props: CreateScopeProps): ScopedStore {
           throw atomState.e
         }
       }
+      proxyState.hasScoped = isScoped
       return isScoped
     }
 
@@ -620,31 +617,7 @@ function createPatchedStore(scope: Scope): ScopedStore {
   }
 
   function patchStoreHooks(storeHooks: StoreHooks) {
-    const patchedStoreHooks = {
-      get r() {
-        return (alreadyPatched.r ??= patchStoreHook(storeHooks.r))
-      },
-      set r(v) {
-        storeHooks.r = v!
-      },
-      get c() {
-        return (alreadyPatched.c ??= patchStoreHook(storeHooks.c))
-      },
-      set c(v) {
-        storeHooks.c = v!
-      },
-      get m() {
-        return (alreadyPatched.m ??= patchStoreHook(storeHooks.m))
-      },
-      set m(v) {
-        storeHooks.m = v!
-      },
-      get u() {
-        return (alreadyPatched.u ??= patchStoreHook(storeHooks.u))
-      },
-      set u(v) {
-        storeHooks.u = v!
-      },
+    const patchedStoreHooks: StoreHooks = {
       get f() {
         return storeHooks.f
       },
@@ -652,6 +625,22 @@ function createPatchedStore(scope: Scope): ScopedStore {
         storeHooks.f = v
       },
     }
+    Object.defineProperties(
+      patchedStoreHooks,
+      Object.fromEntries(
+        (['i', 'r', 'c', 'm', 'u'] as const).map((hook) => [
+          hook,
+          {
+            get [hook]() {
+              return (alreadyPatched[hook] ??= patchStoreHook(storeHooks[hook]))
+            },
+            set [hook](value: StoreHookForAtoms | undefined) {
+              storeHooks[hook] = alreadyPatched[hook] = value
+            },
+          },
+        ])
+      )
+    )
     return Object.assign(patchedStoreHooks, storeHooks)
   }
 }
