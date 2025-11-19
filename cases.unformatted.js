@@ -164,3 +164,32 @@ Note to self:
 */
 
 
+/**
+ * checks if atomState deps are either dependent or explicit in current scope
+ * processes classification change.
+ * @returns isScoped: boolean
+ */
+function processScopeClassification(atom: AnyAtom) {
+  const atomState = atomStateMap.get(atom)
+  // isUnscoped:
+  //   1. all deps are neither explict nor dependent in current scope
+  //   2. all deps are the same for both atom states
+  if (isUnscoped(atomState, currentScope) {
+    updateAtomState(_cAtomState, atomState)
+    // handle classification change
+    // handle if value change
+    return false
+  }
+  return true
+}
+
+customRead() {
+  // checks if c0AtomState deps are dependent or explicit in current scope
+  if (!processScopeClassification(c0)) {
+    return _cAtomState
+  }
+  get(c1) // read scoped atom
+  // checks if c0AtomState deps are dependent or explicit in current scope
+  processScopeClassification(c1)
+  return _cAtomState
+}

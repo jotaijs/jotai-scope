@@ -248,6 +248,7 @@ export function createScope(props: CreateScopeProps): ScopedStore {
     const atomStateMap = buildingBlocks[0]
     const mountedMap = buildingBlocks[1]
     const invalidatedAtoms = buildingBlocks[2]
+    const changedAtoms = buildingBlocks[3]
     const storeHooks = buildingBlocks[6]
     const customReadAtomState = buildingBlocks[14]
     const ensureAtomState = buildingBlocks[11]
@@ -257,6 +258,112 @@ export function createScope(props: CreateScopeProps): ScopedStore {
       const toAtom = proxyState.hasScoped
         ? proxyState.scopedAtom
         : proxyState.originalAtom
+
+      // If c in _c1 is c0 (unscoped), check if we can handle it without recomputing
+      if (!proxyState.hasScoped && isAtomStateInitialized(proxyAtomState)) {
+        const toAtomState = atomStateMap.get(toAtom)
+
+        // If the atom has already been computed and initialized
+        if (toAtomState && isAtomStateInitialized(toAtomState)) {
+          // Check if dependencies have changed
+          const oldDeps = new Map(proxyAtomState.d)
+          const newDeps = new Map(toAtomState.d)
+
+          // Check if deps changed
+          let depsChanged = oldDeps.size !== newDeps.size
+          if (!depsChanged) {
+            for (const [dep, epoch] of oldDeps) {
+              if (newDeps.get(dep) !== epoch) {
+                depsChanged = true
+                break
+              }
+            }
+          }
+
+          if (depsChanged) {
+            // Check if any new deps are scoped
+            let hasNewScopedDeps = false
+            for (const [dep] of newDeps) {
+              if (scope.isScoped(dep)) {
+                hasNewScopedDeps = true
+                break
+              }
+            }
+
+            if (hasNewScopedDeps) {
+              // Change classification to dependent scoped
+              console.log(
+                `CLASSIFICATION CHANGE: ${originalAtom.debugLabel} -> dependent scoped`
+              )
+
+              // Swap to the scoped atom
+              const scopedAtom = proxyState.scopedAtom
+              const scopedAtomState = ensureAtomState(proxyStore, scopedAtom)
+
+              // Update invalidated atoms
+              if (changedAtoms.has(toAtom)) {
+                const changed = [scopedAtom, ...changedAtoms].filter(
+                  (atom) => atom !== toAtom
+                )
+                changedAtoms.clear()
+                changed.forEach((atom) => changedAtoms.add(atom))
+              }
+              const invalidatedVersion = invalidatedAtoms.get(toAtom)
+              if (invalidatedVersion !== undefined) {
+                invalidatedAtoms.delete(toAtom)
+                invalidatedAtoms.set(scopedAtom, scopedAtomState.n + 1)
+              }
+
+              proxyState.hasScoped = true
+
+              // Now compute the scoped atom
+              const derivedAtomState = customReadAtomState(
+                proxyStore,
+                scopedAtom
+              )
+              try {
+                return returnAtomValue(derivedAtomState)
+              } finally {
+                proxyAtomState.d.set(scopedAtom, derivedAtomState.n)
+                if (isPendingPromise(proxyAtomState.v)) {
+                  addPendingPromiseToDependency(
+                    proxyAtom,
+                    proxyAtomState.v,
+                    derivedAtomState
+                  )
+                }
+                mountedMap.get(scopedAtom)?.t.add(proxyAtom)
+              }
+            }
+
+            // Deps changed but no new scoped deps - update proxy atom value
+            const prevValue = proxyAtomState.v
+            proxyAtomState.v = toAtomState.v
+
+            // Update dependencies
+            proxyAtomState.d.clear()
+            for (const [dep, epoch] of toAtomState.d) {
+              proxyAtomState.d.set(dep, epoch)
+            }
+
+            // If value changed, fire mount callbacks
+            if (prevValue !== toAtomState.v) {
+              ++proxyAtomState.n
+              const mounted = mountedMap.get(proxyAtom)
+              if (mounted) {
+                for (const listener of mounted.l) {
+                  listener()
+                }
+              }
+            }
+
+            // Early return
+            return returnAtomValue(proxyAtomState)
+          }
+        }
+      }
+
+      // Default behavior: call customReadAtomState
       const derivedAtomState = customReadAtomState(proxyStore, toAtom)
       try {
         return returnAtomValue(derivedAtomState)
