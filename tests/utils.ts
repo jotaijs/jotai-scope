@@ -98,7 +98,13 @@ export function storeGet(store: Store, atom: AnyAtom) {
 }
 
 export function printAtomState(store: Store) {
-  const buildingBlocks = getBuildingBlocks(store)
+  let buildingBlocks = getBuildingBlocks(store)
+  function resolveEnhancer(bb: Readonly<BuildingBlocks>) {
+    return bb[24]?.(bb)
+  }
+  while (resolveEnhancer(buildingBlocks)) {
+    buildingBlocks = resolveEnhancer(buildingBlocks)!
+  }
   if (buildingBlocks[0] instanceof WeakMap) {
     throw new Error('Cannot print atomStateMap, store must be debug store')
   }
@@ -119,7 +125,7 @@ export function printAtomState(store: Store) {
     }
   }
   Array.from(atomStateMap.keys(), (atom) => printAtom(atom))
-  return result.join('\n') + '\n' + '-'.repeat(20)
+  return result.join('\n')
 }
 
 export function trackAtomStateMap(store: Store) {

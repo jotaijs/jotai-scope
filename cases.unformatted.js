@@ -145,3 +145,22 @@ S1.isScoped = (atom) => {
 function isDerived(atom) {
   return atom.read !== defaultRead
 }
+
+
+
+/*
+Note to self:
+
+1. We introduce a proxy atom (_a@S1) and we ensure its readAtom always runs.
+2. proxy atom's atomState holds hasScoped, originalAtom, and scopedAtom.
+3. proxy atom reads `originalAtom` if !hasScoped otherwise `scopedAtom`.
+4. we create a proxy store which has customReadAtomState. This store is created for each scope and shares internals with baseStore.
+5. proxy atom calls this customReadAtomState in it's read function.
+6. customReadAtomState handles the classification and swapping of atoms.
+7. It gets the proxy atom from the original atom or scoped atom, and gets the proxy atom state from the proxy atom.
+8. customReadAtomState has a custom getter which checks if the atom is scoped and updates the parent atom's classification if necessary.
+9. If classification changes, we swap the original atom for the scoped atom in the tracking data structures.
+10. If classification changes asynchronously, this is an error.
+*/
+
+

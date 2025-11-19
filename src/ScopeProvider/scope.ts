@@ -26,6 +26,7 @@ import type {
   AnyAtom,
   AnyAtomFamily,
   AnyWritableAtom,
+  ProxyState,
   Scope,
   ScopedStore,
   StoreHookForAtoms,
@@ -50,20 +51,18 @@ if (__DEV__) {
 
 type GlobalScopeKey = typeof globalScopeKey
 
-export function createScope({
-  atoms = [],
-  atomFamilies = [],
-  parentStore,
-  name: scopeName,
-}: {
+type CreateScopeProps = {
   atoms?: Iterable<AnyAtom>
   atomFamilies?: Iterable<AnyAtomFamily>
   parentStore: Store | ScopedStore
   name?: string
-}): ScopedStore {
+}
+export function createScope(props: CreateScopeProps): ScopedStore {
+  const { atoms = [], atomFamilies = [], parentStore, name: scopeName } = props
   const atomsSet = new Set(atoms)
   const atomFamilySet = new Set(atomFamilies)
   const parentScope = storeScopeMap.get(parentStore)
+
   // Get the base store - either from parent scope or use parentStore as base
   const store = parentScope?.baseStore ?? parentStore
 
@@ -73,7 +72,7 @@ export function createScope({
   type ScopeMap = WeakMap<AnyAtom, [AnyAtom, Scope?]>
   const inherited = new WeakMap<Scope | GlobalScopeKey, ScopeMap>()
 
-  const scope: Scope = {
+  const scope = {
     getAtom<T extends AnyAtom>(atom: T, implicitScope?: Scope): [T, Scope?] {
       if (explicit.has(atom)) {
         return explicit.get(atom) as [T, Scope]
@@ -156,7 +155,8 @@ export function createScope({
     isImplicit(atom) {
       return implicit.has(atom)
     },
-  }
+  } as Scope
+  scope.baseProxy = createProxyStore(scope)
   const scopedStore = createPatchedStore(scope)
   Object.assign(scopedStore, { name: scopeName })
   storeScopeMap.set(scopedStore, scope)
@@ -242,193 +242,26 @@ export function createScope({
     originalAtom: T,
     implicitScope?: Scope
   ): T {
-    // Clone the derived atom
-    const buildingBlocks = getBuildingBlocks(scope.baseStore)
-    // const atomStateMap = buildingBlocks[0]
+    const scopedAtom = cloneAtom(originalAtom, implicitScope)
+
+    const buildingBlocks = getBuildingBlocks(scope.baseProxy)
+    const atomStateMap = buildingBlocks[0]
     const mountedMap = buildingBlocks[1]
     const invalidatedAtoms = buildingBlocks[2]
-    const changedAtoms = buildingBlocks[3]
-    // const mountCallbacks = buildingBlocks[4]
-    // const unmountCallbacks = buildingBlocks[5]
     const storeHooks = buildingBlocks[6]
-    const atomRead = buildingBlocks[7]
-    // const atomWrite = buildingBlocks[8]
-    // const atomOnInit = buildingBlocks[9]
-    // const atomOnMount = buildingBlocks[10]
+    const customReadAtomState = buildingBlocks[14]
     const ensureAtomState = buildingBlocks[11]
-    const flushCallbacks = buildingBlocks[12]
-    const recomputeInvalidatedAtoms = buildingBlocks[13]
-    const readAtomState = buildingBlocks[14]
-    // const invalidateDependents = buildingBlocks[15]
-    const writeAtomState = buildingBlocks[16]
-    const mountDependencies = buildingBlocks[17]
-    // const mountAtom = buildingBlocks[18]
-    // const unmountAtom = buildingBlocks[19]
-    const setAtomStateValueOrPromise = buildingBlocks[20]
-    // const storeGet = buildingBlocks[21]
-    // const storeSet = buildingBlocks[22]
-    // const storeSub = buildingBlocks[23]
-    const clonedAtom = cloneAtom(originalAtom, implicitScope)
-
-    let hasScoped = false
-
-    function mountDependenciesIfAsync() {
-      if (mountedMap.has(originalAtom)) {
-        mountDependencies(store, originalAtom)
-        recomputeInvalidatedAtoms(store)
-        flushCallbacks(store)
-      }
-    }
+    const proxyStore = scope.baseProxy
 
     function customRead() {
-      function customReadAtomState<V>(store: Store, atom: Atom<V>) {
-        const atomState = ensureAtomState(store, atom)
-        // See if we can skip recomputing this atom.
-        if (isAtomStateInitialized(atomState)) {
-          // If the atom is mounted, we can use cached atom state.
-          // because it should have been updated by dependencies.
-          // We can't use the cache if the atom is invalidated.
-          if (
-            mountedMap.has(atom) &&
-            invalidatedAtoms.get(atom) !== atomState.n
-          ) {
-            return atomState
-          }
-          // Otherwise, check if the dependencies have changed.
-          // If all dependencies haven't changed, we can use the cache.
-          if (
-            Array.from(atomState.d).every(
-              ([a, n]) =>
-                // Recursively, read the atom state of the dependency, and
-                // check if the atom epoch number is unchanged
-                readAtomState(store, a).n === n
-            )
-          ) {
-            return atomState
-          }
-        }
-        // Compute a new state for this atom.
-        atomState.d.clear()
-        let isSync = true
-        function mountDependenciesIfAsync() {
-          if (mountedMap.has(atom)) {
-            mountDependencies(store, atom)
-            recomputeInvalidatedAtoms(store)
-            flushCallbacks(store)
-          }
-        }
-        function getter<V>(a: Atom<V>) {
-          // -------------------------------------------------------
-          // Check if the atom is scoped in this scope
-          if (scope.isScoped(a)) {
-            if (!isSync && !hasScoped) {
-              throw new Error(
-                `Late get of scoped atom ${a.debugLabel || a} inside read of ${originalAtom.debugLabel || originalAtom} after dependency collection. Scoping/classification is sync-only; make sure you touch scoped atoms synchronously at the top of the read function or mark the atom as dependent.`
-              )
-            }
-            hasScoped = true
-            // TODO: Update all references to originalAtom to use the dependent clone
-            // throw new Error('Not implemented')
-          }
-
-          if (a === (atom as AnyAtom)) {
-            const aState = ensureAtomState(store, a)
-            if (!isAtomStateInitialized(aState)) {
-              if (hasInitialValue(a)) {
-                setAtomStateValueOrPromise(store, a, a.init)
-              } else {
-                // NOTE invalid derived atoms can reach here
-                throw new Error('no atom init')
-              }
-            }
-            return returnAtomValue(aState)
-          }
-          // a !== atom
-          const aState = readAtomState(store, a)
-          try {
-            return returnAtomValue(aState)
-          } finally {
-            atomState.d.set(a, aState.n)
-            if (isPendingPromise(atomState.v)) {
-              addPendingPromiseToDependency(atom, atomState.v, aState)
-            }
-            mountedMap.get(a)?.t.add(atom)
-            if (!isSync) {
-              mountDependenciesIfAsync()
-            }
-          }
-        }
-        let controller: AbortController | undefined
-        let setSelf: ((...args: unknown[]) => unknown) | undefined
-        const options = {
-          get signal() {
-            if (!controller) {
-              controller = new AbortController()
-            }
-            return controller.signal
-          },
-          get setSelf() {
-            if (
-              import.meta.env?.MODE !== 'production' &&
-              !isActuallyWritableAtom(atom)
-            ) {
-              console.warn(
-                'setSelf function cannot be used with read-only atom'
-              )
-            }
-            if (!setSelf && isActuallyWritableAtom(atom)) {
-              setSelf = (...args) => {
-                if (import.meta.env?.MODE !== 'production' && isSync) {
-                  console.warn('setSelf function cannot be called in sync')
-                }
-                if (!isSync) {
-                  try {
-                    return writeAtomState(store, atom, ...args)
-                  } finally {
-                    recomputeInvalidatedAtoms(store)
-                    flushCallbacks(store)
-                  }
-                }
-              }
-            }
-            return setSelf
-          },
-        }
-        const prevEpochNumber = atomState.n
-        try {
-          const valueOrPromise = atomRead(store, atom, getter, options as never)
-          setAtomStateValueOrPromise(store, atom, valueOrPromise)
-          if (isPromiseLike(valueOrPromise)) {
-            registerAbortHandler(valueOrPromise, () => controller?.abort())
-            valueOrPromise.then(
-              mountDependenciesIfAsync,
-              mountDependenciesIfAsync
-            )
-          }
-          storeHooks.r?.(atom)
-          return atomState
-        } catch (error) {
-          delete atomState.v
-          atomState.e = error
-          ++atomState.n
-          return atomState
-        } finally {
-          isSync = false
-          if (
-            prevEpochNumber !== atomState.n &&
-            invalidatedAtoms.get(atom) === prevEpochNumber
-          ) {
-            invalidatedAtoms.set(atom, atomState.n)
-            changedAtoms.add(atom)
-            storeHooks.c?.(atom)
-          }
-        }
-      }
-      const derivedAtomState = customReadAtomState(store, clonedAtom)
+      const toAtom = proxyState.hasScoped
+        ? proxyState.scopedAtom
+        : proxyState.originalAtom
+      const derivedAtomState = customReadAtomState(proxyStore, toAtom)
       try {
         return returnAtomValue(derivedAtomState)
       } finally {
-        proxyAtomState.d.set(clonedAtom, derivedAtomState.n)
+        proxyAtomState.d.set(toAtom, derivedAtomState.n)
         if (isPendingPromise(proxyAtomState.v)) {
           addPendingPromiseToDependency(
             proxyAtom,
@@ -436,24 +269,60 @@ export function createScope({
             derivedAtomState
           )
         }
-        mountedMap.get(clonedAtom)?.t.add(proxyAtom)
+        mountedMap.get(toAtom)?.t.add(proxyAtom)
       }
     }
     const proxyAtom = createAtom(customRead) as T
-    const proxyAtomState = ensureAtomState(store, proxyAtom)
-    if (isWritableAtom(clonedAtom)) {
+    const proxyAtomState = ensureAtomState(proxyStore, proxyAtom)
+
+    const proxyState: ProxyState = {
+      get originalAtom() {
+        return new WeakRef(originalAtom).deref()!
+      },
+      get scopedAtom() {
+        return new WeakRef(scopedAtom).deref()!
+      },
+      hasScoped: false,
+    }
+
+    function getAtomStateWithProxy(atom: AnyAtom) {
+      return atomStateMap.get(atom) as
+        | (AtomState & { x?: ProxyState })
+        | undefined
+    }
+    function addProxyState(atom: AnyAtom) {
+      const atomState = getAtomStateWithProxy(atom)
+      if (atomState) {
+        atomState.x = proxyState
+      } else {
+        storeHooks.a?.(atom, () => {
+          const atomState = getAtomStateWithProxy(atom)!
+          atomState.x = proxyState
+        })
+      }
+    }
+    addProxyState(originalAtom)
+    addProxyState(scopedAtom)
+    Object.defineProperty(proxyAtomState, 'n', {
+      get() {
+        return invalidatedAtoms.get(proxyAtom) ?? 0
+      },
+      set() {},
+    })
+
+    if (isWritableAtom(scopedAtom)) {
       ;(proxyAtom as AnyWritableAtom).write = (
         _get,
         set,
         ...args: unknown[]
       ) => {
-        return set(clonedAtom, ...args)
+        return set(scopedAtom, ...args)
       }
     }
     if (__DEV__) {
       Object.defineProperty(proxyAtom, 'debugLabel', {
         get() {
-          return `${originalAtom.debugLabel}?@${scope.name}`
+          return `_${originalAtom.debugLabel}@${scope.name}`
         },
         configurable: true,
         enumerable: true,
@@ -507,11 +376,206 @@ export function createScope({
       )
     }
   }
+
+  function createProxyStore(scope: Scope) {
+    const store = scope.baseStore
+    const buildingBlocks: BuildingBlocks = [...getBuildingBlocks(store)]
+    const atomStateMap = buildingBlocks[0]
+    const mountedMap = buildingBlocks[1]
+    const invalidatedAtoms = buildingBlocks[2]
+    const changedAtoms = buildingBlocks[3]
+    const mountCallbacks = buildingBlocks[4]
+    const unmountCallbacks = buildingBlocks[5]
+    const storeHooks = buildingBlocks[6]
+    const atomRead = buildingBlocks[7]
+    // const atomWrite = buildingBlocks[8]
+    // const atomOnInit = buildingBlocks[9]
+    // const atomOnMount = buildingBlocks[10]
+    const ensureAtomState = buildingBlocks[11]
+    const flushCallbacks = buildingBlocks[12]
+    const recomputeInvalidatedAtoms = buildingBlocks[13]
+    const readAtomState = buildingBlocks[14]
+    // const invalidateDependents = buildingBlocks[15]
+    const writeAtomState = buildingBlocks[16]
+    const mountDependencies = buildingBlocks[17]
+    // const mountAtom = buildingBlocks[18]
+    // const unmountAtom = buildingBlocks[19]
+    const setAtomStateValueOrPromise = buildingBlocks[20]
+    // const storeGet = buildingBlocks[21]
+    // const storeSet = buildingBlocks[22]
+    // const storeSub = buildingBlocks[23]
+
+    function customReadAtomState<V>(store: Store, atom: Atom<V>) {
+      const atomState = ensureAtomState(store, atom) as AtomState & {
+        x: ProxyState
+      }
+      const proxyState = atomState.x
+      // See if we can skip recomputing this atom.
+      if (isAtomStateInitialized(atomState)) {
+        // If the atom is mounted, we can use cached atom state.
+        // because it should have been updated by dependencies.
+        // We can't use the cache if the atom is invalidated.
+        if (
+          mountedMap.has(atom) &&
+          invalidatedAtoms.get(atom) !== atomState.n
+        ) {
+          return atomState
+        }
+        // Otherwise, check if the dependencies have changed.
+        // If all dependencies haven't changed, we can use the cache.
+        if (
+          Array.from(atomState.d).every(
+            ([a, n]) =>
+              // Recursively, read the atom state of the dependency, and
+              // check if the atom epoch number is unchanged
+              readAtomState(store, a).n === n
+          )
+        ) {
+          return atomState
+        }
+      }
+      // Compute a new state for this atom.
+      atomState.d.clear()
+      let isSync = true
+      function mountDependenciesIfAsync() {
+        if (mountedMap.has(atom)) {
+          mountDependencies(store, atom)
+          recomputeInvalidatedAtoms(store)
+          flushCallbacks(store)
+        }
+      }
+      function getter<V>(a: Atom<V>) {
+        // -------------------------------------------------------
+        // Check if the atom is scoped in this scope
+        if (proxyState && scope.isScoped(a) !== !proxyState.hasScoped) {
+          if (!isSync) {
+            throw new Error(
+              `Late get of scoped atom ${a.debugLabel || a} inside read of ${proxyState.originalAtom.debugLabel || proxyState.originalAtom} after dependency collection. Scoping/classification is sync-only; make sure you touch scoped atoms synchronously at the top of the read function or mark the atom as dependent.`
+            )
+          }
+          // Atom has changed classification – swap the atoms
+          const [fromAtom, toAtom] = scope.isScoped(a)
+            ? [proxyState.originalAtom, proxyState.scopedAtom]
+            : [proxyState.scopedAtom, proxyState.originalAtom]
+
+          console.log(`SWAPPING ${fromAtom.debugLabel} -> ${toAtom.debugLabel}`)
+          const toAtomState = ensureAtomState(store, toAtom)
+          if (changedAtoms.has(fromAtom)) {
+            const changed = [toAtom, ...changedAtoms].filter(
+              (atom) => atom !== fromAtom
+            )
+            changedAtoms.clear()
+            changed.forEach((atom) => changedAtoms.add(atom))
+          }
+          const invalidatedVersion = invalidatedAtoms.get(fromAtom)
+          if (invalidatedVersion !== undefined) {
+            invalidatedAtoms.delete(fromAtom)
+            invalidatedAtoms.set(toAtom, toAtomState.n + 1)
+          }
+          proxyState.hasScoped = scope.isScoped(a)
+        }
+
+        if (a === (atom as AnyAtom)) {
+          const aState = ensureAtomState(store, a)
+          if (!isAtomStateInitialized(aState)) {
+            if (hasInitialValue(a)) {
+              setAtomStateValueOrPromise(store, a, a.init)
+            } else {
+              // NOTE invalid derived atoms can reach here
+              throw new Error('no atom init')
+            }
+          }
+          return returnAtomValue(aState)
+        }
+        // a !== atom
+        const aState = readAtomState(store, a)
+        try {
+          return returnAtomValue(aState)
+        } finally {
+          atomState.d.set(a, aState.n)
+          if (isPendingPromise(atomState.v)) {
+            addPendingPromiseToDependency(atom, atomState.v, aState)
+          }
+          mountedMap.get(a)?.t.add(atom)
+          if (!isSync) {
+            mountDependenciesIfAsync()
+          }
+        }
+      }
+      let controller: AbortController | undefined
+      let setSelf: ((...args: unknown[]) => unknown) | undefined
+      const options = {
+        get signal() {
+          if (!controller) {
+            controller = new AbortController()
+          }
+          return controller.signal
+        },
+        get setSelf() {
+          if (
+            import.meta.env?.MODE !== 'production' &&
+            !isActuallyWritableAtom(atom)
+          ) {
+            console.warn('setSelf function cannot be used with read-only atom')
+          }
+          if (!setSelf && isActuallyWritableAtom(atom)) {
+            setSelf = (...args) => {
+              if (import.meta.env?.MODE !== 'production' && isSync) {
+                console.warn('setSelf function cannot be called in sync')
+              }
+              if (!isSync) {
+                try {
+                  return writeAtomState(store, atom, ...args)
+                } finally {
+                  recomputeInvalidatedAtoms(store)
+                  flushCallbacks(store)
+                }
+              }
+            }
+          }
+          return setSelf
+        },
+      }
+      const prevEpochNumber = atomState.n
+      try {
+        const valueOrPromise = atomRead(store, atom, getter, options as never)
+        setAtomStateValueOrPromise(store, atom, valueOrPromise)
+        if (isPromiseLike(valueOrPromise)) {
+          registerAbortHandler(valueOrPromise, () => controller?.abort())
+          valueOrPromise.then(
+            mountDependenciesIfAsync,
+            mountDependenciesIfAsync
+          )
+        }
+        storeHooks.r?.(atom)
+        return atomState
+      } catch (error) {
+        delete atomState.v
+        atomState.e = error
+        ++atomState.n
+        return atomState
+      } finally {
+        isSync = false
+        if (
+          prevEpochNumber !== atomState.n &&
+          invalidatedAtoms.get(atom) === prevEpochNumber
+        ) {
+          invalidatedAtoms.set(atom, atomState.n)
+          changedAtoms.add(atom)
+          storeHooks.c?.(atom)
+        }
+      }
+    }
+
+    buildingBlocks[14] = customReadAtomState as ReadAtomState
+    return buildStore(...buildingBlocks)
+  }
 }
 
 /** @returns a patched store that intercepts atom access to apply the scope */
 function createPatchedStore(scope: Scope): ScopedStore {
-  const storeState: BuildingBlocks = [...getBuildingBlocks(scope.baseStore)]
+  const baseBuildingBlocks = getBuildingBlocks(scope.baseStore)
+  const storeState: BuildingBlocks = [...baseBuildingBlocks]
   const storeGet = storeState[21]
   const storeSet = storeState[22]
   const storeSub = storeState[23]
@@ -522,7 +586,7 @@ function createPatchedStore(scope: Scope): ScopedStore {
   storeState[21] = patchStoreFn(storeGet)
   storeState[22] = scopedSet
   storeState[23] = patchStoreFn(storeSub)
-  storeState[24] = ([...buildingBlocks]) => {
+  storeState[24] = function enhanceBuildingBlocks([...buildingBlocks]) {
     const patchedBuildingBlocks: BuildingBlocks = [
       patchWeakMap(buildingBlocks[0], patchGetAtomState), // atomStateMap
       patchWeakMap(buildingBlocks[1], patchGetMounted), // mountedMap
@@ -551,7 +615,7 @@ function createPatchedStore(scope: Scope): ScopedStore {
       patchStoreFn(buildingBlocks[21]), // getAtom
       patchStoreFn(buildingBlocks[22]), // setAtom
       patchStoreFn(buildingBlocks[23]), // subAtom
-      () => buildingBlocks, // enhanceBuildingBlocks (raw)
+      () => baseBuildingBlocks, // enhanceBuildingBlocks (raw)
     ]
     return patchedBuildingBlocks
   }
