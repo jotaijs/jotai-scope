@@ -1,4 +1,5 @@
 import { fireEvent } from '@testing-library/react'
+import { createScope } from 'jotai-scope'
 import type {
   INTERNAL_AtomState as AtomState,
   INTERNAL_BuildingBlocks,
@@ -27,13 +28,39 @@ export function createDebugStore(name: string = `S0`) {
     new Map(), // mountedMap
     new Map(), // invalidatedAtoms
   ]
-  buildingBlocks[6] = initializeStoreHooks({})
-  const ensureAtomState = getBuildingBlocks(buildStore())[11]
-  buildingBlocks[11] = (store, atom) =>
-    Object.assign(ensureAtomState(store, atom), { label: atom.debugLabel })
+  const storeHooks = (buildingBlocks[6] = initializeStoreHooks({}))
+  storeHooks.i.add(undefined, (atom) => {
+    const atomState = atomStateMap.get(atom)!
+    Object.assign(atomState, { label: atom.debugLabel })
+  })
   const debugStore = buildStore(...buildingBlocks) as DebugStore
+  const atomStateMap = getBuildingBlocks(debugStore)[0]
   debugStore.name = name
   return debugStore
+}
+
+export function createScopes<T extends AnyAtom[][]>(
+  ...scopesAtoms: T
+): [
+  Store,
+  ...{
+    [K in keyof T]: T[K] extends AnyAtom[] ? Store : never
+  },
+] {
+  const store = createDebugStore()
+  Object.assign(store, { name: 'S0' }, store)
+  return scopesAtoms.reduce(
+    (scopes, atoms, i) => {
+      const scope = createScope({
+        atoms,
+        parentStore: scopes[i],
+        name: `S${i + 1}`,
+      })
+      scopes.push(scope)
+      return scopes
+    },
+    [store] as Store[]
+  ) as any
 }
 
 function getElements(
@@ -93,12 +120,22 @@ export function cross<
   return a.map((a) => b.map((b) => fn(a, b))) as any
 }
 
-export function storeGet(store: Store, atom: AnyAtom) {
-  return store.get(atom)
+export function initializeAll(stores: ReadonlyArray<Store>, atoms: AnyAtom[]) {
+  return stores.map((store) => atoms.map((atom) => store.get(atom)))
+}
+
+export function subscribeAll(stores: ReadonlyArray<Store>, atoms: AnyAtom[]) {
+  stores.forEach((store) => atoms.forEach((atom) => store.sub(atom, () => {})))
 }
 
 export function printAtomState(store: Store) {
-  const buildingBlocks = getBuildingBlocks(store)
+  let buildingBlocks = getBuildingBlocks(store)
+  function resolveEnhancer(bb: Readonly<BuildingBlocks>) {
+    return bb[24]?.(bb)
+  }
+  while (resolveEnhancer(buildingBlocks)) {
+    buildingBlocks = resolveEnhancer(buildingBlocks)!
+  }
   if (buildingBlocks[0] instanceof WeakMap) {
     throw new Error('Cannot print atomStateMap, store must be debug store')
   }
@@ -119,7 +156,7 @@ export function printAtomState(store: Store) {
     }
   }
   Array.from(atomStateMap.keys(), (atom) => printAtom(atom))
-  return result.join('\n') + '\n' + '-'.repeat(20)
+  return result.join('\n')
 }
 
 export function trackAtomStateMap(store: Store) {

@@ -45,6 +45,16 @@ export type Scope = {
   baseStore: Store
 
   /**
+   * Returns the scope that an atom is scoped in
+   */
+  getScope: (atom: AnyAtom) => Scope | undefined
+
+  /**
+   * Checks if an atom is scoped (explicit, implicit, or dependent) in this scope or parent scopes
+   */
+  isScoped: (atom: AnyAtom) => boolean
+
+  /**
    * @debug
    */
   name?: string
@@ -61,10 +71,6 @@ export type Scope = {
 export const storeScopeMap = new WeakMap<Store, Scope>()
 
 export type AtomDefault = readonly [AnyWritableAtom, unknown]
-
-export type WithOriginal<T extends AnyAtom> = T & {
-  originalAtom: T
-}
 
 type Mutable<T> = { -readonly [P in keyof T]: T[P] }
 
