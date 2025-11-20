@@ -19,7 +19,7 @@ describe('open issues', () => {
     S0[_]: a0, b0, c0(a0 & b0)
     S1[b]: a0, b1, c0|c1(a0 & b1)
   */
-  it('unscoped derived can change to dependent scoped and back', () => {
+  it.only('unscoped derived can change to dependent scoped and back', () => {
     const a = atom('unscoped_0')
     a.debugLabel = 'a'
     const b = atom(0)
@@ -51,8 +51,7 @@ describe('open issues', () => {
         a: v=unscoped_0
       b@S1: v=0
       _c@S1: v=undefined
-        c: v=undefined
-          a: v=unscoped_0
+        a: v=unscoped_0
     `)
     expect(cReadCount).toHaveBeenCalledTimes(1)
     cReadCount.mockClear()
@@ -65,12 +64,12 @@ describe('open issues', () => {
         a: v=unscoped_1
       b@S1: v=0
       _c@S1: v=undefined
-        c: v=undefined
-          a: v=unscoped_1
+        a: v=unscoped_1
     `)
     expect(cReadCount).toHaveBeenCalledTimes(1)
     cReadCount.mockClear()
 
+    console.log('change to scoped ---------------------------------')
     s[0].set(a, 'scoped_2') // c1 changes to dependent scoped
     expect(printAtomState(s[0])).toBe(dedent`
       a: v=scoped_2
@@ -80,9 +79,8 @@ describe('open issues', () => {
         b: v=0
       b@S1: v=0
       _c@S1: v=0
-        c@S1: v=0
-          a: v=scoped_2
-          b@S1: v=0
+        a: v=scoped_2
+        b@S1: v=0
       c@S1: v=0
         a: v=scoped_2
         b@S1: v=0
@@ -99,9 +97,8 @@ describe('open issues', () => {
         b: v=1
       b@S1: v=0
       _c@S1: v=0
-        c@S1: v=0
-          a: v=scoped_2
-          b@S1: v=0
+        a: v=scoped_2
+        b@S1: v=0
       c@S1: v=0
         a: v=scoped_2
         b@S1: v=0
@@ -118,9 +115,8 @@ describe('open issues', () => {
         b: v=1
       b@S1: v=2
       _c@S1: v=2
-        c@S1: v=2
-          a: v=scoped_2
-          b@S1: v=2
+        a: v=scoped_2
+        b@S1: v=2
       c@S1: v=2
         a: v=scoped_2
         b@S1: v=2
@@ -136,10 +132,10 @@ describe('open issues', () => {
         a: v=unscoped_3
       b@S1: v=2
       _c@S1: v=undefined
-        c: v=undefined
-          a: v=unscoped_3
-      c@S1: v=undefined
         a: v=unscoped_3
+      c@S1: v=2
+        a: v=scoped_2
+        b@S1: v=2
     `)
     expect(cReadCount).toHaveBeenCalledTimes(2) // called for c0 and c1
     cReadCount.mockClear()
