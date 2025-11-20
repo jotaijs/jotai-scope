@@ -235,9 +235,11 @@ export function createScope(props: CreateScopeProps): ScopedStore {
 
     const store = scope.baseStore
     const buildingBlocks = getBuildingBlocks(store)
+    const atomStateMap = buildingBlocks[0]
     const ensureAtomState = buildingBlocks[11]
     const mountDependencies = buildingBlocks[17]
 
+    const originalAtomState = atomStateMap.get(originalAtom)
     const proxyState: ProxyState = {
       get originalAtom() {
         return new WeakRef(originalAtom).deref()!
@@ -245,7 +247,9 @@ export function createScope(props: CreateScopeProps): ScopedStore {
       get scopedAtom() {
         return new WeakRef(scopedAtom).deref()!
       },
+      // If the original atom state is not initialized, the proxy is considered scoped.
       hasScoped: false,
+      // !originalAtomState || !isAtomStateInitialized(originalAtomState),
     }
 
     const proxyAtom = createAtom(customRead) as T
@@ -266,6 +270,32 @@ export function createScope(props: CreateScopeProps): ScopedStore {
       return value
     }
 
+    function getIsScoped(atom: AnyAtom) {
+      const original = atomStateMap.get(originalAtom)
+      // if originalAtom is not yet initialized, it is scoped
+      if (!original || !isAtomStateInitialized(original)) {
+        return true
+      }
+      const atomState = ensureAtomState(store, atom)
+      const dependencies = [...atomState.d.keys()]
+      // if there are scoped deps, it is scoped
+      if (dependencies.some(scope.isScoped)) {
+        return true
+      }
+      // if it is the originalAtom, it is unscoped
+      if (atom === originalAtom) {
+        return false
+      }
+      // if deps are the same, it is unscoped
+      if (
+        dependencies.length === original.d.size &&
+        dependencies.every((a) => original.d.has(a))
+      ) {
+        return false
+      }
+      return true
+    }
+
     /**
      * Checks if atomState deps are either dependent or explicit in current scope
      * and processes classification change.
@@ -274,18 +304,7 @@ export function createScope(props: CreateScopeProps): ScopedStore {
      *   2. atomState deps are different from originalAtomState deps
      */
     function processScopeClassification(atom: AnyAtom): boolean {
-      const atomState = ensureAtomState(store, atom)
-      const originalAtomState = ensureAtomState(store, originalAtom)
-
-      const hasScopedDeps = () => [...atomState.d.keys()].some(scope.isScoped)
-      const depsAreSame = () =>
-        isAtomStateInitialized(originalAtomState) &&
-        atomState.d.size === atomState.d.size &&
-        [...atomState.d.keys()].every((dep) => originalAtomState.d.has(dep))
-      // proxy is unscoped iff:
-      // 1. scopedAtom deps are neither explicit nor dependent (no scoped deps)
-      // 2. originalAtom deps are the same as scopedAtom deps
-      const isScoped = hasScopedDeps() || !depsAreSame()
+      const isScoped = getIsScoped(atom)
       const [fromAtom, toAtom] = isScoped
         ? [originalAtom, scopedAtom]
         : [scopedAtom, originalAtom]
@@ -299,8 +318,14 @@ export function createScope(props: CreateScopeProps): ScopedStore {
         // TODO: Do we need this?
         // proxyAtomState.n = toAtomState.n - 1
         mountDependencies(store, proxyAtom)
-        if ('e' in atomState) {
-          throw atomState.e
+        const scopedAtomState = atomStateMap.get(scopedAtom)
+        if (scopedAtomState && 'e' in scopedAtomState) {
+          throw scopedAtomState.e
+        }
+      } else {
+        const originalAtomState = atomStateMap.get(originalAtom)
+        if (originalAtomState && 'e' in originalAtomState) {
+          throw originalAtomState.e
         }
       }
       return isScoped
@@ -614,6 +639,9 @@ function createPatchedStore(scope: Scope): ScopedStore {
             set [hook](value: StoreHookForAtoms | undefined) {
               storeHooks[hook] = alreadyPatched[hook] = value
             },
+            configurable: true,
+            enumerable: true,
+            writable: true,
           },
         ])
       )
