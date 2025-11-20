@@ -1,4 +1,5 @@
 import { fireEvent } from '@testing-library/react'
+import { createScope } from 'jotai-scope'
 import type {
   INTERNAL_AtomState as AtomState,
   INTERNAL_BuildingBlocks,
@@ -34,6 +35,30 @@ export function createDebugStore(name: string = `S0`) {
   const debugStore = buildStore(...buildingBlocks) as DebugStore
   debugStore.name = name
   return debugStore
+}
+
+export function createScopes<T extends AnyAtom[][]>(
+  ...scopesAtoms: T
+): [
+  Store,
+  ...{
+    [K in keyof T]: T[K] extends AnyAtom[] ? Store : never
+  },
+] {
+  const store = createDebugStore()
+  Object.assign(store, { name: 'S0' }, store)
+  return scopesAtoms.reduce(
+    (scopes, atoms, i) => {
+      const scope = createScope({
+        atoms,
+        parentStore: scopes[i],
+        name: `S${i + 1}`,
+      })
+      scopes.push(scope)
+      return scopes
+    },
+    [store] as Store[]
+  ) as any
 }
 
 function getElements(
@@ -93,8 +118,12 @@ export function cross<
   return a.map((a) => b.map((b) => fn(a, b))) as any
 }
 
-export function storeGet(store: Store, atom: AnyAtom) {
-  return store.get(atom)
+export function initializeAll(stores: ReadonlyArray<Store>, atoms: AnyAtom[]) {
+  return stores.map((store) => atoms.map((atom) => store.get(atom)))
+}
+
+export function subscribeAll(stores: ReadonlyArray<Store>, atoms: AnyAtom[]) {
+  stores.forEach((store) => atoms.forEach((atom) => store.sub(atom, () => {})))
 }
 
 export function printAtomState(store: Store) {

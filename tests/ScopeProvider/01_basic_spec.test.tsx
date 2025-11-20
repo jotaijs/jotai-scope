@@ -9,11 +9,11 @@ import { createScope } from '../../src/ScopeProvider/scope'
 import {
   clickButton,
   createDebugStore,
-  cross,
   getTextContents,
   printAtomState,
-  storeGet,
-  trackAtomStateMap,
+  initializeAll,
+  subscribeAll,
+  createScopes,
 } from '../utils'
 
 describe('Counter', () => {
@@ -178,22 +178,17 @@ describe('Counter', () => {
     )
     b.debugLabel = 'b'
 
-    function scopes() {
-      const s0 = createStore()
-      const s1 = createScope({ atoms: [a], parentStore: s0, name: 'S1' })
-      return [s0, s1] as const
-    }
     function results(s: readonly [Store, Store]) {
-      return cross(s, [a, b], storeGet).flat().join('')
+      return initializeAll(s, [a, b]).flat().join('')
     }
 
     {
-      const s = scopes()
+      const s = createScopes([a])
       s[0].set(b)
       expect(results(s)).toBe('1100') // Received '1101'
     }
     {
-      const s = scopes()
+      const s = createScopes([a])
       s[1].set(b)
       expect(results(s)).toBe('0011') // Received '0010'
     }
@@ -310,24 +305,18 @@ describe('Counter', () => {
     )
     b.debugLabel = 'b'
 
-    function getScopes() {
-      const s0 = createStore()
-      const s1 = createScope({ atoms: [b], parentStore: s0, name: 'S1' })
-      return [s0, s1] as const
-    }
-
     {
-      const s = getScopes()
+      const s = createScopes([b])
       s[0].set(a, (v) => v + 1)
       expect(s.map((s) => s.get(b)).join('')).toBe('10') // Received '11' <===========
     }
     {
-      const s = getScopes()
+      const s = createScopes([b])
       s[1].set(a, (v) => v + 1)
       expect(s.map((s) => s.get(b)).join('')).toBe('10') // Received '11'
     }
     {
-      const s = getScopes()
+      const s = createScopes([b])
       s[1].set(b)
       expect(s.map((s) => s.get(b)).join('')).toBe('01') // Received '00'
     }
@@ -352,10 +341,9 @@ describe('Counter', () => {
     c.debugLabel = 'c'
 
     function getScopes() {
-      const s0 = createStore()
-      const s1 = createScope({ atoms: [b, c], parentStore: s0, name: 'S1' })
-      s0.sub(b, () => {})
-      return [s0, s1] as const
+      const s = createScopes([b, c])
+      s[0].sub(b, () => {})
+      return s
     }
     {
       const s = getScopes()
@@ -468,19 +456,12 @@ describe('Counter', () => {
     )
     d.debugLabel = 'd'
     function getScopes() {
-      const s0 = createDebugStore()
-      const s1 = createScope({
-        atoms: [b],
-        parentStore: s0,
-        name: 'S1',
-      })
-      const s = [s0, s1] as const
-      cross(s, [b, c, d], (sx, ax) => sx.sub(ax as any, () => {}))
+      const s = createScopes([b])
+      subscribeAll(s, [b, c, d])
       return s
     }
 
     const s = getScopes()
-    trackAtomStateMap(s[0])
     /*
       S0[]: b0, c0, d0(b0 + c0)
       S1[b]: b1, c0, d0(b1 + c0)
@@ -492,14 +473,13 @@ describe('Counter', () => {
         b: v=0
         c: v=0
       b@S1: v=0
-      d?@S1: v=00
+      _d@S1: v=00
         d@S1: v=00
           b@S1: v=0
           c: v=0
       d@S1: v=00
         b@S1: v=0
         c: v=0
-      --------------------
     `)
     console.log('set d in S0')
     s[0].set(d)
@@ -518,14 +498,13 @@ describe('Counter', () => {
         b: v=1
         c: v=1
       b@S1: v=0
-      d?@S1: v=01
+      _d@S1: v=01
         d@S1: v=01
           b@S1: v=0
           c: v=1
       d@S1: v=01
         b@S1: v=0
         c: v=1
-      --------------------
     `)
   })
 

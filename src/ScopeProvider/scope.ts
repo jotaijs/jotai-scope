@@ -3,21 +3,13 @@ import { atom as createAtom } from 'jotai'
 import {
   INTERNAL_buildStoreRev2 as buildStore,
   INTERNAL_getBuildingBlocksRev2 as getBuildingBlocks,
-  INTERNAL_hasInitialValue as hasInitialValue,
-  INTERNAL_returnAtomValue as returnAtomValue,
   INTERNAL_isAtomStateInitialized as isAtomStateInitialized,
-  INTERNAL_addPendingPromiseToDependency as addPendingPromiseToDependency,
-  INTERNAL_isPendingPromise as isPendingPromise,
-  INTERNAL_isPromiseLike as isPromiseLike,
-  INTERNAL_registerAbortHandler as registerAbortHandler,
-  INTERNAL_isActuallyWritableAtom as isActuallyWritableAtom,
 } from 'jotai/vanilla/internals'
 import type {
   INTERNAL_AtomState as AtomState,
   INTERNAL_AtomStateMap as AtomStateMap,
   INTERNAL_BuildingBlocks as BuildingBlocks,
   INTERNAL_EnsureAtomState as EnsureAtomState,
-  INTERNAL_ReadAtomState as ReadAtomState,
   INTERNAL_Mounted as Mounted,
   INTERNAL_Store as Store,
 } from 'jotai/vanilla/internals'
@@ -33,7 +25,6 @@ import type {
   StoreHooks,
   WeakMapForAtoms,
   WeakSetForAtoms,
-  WithOriginal,
 } from '../types'
 import { storeScopeMap } from '../types'
 import {
@@ -198,8 +189,7 @@ export function createScope(props: CreateScopeProps): ScopedStore {
       .filter((k) => ['read', 'write', 'debugLabel'].includes(k))
       .forEach((k) => (propDesc[k].configurable = true))
     const atomProto = Object.getPrototypeOf(originalAtom)
-    const scopedAtom: WithOriginal<Atom<T>> = Object.create(atomProto, propDesc)
-    scopedAtom.originalAtom = originalAtom
+    const scopedAtom: Atom<T> = Object.create(atomProto, propDesc)
 
     if (isDerived(scopedAtom)) {
       scopedAtom.read = createScopedRead<typeof scopedAtom>(
@@ -245,10 +235,8 @@ export function createScope(props: CreateScopeProps): ScopedStore {
 
     const store = scope.baseStore
     const buildingBlocks = getBuildingBlocks(store)
-    const atomStateMap = buildingBlocks[0]
-    const mountedMap = buildingBlocks[1]
-    const invalidatedAtoms = buildingBlocks[2]
-    const changedAtoms = buildingBlocks[3]
+    const ensureAtomState = buildingBlocks[11]
+    const mountDependencies = buildingBlocks[17]
 
     const proxyState: ProxyState = {
       get originalAtom() {
@@ -261,7 +249,6 @@ export function createScope(props: CreateScopeProps): ScopedStore {
     }
 
     const proxyAtom = createAtom(customRead) as T
-    const ensureAtomState = buildingBlocks[11]
     const proxyAtomState = ensureAtomState(store, proxyAtom)
 
     function customRead(get: <V>(a: Atom<V>) => V) {
@@ -302,30 +289,20 @@ export function createScope(props: CreateScopeProps): ScopedStore {
       const [fromAtom, toAtom] = isScoped
         ? [originalAtom, scopedAtom]
         : [scopedAtom, originalAtom]
-
-      if (isScoped !== proxyState.hasScoped || proxyAtomState.d.size === 0) {
-        // update proxyAtomState dep to be toAtom
+      const scopeChange = isScoped !== proxyState.hasScoped
+      proxyState.hasScoped = isScoped
+      if (scopeChange || !isAtomStateInitialized(proxyAtomState)) {
         const toAtomState = ensureAtomState(store, toAtom)
         proxyAtomState.d.delete(fromAtom)
         proxyAtomState.d.set(toAtom, toAtomState.n)
-        const mounted = mountedMap.get(proxyAtom)
-        if (mounted) {
-          mounted.d.delete(fromAtom)
-          mounted.d.add(toAtom)
-        }
-        const mountedScoped = mountedMap.get(fromAtom)
-        if (mountedScoped) {
-          mountedScoped.t.delete(proxyAtom)
-        }
-        const mountedOriginal = mountedMap.get(toAtom)
-        if (mountedOriginal) {
-          mountedOriginal.t.add(proxyAtom)
-        }
+        proxyAtomState.v = toAtomState.v
+        // TODO: Do we need this?
+        // proxyAtomState.n = toAtomState.n - 1
+        mountDependencies(store, proxyAtom)
         if ('e' in atomState) {
           throw atomState.e
         }
       }
-      proxyState.hasScoped = isScoped
       return isScoped
     }
 
@@ -628,7 +605,7 @@ function createPatchedStore(scope: Scope): ScopedStore {
     Object.defineProperties(
       patchedStoreHooks,
       Object.fromEntries(
-        (['i', 'r', 'c', 'm', 'u'] as const).map((hook) => [
+        (['r', 'c', 'm', 'u'] as const).map((hook) => [
           hook,
           {
             get [hook]() {

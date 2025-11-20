@@ -82,10 +82,6 @@ export const storeScopeMap = new WeakMap<Store, Scope>()
 
 export type AtomDefault = readonly [AnyWritableAtom, unknown]
 
-export type WithOriginal<T extends AnyAtom> = T & {
-  originalAtom: T
-}
-
 type Mutable<T> = { -readonly [P in keyof T]: T[P] }
 
 export type StoreHooks = Mutable<INTERNAL_StoreHooks>
