@@ -1,13 +1,7 @@
 import dedent from 'dedent'
-import { atom, createStore } from 'jotai'
+import { atom } from 'jotai'
 import { describe, expect, it, vi } from 'vitest'
-import { createScope } from '../../src/ScopeProvider/scope'
-import {
-  createDebugStore,
-  createScopes,
-  printAtomState,
-  subscribeAll,
-} from '../utils'
+import { createScopes, printAtomState, subscribeAll } from '../utils'
 
 describe('open issues', () => {
   // FIXME:

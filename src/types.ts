@@ -45,24 +45,14 @@ export type Scope = {
   baseStore: Store
 
   /**
-   * The proxy store that this scope is built on.
+   * Returns the scope that an atom is scoped in
    */
-  baseProxy: Store
+  getScope: (atom: AnyAtom) => Scope | undefined
 
   /**
    * Checks if an atom is scoped (explicit, implicit, or dependent) in this scope or parent scopes
    */
   isScoped: (atom: AnyAtom) => boolean
-
-  /**
-   * Checks if an atom is explicitly scoped in this scope
-   */
-  isExplicit: (atom: AnyAtom) => boolean
-
-  /**
-   * Checks if an atom is implicitly scoped in this scope
-   */
-  isImplicit: (atom: AnyAtom) => boolean
 
   /**
    * @debug
@@ -97,9 +87,3 @@ export type WeakMapForAtoms = {
   | { has(atom: AnyAtom): boolean; delete(atom: AnyAtom): void }
   | Record<never, never>
 )
-
-export type ProxyState = {
-  hasScoped: boolean
-  originalAtom: AnyAtom
-  scopedAtom: AnyAtom
-}

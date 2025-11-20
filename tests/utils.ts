@@ -28,11 +28,13 @@ export function createDebugStore(name: string = `S0`) {
     new Map(), // mountedMap
     new Map(), // invalidatedAtoms
   ]
-  buildingBlocks[6] = initializeStoreHooks({})
-  const ensureAtomState = getBuildingBlocks(buildStore())[11]
-  buildingBlocks[11] = (store, atom) =>
-    Object.assign(ensureAtomState(store, atom), { label: atom.debugLabel })
+  const storeHooks = (buildingBlocks[6] = initializeStoreHooks({}))
+  storeHooks.i.add(undefined, (atom) => {
+    const atomState = atomStateMap.get(atom)!
+    Object.assign(atomState, { label: atom.debugLabel })
+  })
   const debugStore = buildStore(...buildingBlocks) as DebugStore
+  const atomStateMap = getBuildingBlocks(debugStore)[0]
   debugStore.name = name
   return debugStore
 }
