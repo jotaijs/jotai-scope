@@ -1,15 +1,17 @@
-import type { Atom, WritableAtom } from 'jotai'
+import type { Atom, WritableAtom, Getter, Setter } from 'jotai'
 import { atom as createAtom } from 'jotai'
 import {
   INTERNAL_buildStoreRev2 as buildStore,
   INTERNAL_getBuildingBlocksRev2 as getBuildingBlocks,
-  INTERNAL_returnAtomValue as returnAtomValue,
-  INTERNAL_isAtomStateInitialized as isAtomStateInitialized,
   INTERNAL_initializeStoreHooksRev2 as initializeStoreHooks,
+  INTERNAL_isAtomStateInitialized as isAtomStateInitialized,
+  INTERNAL_returnAtomValue as returnAtomValue,
 } from 'jotai/vanilla/internals'
 import type {
+  INTERNAL_AtomRead as AtomRead,
   INTERNAL_AtomState as AtomState,
   INTERNAL_AtomStateMap as AtomStateMap,
+  INTERNAL_AtomWrite as AtomWrite,
   INTERNAL_BuildingBlocks as BuildingBlocks,
   INTERNAL_EnsureAtomState as EnsureAtomState,
   INTERNAL_Mounted as Mounted,
@@ -20,6 +22,7 @@ import type {
   AnyAtom,
   AnyAtomFamily,
   AnyWritableAtom,
+  AtomPairMap,
   Scope,
   ScopedStore,
   StoreHookForAtoms,
@@ -27,13 +30,15 @@ import type {
   WeakMapForAtoms,
   WeakSetForAtoms,
 } from '../types'
-import { storeScopeMap } from '../types'
 import {
   isCustomWrite,
   isDerived,
   isWritableAtom,
   toNameString,
 } from '../utils'
+
+/** WeakMap to store the scope associated with each scoped store */
+export const storeScopeMap = new WeakMap<Store, Scope>()
 
 const globalScopeKey: { name?: string } = {}
 if (__DEV__) {
@@ -49,44 +54,50 @@ type CreateScopeProps = {
   parentStore: Store | ScopedStore
   name?: string
 }
+
 export function createScope(props: CreateScopeProps): ScopedStore {
   const { atoms = [], atomFamilies = [], parentStore, name: scopeName } = props
   const atomsSet = new Set(atoms)
   const atomFamilySet = new Set(atomFamilies)
   const parentScope = storeScopeMap.get(parentStore)
   const baseStore = parentScope?.baseStore ?? parentStore
-  const explicit = new WeakMap<AnyAtom, [AnyAtom, Scope?]>()
-  const implicit = new WeakMap<AnyAtom, [AnyAtom, Scope?]>()
-  const dependent = new WeakMap<AnyAtom, [AnyAtom, Scope?]>()
-  type InheritedMap = WeakMap<AnyAtom, [AnyAtom, Scope?]>
-  const inheritedSource = new WeakMap<Scope | GlobalScopeKey, InheritedMap>()
+  const explicitMap = new WeakMap() as AtomPairMap
+  const implicitMap = new WeakMap() as AtomPairMap
+  const dependentMap = new WeakMap() as AtomPairMap
+  const inheritedSource = new WeakMap<Scope | GlobalScopeKey, AtomPairMap>()
   const scope = {
-    getAtom<T extends AnyAtom>(atom: T, implicitScope?: Scope): [T, Scope?] {
+    getAtom<T>(atom: Atom<T>, implicitScope?: Scope): [Atom<T>, Scope?] {
       // source getAtom is only called with implicitScope if the calling atom is explicit or implicit
-      if (explicit.has(atom)) {
-        return explicit.get(atom) as [T, Scope]
+      const explicitEntry = explicitMap.get(atom)
+      if (explicitEntry) {
+        return explicitEntry
       }
 
       if (implicitScope === scope) {
         // dependencies of explicitly scoped atoms are implicitly scoped
         // implicitly scoped atoms are only accessed by implicit and explicit scoped atoms
-        if (!implicit.has(atom)) {
-          implicit.set(atom, [cloneAtom(atom, implicitScope), implicitScope])
+        let implicitEntry = implicitMap.get(atom)
+        if (!implicitEntry) {
+          implicitEntry = [cloneAtom(atom, implicitScope), implicitScope]
+          implicitMap.set(atom, implicitEntry)
         }
-        return implicit.get(atom) as [T, Scope]
+        return implicitEntry
       }
-      if (dependent.has(atom)) {
-        return dependent.get(atom) as [T, Scope]
+      const dependentEntry = dependentMap.get(atom)
+      if (dependentEntry) {
+        return dependentEntry
       }
       // inherited atoms are copied so they can access scoped atoms
       // dependencies of inherited atoms first check if they are explicitly scoped
       // otherwise they use their original scope's atom
       const source = implicitScope ?? globalScopeKey
-      if (!inheritedSource.has(source)) {
-        inheritedSource.set(source, new WeakMap())
+      let inheritedMap = inheritedSource.get(source)
+      if (!inheritedMap) {
+        inheritedMap = new WeakMap() as AtomPairMap
+        inheritedSource.set(source, inheritedMap)
       }
-      const inherited = inheritedSource.get(source)!
-      if (!inherited.has(atom)) {
+      let inheritedEntry = inheritedMap.get(atom)
+      if (!inheritedEntry) {
         const [
           ancestorAtom,
           ancestorScope, //
@@ -94,9 +105,10 @@ export function createScope(props: CreateScopeProps): ScopedStore {
         const inheritedClone = isDerived(atom)
           ? createMultiStableAtom(atom, ancestorScope)
           : ancestorAtom
-        inherited.set(atom, [inheritedClone, ancestorScope])
+        inheritedEntry = [inheritedClone, ancestorScope]
+        inheritedMap.set(atom, inheritedEntry)
       }
-      return inherited.get(atom) as [T, Scope?]
+      return inheritedEntry
     },
     cleanup() {
       for (const cleanupFamilyListeners of cleanupFamiliesSet) {
@@ -130,13 +142,13 @@ export function createScope(props: CreateScopeProps): ScopedStore {
     },
     baseStore,
     getScope(atom) {
-      if (explicit.has(atom)) {
+      if (explicitMap.has(atom)) {
         return scope
       }
-      if (implicit.has(atom)) {
+      if (implicitMap.has(atom)) {
         return scope
       }
-      if (dependent.has(atom)) {
+      if (dependentMap.has(atom)) {
         return scope
       }
       return parentScope?.getScope(atom)
@@ -156,22 +168,22 @@ export function createScope(props: CreateScopeProps): ScopedStore {
 
   // populate explicitly scoped atoms
   for (const atom of atomsSet) {
-    explicit.set(atom, [cloneAtom(atom, scope), scope])
+    explicitMap.set(atom, [cloneAtom(atom, scope), scope])
   }
 
   const cleanupFamiliesSet = new Set<() => void>()
   for (const atomFamily of atomFamilySet) {
     for (const param of atomFamily.getParams()) {
       const atom = atomFamily(param)
-      if (!explicit.has(atom)) {
-        explicit.set(atom, [cloneAtom(atom, scope), scope])
+      if (!explicitMap.has(atom)) {
+        explicitMap.set(atom, [cloneAtom(atom, scope), scope])
       }
     }
     const cleanupFamily = atomFamily.unstable_listen(({ type, atom }) => {
-      if (type === 'CREATE' && !explicit.has(atom)) {
-        explicit.set(atom, [cloneAtom(atom, scope), scope])
+      if (type === 'CREATE' && !explicitMap.has(atom)) {
+        explicitMap.set(atom, [cloneAtom(atom, scope), scope])
       } else if (!atomsSet.has(atom)) {
-        explicit.delete(atom)
+        explicitMap.delete(atom)
       }
     })
     cleanupFamiliesSet.add(cleanupFamily)
@@ -231,13 +243,7 @@ export function createScope(props: CreateScopeProps): ScopedStore {
     implicitScope?: Scope
   ): T['read'] {
     return function scopedRead(get, opts) {
-      return read(
-        function scopedGet(a) {
-          const [scopedAtom] = scope.getAtom(a, implicitScope)
-          return get(scopedAtom)
-        }, //
-        opts
-      )
+      return read(createScopedGet(get, implicitScope), opts)
     }
   }
 
@@ -248,26 +254,38 @@ export function createScope(props: CreateScopeProps): ScopedStore {
   ): T['write'] {
     return function scopedWrite(get, set, ...args) {
       return write(
-        function scopedGet(a) {
-          const [scopedAtom] = scope.getAtom(a, implicitScope)
-          return get(scopedAtom)
-        },
-        function scopedSet(a, ...v) {
-          const [scopedAtom] = scope.getAtom(a, implicitScope)
-          const restore = scope.prepareWriteAtom(
-            scopedAtom,
-            a,
-            implicitScope,
-            writeScope
-          )
-          try {
-            return set(scopedAtom, ...v)
-          } finally {
-            restore?.()
-          }
-        },
+        createScopedGet(get, implicitScope),
+        createScopedSet(set, implicitScope, writeScope),
         ...args
       )
+    }
+  }
+
+  function createScopedGet(get: Getter, implicitScope?: Scope): Getter {
+    return (a) => {
+      const [scopedAtom] = scope.getAtom(a, implicitScope)
+      return get(scopedAtom)
+    }
+  }
+
+  function createScopedSet(
+    set: Setter,
+    implicitScope?: Scope,
+    writeScope = implicitScope
+  ): Setter {
+    return (a, ...v) => {
+      const [scopedAtom] = scope.getAtom(a, implicitScope)
+      const restore = scope.prepareWriteAtom(
+        scopedAtom,
+        a,
+        implicitScope,
+        writeScope
+      )
+      try {
+        return set(scopedAtom, ...v)
+      } finally {
+        restore?.()
+      }
     }
   }
 
@@ -276,10 +294,10 @@ export function createScope(props: CreateScopeProps): ScopedStore {
    * It is effectively one of two atoms depending on its dependencies.
    * @returns a multi-stable atom
    */
-  function createMultiStableAtom<T extends AnyAtom>(
-    originalAtom: T,
+  function createMultiStableAtom<T>(
+    originalAtom: Atom<T>,
     implicitScope?: Scope
-  ): T {
+  ): Atom<T> {
     // TODO: Delete these checks
     if (originalAtom.debugLabel?.startsWith('_')) {
       throw new Error('Cannot clone proxy atom')
@@ -287,59 +305,84 @@ export function createScope(props: CreateScopeProps): ScopedStore {
     if (originalAtom.debugLabel?.includes('@')) {
       throw new Error('Cannot clone already scoped atom')
     }
-    // Nothing will directly interact with the scopedAtom.
-    // This atom is just a place to hold the scoped state.
-    const scopedAtom = {
-      read: () => {
-        throw new Error('scopedAtom read is not allowed')
-      },
-      write: () => {
-        throw new Error('scopedAtom write is not allowed')
-      },
-      debugLabel: `${originalAtom.debugLabel}@${scope.name}`,
-    }
 
-    const scopedRead = createScopedRead(originalAtom.read, implicitScope)
-    // cloneAtom(originalAtom, implicitScope)
+    const scopedAtom = Object.assign({}, originalAtom)
+    Object.defineProperty(scopedAtom, 'debugLabel', {
+      get() {
+        return `${originalAtom.debugLabel}@${scope.name}`
+      },
+      configurable: true,
+      enumerable: true,
+    })
+
     const buildingBlocks = getBuildingBlocks(baseStore)
     const atomStateMap = buildingBlocks[0]
     const mountedMap = buildingBlocks[1]
     const invalidatedAtoms = buildingBlocks[2]
     const changedAtoms = buildingBlocks[3]
     const storeHooks = initializeStoreHooks(buildingBlocks[6])
+    const atomRead = buildingBlocks[7]
+    const atomWrite = buildingBlocks[8]
     const ensureAtomState = buildingBlocks[11]
-    const readAtomState = buildingBlocks[14]
-    const writeAtomState = buildingBlocks[16]
     const mountDependencies = buildingBlocks[17]
+
+    const { 14: proxyReadAtomState, 16: proxyWriteAtomState } =
+      getBuildingBlocks(
+        buildStore(
+          ...(Object.assign([...buildingBlocks], {
+            7: ((store, _atom, get, options) => {
+              const targetAtom = proxyState.toAtom
+              const getter = proxyState.isScoped ? createScopedGet(get) : get
+              return atomRead(store, targetAtom, getter, options)
+            }) as AtomRead,
+            8: ((store, _atom, get, set, ...args) => {
+              const targetAtom = proxyState.toAtom as AnyWritableAtom
+              const getter = proxyState.isScoped ? createScopedGet(get) : get
+              const setter = proxyState.isScoped
+                ? createScopedSet(set, implicitScope)
+                : set
+              return atomWrite(store, targetAtom, getter, setter, ...args)
+            }) as AtomWrite,
+          }) as Partial<BuildingBlocks>)
+        )
+      )
 
     // This atom can either be the unscoped originalAtom or the scopedAtom depending on its dependencies.
     // It calls the originalAtom's read function as needed.
-    const proxyAtom = createAtom(function customRead(get, opts) {
-      if (processScopeClassification(originalAtom)) {
-        return scopedRead(get, opts)
-      }
-      const atomState = readAtomState(baseStore, originalAtom)
-      let value = returnAtomValue(atomState)
-      if (processScopeClassification(originalAtom)) {
-        return scopedRead(get, opts)
-      }
-      return value
-    }) as T
+    const proxyAtom = createAtom(() => {}) as Atom<T>
 
-    function getIsScoped(atom: AnyAtom) {
+    proxyAtom.read = function proxyRead() {
+      const classA = processScopeClassification()
+      let atomState = proxyReadAtomState(proxyState.store, proxyAtom)
+      const classB = processScopeClassification()
+      if (classA !== classB) {
+        atomState = proxyReadAtomState(proxyState.store, proxyAtom)
+      }
+      return returnAtomValue(atomState)
+    }
+
+    if (isWritableAtom(originalAtom)) {
+      const writableProxy = proxyAtom as AnyWritableAtom
+      writableProxy.write = function proxyWrite(get, set, ...args) {
+        const writableTarget = proxyState.toAtom as AnyWritableAtom
+        return proxyWriteAtomState(baseStore, writableTarget, get, set, ...args)
+      }
+    }
+
+    function getIsScoped() {
       const original = atomStateMap.get(originalAtom)
       // if originalAtom is not yet initialized, it is scoped
       if (!original || !isAtomStateInitialized(original)) {
         return true
       }
-      const atomState = ensureAtomState(baseStore, atom)
+      const atomState = ensureAtomState(baseStore, proxyState.toAtom)
       const dependencies = [...atomState.d.keys()]
       // if there are scoped dependencies, it is scoped
       if (dependencies.some(scope.isScoped)) {
         return true
       }
       // if it is the originalAtom, it is unscoped
-      if (atom === originalAtom) {
+      if (proxyState.toAtom === originalAtom) {
         return false
       }
       // if dependencies are the same, it is unscoped
@@ -354,6 +397,31 @@ export function createScope(props: CreateScopeProps): ScopedStore {
 
     const unsubs = initializeStoreHooks({}).f
 
+    let _isInitialized = false
+    const proxyState = {
+      get isScoped() {
+        return dependentMap.has(proxyAtom)
+      },
+      set isScoped(v: boolean) {
+        if (v) {
+          dependentMap.set(proxyAtom, [proxyAtom, scope])
+        } else {
+          dependentMap.delete(proxyAtom)
+        }
+      },
+      get toAtom() {
+        return proxyState.isScoped ? scopedAtom : originalAtom
+      },
+      get store() {
+        return proxyState.isScoped ? scopedStore : baseStore
+      },
+      get isInitialized() {
+        return (_isInitialized ||=
+          !!atomStateMap.get(proxyAtom) &&
+          isAtomStateInitialized(atomStateMap.get(proxyAtom)!))
+      },
+    }
+
     /**
      * Checks if atomState dependencies are either dependent or explicit in current scope
      * and processes classification change.
@@ -361,67 +429,68 @@ export function createScope(props: CreateScopeProps): ScopedStore {
      *   1. atomState dependencies are either dependent or explicit in current scope
      *   2. atomState dependencies are different from originalAtomState dependencies
      */
-    function processScopeClassification(atom: AnyAtom): boolean {
-      const isScoped = getIsScoped(atom)
-      const toAtom = isScoped ? scopedAtom : originalAtom
-      const scopeChanged = isScoped !== dependent.has(atom)
-      const proxyAtomState = atomStateMap.get(proxyAtom)
-      const isInitialized =
-        proxyAtomState && isAtomStateInitialized(proxyAtomState)
-      const store = isScoped ? scopedStore : baseStore
+    function processScopeClassification(): boolean {
+      const isScoped = getIsScoped()
+      const scopeChanged = isScoped !== proxyState.isScoped
+      proxyState.isScoped = isScoped
       // if there is a scope change, or proxyAtom is not yet initialized, process classification change
-      if (scopeChanged || !isInitialized) {
+      if (scopeChanged || !proxyState.isInitialized) {
         // TODO: which is the key? (originalAtom, proxyAtom, or scopedAtom)
-        dependent.set(proxyAtom, [proxyAtom, scope])
-        const toAtomState = ensureAtomState(store, toAtom)
+        const toAtomState = ensureAtomState(proxyState.store, proxyState.toAtom)
         atomStateMap.set(proxyAtom, toAtomState)
         unsubs()
         if (!isScoped) {
-          unsubs.add(storeHooks.c?.add(proxyAtom, handleProxyChange))
-          function handleProxyChange() {
-            // swap proxy for original in changedAtoms
-            if (!changedAtoms.has(proxyAtom)) {
-              return
-            }
-            if ('delete' in changedAtoms) {
-              ;(changedAtoms as unknown as WeakSet<AnyAtom>).delete(proxyAtom)
-            } else {
-              const changedAtomsSet = new Set(changedAtoms)
-              changedAtomsSet.delete(proxyAtom)
-              changedAtomsSet.forEach((a) => changedAtoms.add(a))
-            }
-            changedAtoms.add(toAtom)
-          }
-          unsubs.add(storeHooks.c?.add(toAtom, handleOriginalChange))
-          function handleOriginalChange() {
-            if (!processScopeClassification(originalAtom)) {
-              // ensure proxy is also in invalidatedAtoms
-              const epochNumber = invalidatedAtoms.get(originalAtom)
-              if (epochNumber === undefined) {
+          unsubs.add(
+            storeHooks.c?.add(proxyAtom, function handleProxyChange() {
+              // swap proxy for original in changedAtoms
+              if (!changedAtoms.has(proxyAtom)) {
                 return
               }
-              invalidatedAtoms.set(proxyAtom, epochNumber)
-            }
-          }
+              if ('delete' in changedAtoms) {
+                ;(changedAtoms as unknown as WeakSet<AnyAtom>).delete(proxyAtom)
+              } else {
+                const changedAtomsSet = new Set(changedAtoms)
+                changedAtomsSet.delete(proxyAtom)
+                changedAtomsSet.forEach((a) => changedAtoms.add(a))
+              }
+              changedAtoms.add(proxyState.toAtom)
+            })
+          )
+          unsubs.add(
+            storeHooks.c?.add(proxyState.toAtom, function handleAtomChange() {
+              processScopeClassification()
+              const store = isScoped ? scopedStore : baseStore
+              invalidatedAtoms.set(proxyAtom, toAtomState.n)
+              proxyReadAtomState(store, proxyState.toAtom)
+              if (!isScoped) {
+                // ensure proxy is also in invalidatedAtoms
+                const epochNumber = invalidatedAtoms.get(originalAtom)
+                if (epochNumber === undefined) {
+                  return
+                }
+                invalidatedAtoms.set(proxyAtom, epochNumber)
+              }
+            })
+          )
         }
-        unsubs.add(storeHooks.m?.add(toAtom, handleMount))
-        unsubs.add(storeHooks.u?.add(toAtom, handleUnmount))
-        function handleMount() {
-          const toMounted = mountedMap.get(toAtom)!
+        const handleMount = () => {
+          const toMounted = mountedMap.get(proxyState.toAtom)!
           mountedMap.set(proxyAtom, toMounted)
           for (const a of toAtomState.d.keys()) {
             const aMounted = mountedMap.get(a)!
             aMounted.t.add(proxyAtom)
           }
         }
-        function handleUnmount() {
+        unsubs.add(storeHooks.m?.add(proxyState.toAtom, handleMount))
+        const handleUnmount = () => {
           mountedMap.delete(proxyAtom)
           for (const a of toAtomState.d.keys()) {
             const aMounted = mountedMap.get(a)!
             aMounted.t.delete(proxyAtom)
           }
         }
-        const toMounted = mountedMap.get(toAtom)
+        unsubs.add(storeHooks.u?.add(proxyState.toAtom, handleUnmount))
+        const toMounted = mountedMap.get(proxyState.toAtom)
         if (toMounted) {
           handleMount()
         } else {
@@ -431,26 +500,6 @@ export function createScope(props: CreateScopeProps): ScopedStore {
       return isScoped
     }
 
-    if (isWritableAtom(scopedAtom)) {
-      const writableProxyAtom = proxyAtom as AnyWritableAtom
-      const writableOriginalAtom = originalAtom as AnyWritableAtom
-      const scopedWrite = createScopedWrite(
-        writableOriginalAtom.write.bind(writableOriginalAtom),
-        implicitScope
-      )
-      writableProxyAtom.write = function (_get, set, ...args) {
-        const isScoped = getIsScoped(originalAtom)
-        if (!isScoped) {
-          return writeAtomState(
-            baseStore,
-            originalAtom as AnyWritableAtom,
-            ...args
-          )
-        } else {
-          return scopedWrite(_get, set, ...args)
-        }
-      }
-    }
     if (__DEV__) {
       Object.defineProperty(proxyAtom, 'debugLabel', {
         get() {

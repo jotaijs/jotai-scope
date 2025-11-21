@@ -22,21 +22,33 @@ type BuildingBlocks = Mutable<INTERNAL_BuildingBlocks>
 
 type DebugStore = Store & { name: string }
 
-export function createDebugStore(name: string = `S0`) {
-  const buildingBlocks: Partial<BuildingBlocks> = [
-    new Map(), // atomStateMap
-    new Map(), // mountedMap
-    new Map(), // invalidatedAtoms
-  ]
+export function createDebugStore(name: string = `S0`): DebugStore {
+  const buildingBlocks: Partial<BuildingBlocks> = []
+  const atomStateMap = (buildingBlocks[0] = new Map())
+  const mountedMap = (buildingBlocks[1] = new Map())
   const storeHooks = (buildingBlocks[6] = initializeStoreHooks({}))
+  function getAtomLabel(atom: AnyAtom) {
+    return (atom.debugLabel ?? String(atom))
+      .replace(/@S(\d+)$/, '$1')
+      .replace(/[^a-zA-Z0-9_]/g, '$')
+  }
   storeHooks.i.add(undefined, (atom) => {
+    const label = getAtomLabel(atom)
+    atom.toString = function toString() {
+      return label
+    }
+    const p = new Function(`return function ${label}(){}`)()
+    Object.setPrototypeOf(atom, p.prototype)
     const atomState = atomStateMap.get(atom)!
-    Object.assign(atomState, { label: atom.debugLabel })
+    Object.assign(atomState, { label })
   })
-  const debugStore = buildStore(...buildingBlocks) as DebugStore
-  const atomStateMap = getBuildingBlocks(debugStore)[0]
-  debugStore.name = name
-  return debugStore
+  storeHooks.m.add(undefined, (atom) => {
+    const label = getAtomLabel(atom)
+    const mounted = mountedMap.get(atom)!
+    Object.assign(mounted, { label })
+  })
+  const debugStore = buildStore(...buildingBlocks)
+  return Object.assign(debugStore, { name })
 }
 
 export function createScopes<T extends AnyAtom[][]>(
