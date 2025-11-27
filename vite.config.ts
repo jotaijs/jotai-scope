@@ -49,6 +49,9 @@ export default defineConfig(({ mode }) => {
       globals: true,
       include: ['tests/**/*.test.{ts,tsx}'],
       exclude: ['jotai/**'],
+      env: {
+        FORCE_COLOR: '1',
+      },
     },
   }
 })

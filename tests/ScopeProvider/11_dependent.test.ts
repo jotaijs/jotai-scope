@@ -1,19 +1,26 @@
 import dedent from 'dedent'
 import { atom } from 'jotai'
 import { describe, expect, it, vi } from 'vitest'
-import { createScopes, printAtomState, subscribeAll } from '../utils'
+import {
+  createScopes,
+  leftpad,
+  printAtomState,
+  printMountedMap,
+  subscribeAll,
+  trackAtomStateMap,
+} from '../utils'
+import chalk from 'chalk'
 
 describe('open issues', () => {
-  // FIXME:
-  it('unscoped derived atom should not be recomputed when subscribed to in a child scope', () => {
-    const a = atom(0)
-    a.debugLabel = 'a'
-    const b = atom(vi.fn())
-    b.debugLabel = 'b'
-    const s = createScopes([])
-    subscribeAll(s, [a, b])
-    expect(b.read).toHaveBeenCalledTimes(1)
-  })
+  // it('unscoped derived atom should not be recomputed when subscribed to in a child scope', () => {
+  //   const a = atom(0)
+  //   a.debugLabel = 'a'
+  //   const b = atom(vi.fn())
+  //   b.debugLabel = 'b'
+  //   const s = createScopes([])
+  //   subscribeAll(s, [a, b])
+  //   expect(b.read).toHaveBeenCalledTimes(1)
+  // })
 
   /*
     S0[_]: a0, b0, c0(a0 & b0)
@@ -38,7 +45,23 @@ describe('open issues', () => {
     )
     c.debugLabel = 'c'
     const s = createScopes([b])
+    trackAtomStateMap(s[0])
+    function printHeader(header: string, secondaryHeader?: string) {
+      console.log(
+        chalk.gray('-'.repeat(80)),
+        `\n${chalk.yellow(header)} ${secondaryHeader ? `${secondaryHeader}` : ''}\n`,
+        chalk.gray('-'.repeat(80))
+      )
+    }
+    printHeader('subscribeAll(s, [a, b, c])')
     subscribeAll(s, [a, b, c])
+    console.log(`AtomState`)
+    console.log(leftpad(printAtomState.diff(s[0])))
+    function printMountedDiff() {
+      console.log(`MountedMap`)
+      console.log(leftpad(printMountedMap.diff(s[0])))
+    }
+    printMountedDiff()
 
     /*
       S0[_]: a0, b0, c0(a0 & b0)
@@ -56,7 +79,12 @@ describe('open issues', () => {
     expect(cReadCount).toHaveBeenCalledTimes(1)
     cReadCount.mockClear()
 
-    s[0].set(a, 'unscoped_1') // c@S1 recomputes but is still unscoped
+    printHeader(
+      "s[0].set(a, 'unscoped_1')",
+      '_c@S1 recomputes but is still unscoped'
+    )
+    s[0].set(a, 'unscoped_1') // _c@S1 recomputes but is still unscoped
+    printMountedDiff()
     expect(printAtomState(s[0])).toBe(dedent`
       a: v=unscoped_1
       b: v=0
@@ -69,8 +97,9 @@ describe('open issues', () => {
     expect(cReadCount).toHaveBeenCalledTimes(1)
     cReadCount.mockClear()
 
-    console.log('change to scoped ---------------------------------')
+    printHeader("s[0].set(a, 'scoped_2')", 'c1 changes to dependent scoped')
     s[0].set(a, 'scoped_2') // c1 changes to dependent scoped
+    printMountedDiff()
     expect(printAtomState(s[0])).toBe(dedent`
       a: v=scoped_2
       b: v=0
@@ -88,7 +117,9 @@ describe('open issues', () => {
     expect(cReadCount).toHaveBeenCalledTimes(2) // called for c0 and c1
     cReadCount.mockClear()
 
+    printHeader('s[0].set(c, 1)', 'c0 writes to b0')
     s[0].set(c, 1) // c0 writes to b0
+    printMountedDiff()
     expect(printAtomState(s[0])).toBe(dedent`
       a: v=scoped_2
       b: v=1
@@ -106,7 +137,9 @@ describe('open issues', () => {
     expect(cReadCount).toHaveBeenCalledTimes(1) // called for c0
     cReadCount.mockClear()
 
-    s[1].set(c, 2) // c1 is dependent scoped – so it writes to b1
+    printHeader('s[1].set(c, 2)', 'c1 is dependent scoped - so it writes to b1')
+    s[1].set(c, 2) // c1 is dependent scoped - so it writes to b1
+    printMountedDiff()
     expect(printAtomState(s[0])).toBe(dedent`
       a: v=scoped_2
       b: v=1
@@ -124,7 +157,9 @@ describe('open issues', () => {
     expect(cReadCount).toHaveBeenCalledTimes(1) // called for c1
     cReadCount.mockClear()
 
+    printHeader("s[1].set(a, 'unscoped_3')", 'changes c1 back to unscoped')
     s[1].set(a, 'unscoped_3') // changes c1 back to unscoped
+    printMountedDiff()
     expect(printAtomState(s[0])).toBe(dedent`
       a: v=unscoped_3
       b: v=1
@@ -142,9 +177,9 @@ describe('open issues', () => {
   })
 
   // TODO: Add more tests here for dependent scoped atoms and unscoped derived atoms
-  it.todo('unscoped derived can read dependent scoped atoms')
-  it.todo(
-    'changing classification asynchronously is not allowed and should throw in dev mode'
-  )
-  it.todo('inherited dependent scoped atoms')
+  // it.todo('unscoped derived can read dependent scoped atoms')
+  // it.todo(
+  //   'changing classification asynchronously is not allowed and should throw in dev mode'
+  // )
+  // it.todo('inherited dependent scoped atoms')
 })
