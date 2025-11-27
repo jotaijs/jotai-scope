@@ -6,7 +6,7 @@ import { INTERNAL_Store as Store } from 'jotai/vanilla/internals'
 import type { AnyAtom, AnyAtomFamily, AtomDefault, ScopedStore } from '../types'
 import { storeScopeMap } from '../types'
 import { isEqualSize } from '../utils'
-import { createScope } from './scope'
+import { cleanup, createScope } from './scope'
 
 type BaseProps = PropsWithChildren<{
   atoms?: Iterable<AnyAtom | AtomDefault>
@@ -64,13 +64,19 @@ export function ScopeProvider(props: BaseProps | ProvidedScope) {
 
   const [[store, hasChanged], setState] = useState(initialize)
   if (hasChanged({ atoms, atomFamilies, parentStore, providedScope })) {
-    storeScopeMap.get(store)?.cleanup()
+    const scope = storeScopeMap.get(store)
+    if (scope) cleanup(scope)
     setState(initialize)
   }
   useHydrateAtoms(
     Array.from(atomsOrTuples).filter(Array.isArray) as AtomDefault[],
     { store }
   )
-  useEffect(() => storeScopeMap.get(store)?.cleanup, [store])
+  useEffect(() => {
+    const scope = storeScopeMap.get(store)
+    return () => {
+      if (scope) cleanup(scope)
+    }
+  }, [store])
   return createElement(Provider, { store }, children)
 }

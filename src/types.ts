@@ -15,53 +15,17 @@ export type AnyAtomFamily = AtomFamily<any, AnyAtom>
 export type AnyWritableAtom = WritableAtom<any, any[], any>
 
 export type Scope = {
-  /**
-   * Returns a scoped atom from the original atom.
-   * @param anAtom
-   * @param implicitScope the atom is implicitly scoped in the provided scope
-   * @returns the scoped atom and the scope of the atom
-   */
-  getAtom: <T extends AnyAtom>(anAtom: T, implicitScope?: Scope) => [T, Scope?]
-
-  /**
-   * Cleans up the scope
-   */
-  cleanup: () => void
-
-  /**
-   * @modifies the atom's write function for atoms that can hold a value
-   * @returns a function to restore the original write function
-   */
-  prepareWriteAtom: <T extends AnyAtom>(
-    anAtom: T,
-    originalAtom: T,
-    implicitScope?: Scope,
-    writeScope?: Scope
-  ) => (() => void) | undefined
-
-  /**
-   * The base store (unpatched) that this scope is built on
-   */
+  explicitMap: AtomPairMap
+  implicitMap: AtomPairMap
+  dependentMap: AtomPairMap
+  inheritedSource: WeakMap<Scope | object, AtomPairMap>
   baseStore: Store
-
-  /**
-   * Returns the scope that an atom is scoped in
-   */
-  getScope: (atom: AnyAtom) => Scope | undefined
-
-  /**
-   * Checks if an atom is scoped (explicit, implicit, or dependent) in this scope or parent scopes
-   */
-  isScoped: (atom: AnyAtom) => boolean
-
-  /**
-   * @debug
-   */
+  parentScope: Scope | undefined
+  cleanupFamiliesSet: Set<() => void>
+  scopedStore: ScopedStore
+  /** @debug */
   name?: string
-
-  /**
-   * @debug
-   */
+  /** @debug */
   toString?: () => string
 }
 
@@ -90,3 +54,5 @@ export type AtomPairMap = {
   has(key: AnyAtom): boolean
   delete(key: AnyAtom): boolean
 }
+
+export { storeScopeMap } from './ScopeProvider/scope'
