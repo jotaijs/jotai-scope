@@ -65,6 +65,7 @@ export default tseslint.config(
       'prettier/prettier': 'error',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       '@typescript-eslint/no-empty-function': 'off',
+      '@typescript-eslint/no-empty-object-type': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-unused-expressions': 'off',
       '@typescript-eslint/no-unused-vars': [

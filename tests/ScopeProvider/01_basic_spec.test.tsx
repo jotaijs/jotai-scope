@@ -481,7 +481,6 @@ describe('Counter', () => {
         b@S1: v=0
         c: v=0
     `)
-    console.log('set d in S0')
     s[0].set(d)
     /*
       1. set d

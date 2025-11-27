@@ -126,7 +126,7 @@ interface ScopeProviderProps {
   children: React.ReactNode
   name?: string
 } | {
-  scope: ScopedStore
+  scope: Store
   children: React.ReactNode
 }
 ```

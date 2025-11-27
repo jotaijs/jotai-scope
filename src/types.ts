@@ -6,23 +6,40 @@ import type {
 } from 'jotai/vanilla/internals'
 import type { AtomFamily } from 'jotai/vanilla/utils/atomFamily'
 
-export type ScopedStore = Store
-
 export type AnyAtom = Atom<any> | AnyWritableAtom
 
 export type AnyAtomFamily = AtomFamily<any, AnyAtom>
 
 export type AnyWritableAtom = WritableAtom<any, any[], any>
 
-export type Scope = {
-  explicitMap: AtomPairMap
-  implicitMap: AtomPairMap
-  dependentMap: AtomPairMap
-  inheritedSource: WeakMap<Scope | object, AtomPairMap>
-  baseStore: Store
-  parentScope: Scope | undefined
-  cleanupFamiliesSet: Set<() => void>
-  scopedStore: ScopedStore
+/** WeakMap-like, but each value must be [same A as key, Scope?] */
+export type AtomPairMap = {
+  set<A extends AnyAtom>(key: A, value: [A, Scope?]): AtomPairMap
+  get<A extends AnyAtom>(key: A): [A, Scope?] | undefined
+  has(key: AnyAtom): boolean
+  delete(key: AnyAtom): boolean
+}
+
+export interface ExplicitMap extends AtomPairMap {}
+
+export interface ImplicitMap extends AtomPairMap {}
+
+export type InheritedSource = WeakMap<Scope | object, AtomPairMap>
+
+export type CleanupFamiliesSet = Set<() => void>
+
+export interface DependentMap extends AtomPairMap {}
+
+export type Scope = [
+  explicitMap: ExplicitMap, //               0
+  implicitMap: ImplicitMap, //               1
+  dependentMap: DependentMap, //             2
+  inheritedSource: InheritedSource, //       3
+  baseStore: Store, //                       4
+  parentScope: Scope | undefined, //         5
+  cleanupFamiliesSet: CleanupFamiliesSet, // 6
+  scopedStore: Store, //                     7
+] & {
   /** @debug */
   name?: string
   /** @debug */
@@ -46,13 +63,3 @@ export type WeakMapForAtoms = {
   | { has(atom: AnyAtom): boolean; delete(atom: AnyAtom): void }
   | Record<never, never>
 )
-
-/** WeakMap-like, but each value must be [same A as key, Scope?] */
-export type AtomPairMap = {
-  set<A extends AnyAtom>(key: A, value: [A, Scope?]): AtomPairMap
-  get<A extends AnyAtom>(key: A): [A, Scope?] | undefined
-  has(key: AnyAtom): boolean
-  delete(key: AnyAtom): boolean
-}
-
-export { storeScopeMap } from './ScopeProvider/scope'

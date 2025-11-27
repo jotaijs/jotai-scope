@@ -3,10 +3,9 @@ import { createElement, useEffect, useState } from 'react'
 import { Provider, useStore } from 'jotai/react'
 import { useHydrateAtoms } from 'jotai/utils'
 import { INTERNAL_Store as Store } from 'jotai/vanilla/internals'
-import type { AnyAtom, AnyAtomFamily, AtomDefault, ScopedStore } from '../types'
-import { storeScopeMap } from '../types'
+import type { AnyAtom, AnyAtomFamily, AtomDefault } from '../types'
 import { isEqualSize } from '../utils'
-import { cleanup, createScope } from './scope'
+import { cleanup, createScope, storeScopeMap } from './scope'
 
 type BaseProps = PropsWithChildren<{
   atoms?: Iterable<AnyAtom | AtomDefault>
@@ -14,7 +13,7 @@ type BaseProps = PropsWithChildren<{
   name?: string
 }>
 
-type ProvidedScope = PropsWithChildren<{ scope: ScopedStore }>
+type ProvidedScope = PropsWithChildren<{ scope: Store }>
 
 export function ScopeProvider(
   props: {
@@ -29,7 +28,7 @@ export function ScopeProvider(
 ): React.JSX.Element
 
 export function ScopeProvider(
-  props: PropsWithChildren<{ scope: ScopedStore }>
+  props: PropsWithChildren<{ scope: Store }>
 ): React.JSX.Element
 
 export function ScopeProvider(props: BaseProps | ProvidedScope) {
