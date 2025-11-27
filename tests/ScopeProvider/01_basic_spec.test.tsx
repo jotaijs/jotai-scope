@@ -13,7 +13,6 @@ import {
   getTextContents,
   printAtomState,
   storeGet,
-  trackAtomStateMap,
 } from '../utils'
 
 describe('Counter', () => {
@@ -480,7 +479,6 @@ describe('Counter', () => {
     }
 
     const s = getScopes()
-    trackAtomStateMap(s[0])
     /*
       S0[]: b0, c0, d0(b0 + c0)
       S1[b]: b1, c0, d0(b1 + c0)
@@ -497,7 +495,6 @@ describe('Counter', () => {
         c: v=0
       --------------------
     `)
-    console.log('set d in S0')
     s[0].set(d)
     /*
       1. set d

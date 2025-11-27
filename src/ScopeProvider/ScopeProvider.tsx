@@ -3,10 +3,9 @@ import { createElement, useEffect, useState } from 'react'
 import { Provider, useStore } from 'jotai/react'
 import { useHydrateAtoms } from 'jotai/utils'
 import { INTERNAL_Store as Store } from 'jotai/vanilla/internals'
-import type { AnyAtom, AnyAtomFamily, AtomDefault, ScopedStore } from '../types'
-import { storeScopeMap } from '../types'
+import type { AnyAtom, AnyAtomFamily, AtomDefault } from '../types'
 import { isEqualSize } from '../utils'
-import { createScope } from './scope'
+import { cleanup, createScope, storeScopeMap } from './scope'
 
 type BaseProps = PropsWithChildren<{
   atoms?: Iterable<AnyAtom | AtomDefault>
@@ -14,7 +13,7 @@ type BaseProps = PropsWithChildren<{
   name?: string
 }>
 
-type ProvidedScope = PropsWithChildren<{ scope: ScopedStore }>
+type ProvidedScope = PropsWithChildren<{ scope: Store }>
 
 export function ScopeProvider(
   props: {
@@ -29,7 +28,7 @@ export function ScopeProvider(
 ): React.JSX.Element
 
 export function ScopeProvider(
-  props: PropsWithChildren<{ scope: ScopedStore }>
+  props: PropsWithChildren<{ scope: Store }>
 ): React.JSX.Element
 
 export function ScopeProvider(props: BaseProps | ProvidedScope) {
@@ -64,13 +63,19 @@ export function ScopeProvider(props: BaseProps | ProvidedScope) {
 
   const [[store, hasChanged], setState] = useState(initialize)
   if (hasChanged({ atoms, atomFamilies, parentStore, providedScope })) {
-    storeScopeMap.get(store)?.cleanup()
+    const scope = storeScopeMap.get(store)
+    if (scope) cleanup(scope)
     setState(initialize)
   }
   useHydrateAtoms(
     Array.from(atomsOrTuples).filter(Array.isArray) as AtomDefault[],
     { store }
   )
-  useEffect(() => storeScopeMap.get(store)?.cleanup, [store])
+  useEffect(() => {
+    const scope = storeScopeMap.get(store)
+    return () => {
+      if (scope) cleanup(scope)
+    }
+  }, [store])
   return createElement(Provider, { store }, children)
 }

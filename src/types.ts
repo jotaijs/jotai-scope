@@ -6,65 +6,44 @@ import type {
 } from 'jotai/vanilla/internals'
 import type { AtomFamily } from 'jotai/vanilla/utils/atomFamily'
 
-export type ScopedStore = Store
-
 export type AnyAtom = Atom<any> | AnyWritableAtom
 
 export type AnyAtomFamily = AtomFamily<any, AnyAtom>
 
 export type AnyWritableAtom = WritableAtom<any, any[], any>
 
-export type Scope = {
-  /**
-   * Returns a scoped atom from the original atom.
-   * @param anAtom
-   * @param implicitScope the atom is implicitly scoped in the provided scope
-   * @returns the scoped atom and the scope of the atom
-   */
-  getAtom: <T extends AnyAtom>(anAtom: T, implicitScope?: Scope) => [T, Scope?]
+/** WeakMap-like, but each value must be [same A as key, Scope?] */
+export type AtomPairMap = {
+  set<A extends AnyAtom>(key: A, value: [A, Scope?]): AtomPairMap
+  get<A extends AnyAtom>(key: A): [A, Scope?] | undefined
+  has(key: AnyAtom): boolean
+  delete(key: AnyAtom): boolean
+}
 
-  /**
-   * Cleans up the scope
-   */
-  cleanup: () => void
+export interface ExplicitMap extends AtomPairMap {}
 
-  /**
-   * @modifies the atom's write function for atoms that can hold a value
-   * @returns a function to restore the original write function
-   */
-  prepareWriteAtom: <T extends AnyAtom>(
-    anAtom: T,
-    originalAtom: T,
-    implicitScope?: Scope,
-    writeScope?: Scope
-  ) => (() => void) | undefined
+export interface ImplicitMap extends AtomPairMap {}
 
-  /**
-   * The base store (unpatched) that this scope is built on
-   */
-  baseStore: Store
+export type InheritedSource = WeakMap<Scope | object, AtomPairMap>
 
-  /**
-   * @debug
-   */
+export type CleanupFamiliesSet = Set<() => void>
+
+export type Scope = [
+  explicitMap: ExplicitMap,
+  implicitMap: ImplicitMap,
+  inheritedSource: InheritedSource,
+  baseStore: Store,
+  parentScope: Scope | undefined,
+  cleanupFamiliesSet: CleanupFamiliesSet,
+  scopedStore: Store,
+] & {
+  /** @debug */
   name?: string
-
-  /**
-   * @debug
-   */
+  /** @debug */
   toString?: () => string
 }
 
-/**
- * WeakMap to store the scope associated with each scoped store
- */
-export const storeScopeMap = new WeakMap<Store, Scope>()
-
 export type AtomDefault = readonly [AnyWritableAtom, unknown]
-
-export type WithOriginal<T extends AnyAtom> = T & {
-  originalAtom: T
-}
 
 type Mutable<T> = { -readonly [P in keyof T]: T[P] }
 
