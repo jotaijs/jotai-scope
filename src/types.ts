@@ -30,6 +30,9 @@ export type CleanupFamiliesSet = Set<() => void>
 
 export interface DependentMap extends AtomPairMap {}
 
+/** Map of proxy atoms to the set of listeners subscribed in this scope */
+export type ScopeListenersMap = WeakMap<AnyAtom, Set<() => void>>
+
 export type Scope = [
   explicitMap: ExplicitMap, //               0
   implicitMap: ImplicitMap, //               1
@@ -39,6 +42,7 @@ export type Scope = [
   parentScope: Scope | undefined, //         5
   cleanupFamiliesSet: CleanupFamiliesSet, // 6
   scopedStore: Store, //                     7
+  scopeListenersMap: ScopeListenersMap, //   8
 ] & {
   /** @debug */
   name?: string
@@ -59,7 +63,4 @@ export type WeakSetForAtoms = ChangedAtoms
 export type WeakMapForAtoms = {
   get(atom: AnyAtom): any
   set(atom: AnyAtom, value: any): void
-} & (
-  | { has(atom: AnyAtom): boolean; delete(atom: AnyAtom): void }
-  | Record<never, never>
-)
+} & ({ has(atom: AnyAtom): boolean; delete(atom: AnyAtom): void } | Record<never, never>)
