@@ -420,9 +420,10 @@ function createMultiStableAtom<T>(
 
   if (isWritableAtom(originalAtom)) {
     const writableProxy = proxyAtom as AnyWritableAtom
-    writableProxy.write = function proxyWrite(get, set, ...args) {
+    writableProxy.write = function proxyWrite(_get, _set, ...args) {
       const writableTarget = proxyState.toAtom as AnyWritableAtom
-      return proxyWriteAtomState(baseStore, writableTarget, get, set, ...args)
+      // Don't pass _get/_set - proxyWriteAtomState creates its own scoped getter/setter
+      return proxyWriteAtomState(baseStore, writableTarget, ...args)
     }
   }
 

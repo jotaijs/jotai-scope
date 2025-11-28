@@ -25,7 +25,7 @@ describe('open issues', () => {
     S0[_]: a0, b0, c0(a0 & b0)
     S1[b]: a0, b1, c0|c1(a0 & b1)
   */
-  it.skip('unscoped derived can change to dependent scoped and back', () => {
+  it.only('unscoped derived can change to dependent scoped and back', () => {
     const a = atom('unscoped_0')
     a.debugLabel = 'a'
     const b = atom(0)
