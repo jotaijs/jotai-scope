@@ -29,12 +29,7 @@ import type {
   WeakMapForAtoms,
   WeakSetForAtoms,
 } from '../types'
-import {
-  isCustomWrite,
-  isDerived,
-  isWritableAtom,
-  toNameString,
-} from '../utils'
+import { isCustomWrite, isDerived, isWritableAtom, toNameString } from '../utils'
 
 /** WeakMap to store the scope associated with each scoped store */
 export const storeScopeMap = new WeakMap<Store, Scope>()
@@ -98,18 +93,8 @@ export function getAtom<T>(
     const [
       ancestorAtom,
       ancestorScope, //
-    ] = parentScope
-      ? getAtom(
-          parentScope,
-          atom,
-          implicitScope,
-          cloneAtomFn,
-          createMultiStableAtomFn
-        )
-      : [atom]
-    const inheritedClone = isDerived(atom)
-      ? createMultiStableAtomFn(atom, ancestorScope)
-      : ancestorAtom
+    ] = parentScope ? getAtom(parentScope, atom, implicitScope, cloneAtomFn, createMultiStableAtomFn) : [atom]
+    const inheritedClone = isDerived(atom) ? createMultiStableAtomFn(atom, ancestorScope) : ancestorAtom
     inheritedEntry = [inheritedClone, ancestorScope]
     inheritedMap.set(atom, inheritedEntry)
   }
@@ -237,13 +222,7 @@ function createScopedWrite<T extends AnyWritableAtom>(
   return function scopedWrite(get, set, ...args) {
     return write(
       createScopedGet(getAtomFn, get, implicitScope),
-      createScopedSet(
-        getAtomFn,
-        prepareWriteAtomFn,
-        set,
-        implicitScope,
-        writeScope
-      ),
+      createScopedSet(getAtomFn, prepareWriteAtomFn, set, implicitScope, writeScope),
       ...args
     )
   }
@@ -285,11 +264,7 @@ function cloneAtom<T>(
     )
   }
 
-  if (
-    isWritableAtom(scopedAtom) &&
-    isWritableAtom(originalAtom) &&
-    isCustomWrite(scopedAtom)
-  ) {
+  if (isWritableAtom(scopedAtom) && isWritableAtom(originalAtom) && isCustomWrite(scopedAtom)) {
     scopedAtom.write = createScopedWrite(
       getAtomFn,
       prepareWriteAtomFn,
@@ -366,19 +341,13 @@ function createMultiStableAtom<T>(
       ...(Object.assign([...buildingBlocks], {
         7: ((store, _atom, get, options) => {
           const targetAtom = proxyState.toAtom
-          const getter = proxyState.isScoped
-            ? createScopedGet(getAtomFn, get)
-            : get
+          const getter = proxyState.isScoped ? createScopedGet(getAtomFn, get) : get
           return atomRead(store, targetAtom, getter, options)
         }) as AtomRead,
         8: ((store, _atom, get, set, ...args) => {
           const targetAtom = proxyState.toAtom as AnyWritableAtom
-          const getter = proxyState.isScoped
-            ? createScopedGet(getAtomFn, get)
-            : get
-          const setter = proxyState.isScoped
-            ? createScopedSet(getAtomFn, prepareWriteAtomFn, set, implicitScope)
-            : set
+          const getter = proxyState.isScoped ? createScopedGet(getAtomFn, get) : get
+          const setter = proxyState.isScoped ? createScopedSet(getAtomFn, prepareWriteAtomFn, set, implicitScope) : set
           return atomWrite(store, targetAtom, getter, setter, ...args)
         }) as AtomWrite,
       }) as Partial<BuildingBlocks>)
@@ -424,10 +393,7 @@ function createMultiStableAtom<T>(
       return false
     }
     // if dependencies are the same, it is unscoped
-    if (
-      dependencies.length === original.d.size &&
-      dependencies.every((a) => original.d.has(a))
-    ) {
+    if (dependencies.length === original.d.size && dependencies.every((a) => original.d.has(a))) {
       return false
     }
     return true
@@ -457,9 +423,7 @@ function createMultiStableAtom<T>(
       return proxyState.isScoped ? scopedStore : baseStore
     },
     get isInitialized() {
-      return (_isInitialized ||=
-        !!atomStateMap.get(proxyAtom) &&
-        isAtomStateInitialized(atomStateMap.get(proxyAtom)!))
+      return (_isInitialized ||= !!atomStateMap.get(proxyAtom) && isAtomStateInitialized(atomStateMap.get(proxyAtom)!))
     },
   }
 
@@ -602,17 +566,8 @@ export function createScope(props: CreateScopeProps): Store {
   const cleanupFamiliesSet = scope[6]
 
   // Bound functions for use in callbacks
-  const getAtomBound = <T extends AnyAtom>(
-    atom: T,
-    implicitScope?: Scope
-  ): [T, Scope?] =>
-    getAtom(
-      scope,
-      atom,
-      implicitScope,
-      cloneAtomBound,
-      createMultiStableAtomBound
-    ) as [T, Scope?]
+  const getAtomBound = <T extends AnyAtom>(atom: T, implicitScope?: Scope): [T, Scope?] =>
+    getAtom(scope, atom, implicitScope, cloneAtomBound, createMultiStableAtomBound) as [T, Scope?]
 
   const prepareWriteAtomBound = <T extends AnyAtom>(
     atom: T,
@@ -620,57 +575,23 @@ export function createScope(props: CreateScopeProps): Store {
     implicitScope?: Scope,
     writeScope?: Scope
   ): (() => void) | undefined =>
-    prepareWriteAtom(
-      scope,
-      atom,
-      originalAtom,
-      implicitScope,
-      writeScope,
-      createScopedWriteBound
-    )
+    prepareWriteAtom(scope, atom, originalAtom, implicitScope, writeScope, createScopedWriteBound)
 
   const isScopedBound = (atom: AnyAtom) => isScoped(scope, atom)
 
   const cloneAtomBound = <T>(originalAtom: Atom<T>, implicitScope?: Scope) =>
-    cloneAtom(
-      scope,
-      originalAtom,
-      implicitScope,
-      getAtomBound,
-      prepareWriteAtomBound
-    )
+    cloneAtom(scope, originalAtom, implicitScope, getAtomBound, prepareWriteAtomBound)
 
-  const createMultiStableAtomBound = <T>(
-    originalAtom: Atom<T>,
-    implicitScope?: Scope
-  ) =>
-    createMultiStableAtom(
-      scope,
-      originalAtom,
-      implicitScope,
-      getAtomBound,
-      prepareWriteAtomBound,
-      isScopedBound
-    )
+  const createMultiStableAtomBound = <T>(originalAtom: Atom<T>, implicitScope?: Scope) =>
+    createMultiStableAtom(scope, originalAtom, implicitScope, getAtomBound, prepareWriteAtomBound, isScopedBound)
 
   const createScopedWriteBound = <T extends AnyWritableAtom>(
     write: T['write'],
     implicitScope?: Scope,
     writeScope = implicitScope
-  ): T['write'] =>
-    createScopedWrite(
-      getAtomBound,
-      prepareWriteAtomBound,
-      write,
-      implicitScope,
-      writeScope
-    )
+  ): T['write'] => createScopedWrite(getAtomBound, prepareWriteAtomBound, write, implicitScope, writeScope)
 
-  const scopedStore = createPatchedStore(
-    scope,
-    getAtomBound,
-    prepareWriteAtomBound
-  )
+  const scopedStore = createPatchedStore(scope, getAtomBound, prepareWriteAtomBound)
   scope[7] = scopedStore
   Object.assign(scopedStore, { name: scopeName })
   storeScopeMap.set(scopedStore, scope)
@@ -724,8 +645,7 @@ function createPatchedStore(
   const storeSub = storeState[23]
   const alreadyPatched: StoreHooks = {}
 
-  storeState[9] = (_: Store, atom: AnyAtom) =>
-    atom.unstable_onInit?.(scopedStore)
+  storeState[9] = (_: Store, atom: AnyAtom) => atom.unstable_onInit?.(scopedStore)
   storeState[21] = patchStoreFn(storeGet)
   storeState[22] = scopedSet
   storeState[23] = patchStoreFn(storeSub)
@@ -860,10 +780,7 @@ function createPatchedStore(
     }
   }
 
-  function patchAtomFn<T extends (...args: any[]) => any>(
-    fn: T,
-    patch?: (fn: T) => T
-  ) {
+  function patchAtomFn<T extends (...args: any[]) => any>(fn: T, patch?: (fn: T) => T) {
     return function scopedAtomFn(atom, ...args) {
       const [scopedAtom] = getAtomFn(atom)
       const f = patch ? patch(fn) : fn
@@ -871,10 +788,7 @@ function createPatchedStore(
     } as T
   }
 
-  function patchStoreFn<T extends (...args: any[]) => any>(
-    fn: T,
-    patch?: (fn: T) => T
-  ) {
+  function patchStoreFn<T extends (...args: any[]) => any>(fn: T, patch?: (fn: T) => T) {
     return function scopedStoreFn(store, atom, ...args) {
       const [scopedAtom] = getAtomFn(atom)
       const f = patch ? patch(fn) : fn
@@ -882,10 +796,7 @@ function createPatchedStore(
     } as T
   }
 
-  function patchWeakMap<T extends WeakMapForAtoms>(
-    wm: T,
-    patch?: (fn: T['get']) => T['get']
-  ): T {
+  function patchWeakMap<T extends WeakMapForAtoms>(wm: T, patch?: (fn: T['get']) => T['get']): T {
     const patchedWm: any = {
       get: patchAtomFn(wm.get.bind(wm), patch),
       set: patchAtomFn(wm.set.bind(wm)),
