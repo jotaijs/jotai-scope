@@ -24,7 +24,6 @@ export function createDebugStore(name: string = `S0`): DebugStore {
 
   storeHooks.i.add(undefined, (atom) => {
     const label = getAtomLabel(atom)
-    console.log({ atom })
     atom.toString = function toString() {
       return label
     }

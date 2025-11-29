@@ -1,8 +1,5 @@
 import chalk from 'chalk'
-import type {
-  INTERNAL_Mounted as Mounted,
-  INTERNAL_Store as Store,
-} from 'jotai/vanilla/internals'
+import type { INTERNAL_Mounted as Mounted, INTERNAL_Store as Store } from 'jotai/vanilla/internals'
 import { INTERNAL_getBuildingBlocksRev2 as getBuildingBlocks } from 'jotai/vanilla/internals'
 import { AnyAtom } from 'src/types'
 import { createDiffer } from './diff'
@@ -10,17 +7,9 @@ import { createDiffer } from './diff'
 const mountedDiffer = createDiffer()
 
 type MountedChangeEvent = 'l' | 'd' | 't' | 'u'
-type MountedChangeCallback = (
-  event: MountedChangeEvent,
-  atom: AnyAtom,
-  mounted: Mounted
-) => void
+type MountedChangeCallback = (event: MountedChangeEvent, atom: AnyAtom, mounted: Mounted) => void
 
-function createMountedWrapper(
-  atom: AnyAtom,
-  mounted: Mounted,
-  onChange: MountedChangeCallback
-): Mounted {
+function createMountedWrapper(atom: AnyAtom, mounted: Mounted, onChange: MountedChangeCallback): Mounted {
   function wrapSet<T>(original: Set<T>, event: MountedChangeEvent): Set<T> {
     const wrapped = new Set(original)
     const originalAdd = wrapped.add.bind(wrapped)
@@ -70,11 +59,7 @@ function createMountedWrapper(
   return wrappedMounted
 }
 
-function _printMountedMap(
-  store: Store,
-  highlightAtom?: AnyAtom,
-  highlightField?: MountedChangeEvent
-) {
+function _printMountedMap(store: Store, highlightAtom?: AnyAtom, highlightField?: MountedChangeEvent) {
   const buildingBlocks = getBuildingBlocks(store)
   if (buildingBlocks[1] instanceof WeakMap) {
     throw new Error('Cannot print mountedMap, store must be debug store')
@@ -90,8 +75,7 @@ function _printMountedMap(
   }
 
   function formatSet(set: Set<unknown>, isBold: boolean): string {
-    const items =
-      set.size === 0 ? 'undefined' : Array.from(set, formatItem).join(',')
+    const items = set.size === 0 ? 'undefined' : Array.from(set, formatItem).join(',')
     return isBold ? chalk.bold(items) : items
   }
 
@@ -110,21 +94,14 @@ function _printMountedMap(
 }
 
 type PrintMountedMapFn = {
-  (
-    store: Store,
-    highlightAtom?: AnyAtom,
-    highlightField?: MountedChangeEvent
-  ): string
+  (store: Store, highlightAtom?: AnyAtom, highlightField?: MountedChangeEvent): string
   diff: (store: Store) => string
   clearDiff: () => void
 }
 
 export const printMountedMap: PrintMountedMapFn = Object.assign(
-  (
-    store: Store,
-    highlightAtom?: AnyAtom,
-    highlightField?: MountedChangeEvent
-  ) => _printMountedMap(store, highlightAtom, highlightField),
+  (store: Store, highlightAtom?: AnyAtom, highlightField?: MountedChangeEvent) =>
+    _printMountedMap(store, highlightAtom, highlightField),
   {
     diff: (store: Store) => mountedDiffer(_printMountedMap(store)),
     clearDiff: () => {

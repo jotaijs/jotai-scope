@@ -26,10 +26,7 @@ function renderWithOrder(level1: 'BD' | 'DB', level2: 'BD' | 'DB') {
       <>
         <div>
           base: <span className={`${level} base`}>{base}</span>
-          <button
-            type="button"
-            className={`${level} setBase`}
-            onClick={increaseBase}>
+          <button type="button" className={`${level} setBase`} onClick={increaseBase}>
             +
           </button>
         </div>
@@ -47,10 +44,7 @@ function renderWithOrder(level1: 'BD' | 'DB', level2: 'BD' | 'DB') {
       <>
         <div>
           base:<span className={`${level} base`}>{base}</span>
-          <button
-            type="button"
-            className={`${level} setBase`}
-            onClick={increaseBase}>
+          <button type="button" className={`${level} setBase`} onClick={increaseBase}>
             +
           </button>
         </div>
@@ -60,10 +54,7 @@ function renderWithOrder(level1: 'BD' | 'DB', level2: 'BD' | 'DB') {
       </>
     )
   }
-  function App(props: {
-    Level1Counter: FC<{ level: string }>
-    Level2Counter: FC<{ level: string }>
-  }) {
+  function App(props: { Level1Counter: FC<{ level: string }>; Level2Counter: FC<{ level: string }> }) {
     const { Level1Counter, Level2Counter } = props
     return (
       <div>
@@ -83,12 +74,7 @@ function renderWithOrder(level1: 'BD' | 'DB', level2: 'BD' | 'DB') {
   function getCounter(order: 'BD' | 'DB') {
     return order === 'BD' ? BaseThenDerived : DerivedThenBase
   }
-  return render(
-    <App
-      Level1Counter={getCounter(level1)}
-      Level2Counter={getCounter(level2)}
-    />
-  )
+  return render(<App Level1Counter={getCounter(level1)} Level2Counter={getCounter(level2)} />)
 }
 
 /*
@@ -106,12 +92,7 @@ describe('Implicit parent does not affect unscoped', () => {
   test.each(cases)('level 1: %p and level 2: %p', (level1, level2) => {
     const { container } = renderWithOrder(level1, level2)
     const increaseLayer2Base = '.layer2.setBase'
-    const selectors = [
-      '.layer1.base',
-      '.layer1.derived',
-      '.layer2.base',
-      '.layer2.derived',
-    ]
+    const selectors = ['.layer1.base', '.layer1.derived', '.layer2.base', '.layer2.derived']
 
     expect(getTextContents(container, selectors).join('')).toEqual('0000')
 

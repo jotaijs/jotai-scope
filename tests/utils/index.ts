@@ -9,10 +9,7 @@ export { printMountedMap, trackMountedMap } from './mounted'
 export { createDiffer } from './diff'
 export { leftpad } from './leftpad'
 
-function getElements(
-  container: HTMLElement,
-  querySelectors: string[]
-): Element[] {
+function getElements(container: HTMLElement, querySelectors: string[]): Element[] {
   return querySelectors.map((querySelector) => {
     const element = container.querySelector(querySelector)
     if (!element) {
@@ -22,13 +19,8 @@ function getElements(
   })
 }
 
-export function getTextContents(
-  container: HTMLElement,
-  selectors: string[]
-): string[] {
-  return getElements(container, selectors).map(
-    (element) => element.textContent!
-  )
+export function getTextContents(container: HTMLElement, selectors: string[]): string[] {
+  return getElements(container, selectors).map((element) => element.textContent!)
 }
 
 export function clickButton(container: HTMLElement, querySelector: string) {
@@ -52,11 +44,7 @@ export function delay(ms: number) {
  * ]
  * ```
  */
-export function cross<
-  A extends readonly unknown[],
-  B extends readonly unknown[],
-  R,
->(
+export function cross<A extends readonly unknown[], B extends readonly unknown[], R>(
   a: A,
   b: B,
   fn: (a: A[number], b: B[number]) => R

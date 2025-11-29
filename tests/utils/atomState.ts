@@ -52,15 +52,12 @@ type PrintAtomStateFn = {
   clearDiff: () => void
 }
 
-export const printAtomState: PrintAtomStateFn = Object.assign(
-  (store: Store) => _printAtomState(store),
-  {
-    diff: (store: Store) => atomStateDiffer(_printAtomState(store)),
-    clearDiff: () => {
-      atomStateDiffer.previous = null
-    },
-  }
-)
+export const printAtomState: PrintAtomStateFn = Object.assign((store: Store) => _printAtomState(store), {
+  diff: (store: Store) => atomStateDiffer(_printAtomState(store)),
+  clearDiff: () => {
+    atomStateDiffer.previous = null
+  },
+})
 
 export function trackAtomStateMap(store: Store) {
   const buildingBlocks = getBuildingBlocks(store)

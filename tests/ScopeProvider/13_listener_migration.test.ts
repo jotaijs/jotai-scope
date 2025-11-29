@@ -40,14 +40,9 @@ describe('listener migration', () => {
     console.log('after subscribeAll')
 
     // Add a specific listener to c in S1
-    const listener = vi.fn(() =>
-      console.log('listener called! callCount:', listener.mock.calls.length + 1)
-    )
+    const listener = vi.fn(() => console.log('listener called! callCount:', listener.mock.calls.length + 1))
     const unsub = s1.sub(c, listener)
-    console.log(
-      'after s1.sub(c), listener callCount:',
-      listener.mock.calls.length
-    )
+    console.log('after s1.sub(c), listener callCount:', listener.mock.calls.length)
     listener.mockClear()
     cReadCount.mockClear()
 

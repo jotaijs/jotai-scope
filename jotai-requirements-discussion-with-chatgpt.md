@@ -1683,10 +1683,7 @@ You like the idea – cool; here’s how I’d shape it.
 Something like:
 
 ```ts
-function markDependent<A extends AnyAtom>(
-  atom: A,
-  deps: ReadonlyArray<AnyAtom>
-): A
+function markDependent<A extends AnyAtom>(atom: A, deps: ReadonlyArray<AnyAtom>): A
 ```
 
 Usage:

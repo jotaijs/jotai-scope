@@ -17,10 +17,7 @@ describe('ScopeProvider', () => {
       return (
         <>
           <div>
-            <button
-              className="mount"
-              type="button"
-              onClick={() => setIsMounted((t) => !t)}>
+            <button className="mount" type="button" onClick={() => setIsMounted((t) => !t)}>
               Mount
             </button>
           </div>

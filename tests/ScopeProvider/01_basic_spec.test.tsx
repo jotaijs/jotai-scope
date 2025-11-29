@@ -30,10 +30,7 @@ describe('Counter', () => {
       return (
         <div>
           base:<span className={`${level} base`}>{base}</span>
-          <button
-            className={`${level} setBase`}
-            type="button"
-            onClick={() => increaseBase((c) => c + 1)}>
+          <button className={`${level} setBase`} type="button" onClick={() => increaseBase((c) => c + 1)}>
             increase
           </button>
         </div>
@@ -120,10 +117,7 @@ describe('Counter', () => {
       return (
         <div>
           base:<span className={`${level} base`}>{base}</span>
-          <button
-            className={`${level} setBase`}
-            type="button"
-            onClick={() => increaseBase((c) => c + 1)}>
+          <button className={`${level} setBase`} type="button" onClick={() => increaseBase((c) => c + 1)}>
             increase
           </button>
         </div>
@@ -218,10 +212,7 @@ describe('Counter', () => {
           base:<span className={`${level} base`}>{derived.base}</span>
           not scoped:
           <span className={`${level} notScoped`}>{derived.notScoped}</span>
-          <button
-            className={`${level} setBase`}
-            type="button"
-            onClick={increaseBase}>
+          <button className={`${level} setBase`} type="button" onClick={increaseBase}>
             increase
           </button>
         </div>
@@ -231,10 +222,7 @@ describe('Counter', () => {
     function IncreaseUnscoped() {
       const increaseNotScoped = useSetAtom(notScopedAtom)
       return (
-        <button
-          type="button"
-          onClick={increaseNotScoped}
-          className="increaseNotScoped">
+        <button type="button" onClick={increaseNotScoped} className="increaseNotScoped">
           increase unscoped
         </button>
       )
@@ -257,11 +245,7 @@ describe('Counter', () => {
     const increaseUnscopedBase = '.level0.setBase'
     const increaseScopedBase = '.level1.setBase'
     const increaseNotScoped = '.increaseNotScoped'
-    const atomValueSelectors = [
-      '.level0.base',
-      '.level1.base',
-      '.level1.notScoped',
-    ]
+    const atomValueSelectors = ['.level0.base', '.level1.base', '.level1.notScoped']
 
     expect(getTextContents(container, atomValueSelectors)).toEqual([
       '0', // level0 base
@@ -382,10 +366,7 @@ describe('Counter', () => {
       return (
         <div>
           base:<span className={`${level} base`}>{base}</span>
-          <button
-            className={`${level} setBase`}
-            type="button"
-            onClick={() => increaseBase()}>
+          <button className={`${level} setBase`} type="button" onClick={() => increaseBase()}>
             increase
           </button>
         </div>
@@ -413,32 +394,16 @@ describe('Counter', () => {
     const increaseDoubleScopedBase = '.level2.setBase'
     const atomValueSelectors = ['.level0.base', '.level1.base', '.level2.base']
 
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '0',
-      '0',
-      '0',
-    ])
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['0', '0', '0'])
 
     clickButton(container, increaseUnscopedBase)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '1',
-      '0',
-      '0',
-    ])
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['1', '0', '0'])
 
     clickButton(container, increaseScopedBase)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '1',
-      '1',
-      '0',
-    ])
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['1', '1', '0'])
 
     clickButton(container, increaseDoubleScopedBase)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '1',
-      '1',
-      '1',
-    ])
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['1', '1', '1'])
   })
 
   /*
@@ -541,9 +506,7 @@ describe('Counter', () => {
       s2.sub(c, () => {})
       s2.sub(d, () => {})
       fn?.(s)
-      return s
-        .map((sx) => [sx.get(a), sx.get(b), sx.get(c), ...sx.get(d)].join(''))
-        .join('|')
+      return s.map((sx) => [sx.get(a), sx.get(b), sx.get(c), ...sx.get(d)].join('')).join('|')
     }
     expect(when((s) => s[0].set(a))).toBe('100100|100100|100100')
     expect(when((s) => s[1].set(b))).toBe('000000|010010|010010')
@@ -583,10 +546,7 @@ describe('Counter', () => {
         <div>
           baseA:<span className={`${level} baseA`}>{baseA}</span>
           baseB:<span className={`${level} baseB`}>{baseB}</span>
-          <button
-            className={`${level} increaseAll`}
-            type="button"
-            onClick={increaseAll}>
+          <button className={`${level} increaseAll`} type="button" onClick={increaseAll}>
             increase all
           </button>
         </div>
@@ -611,12 +571,7 @@ describe('Counter', () => {
 
     const increaseLevel1All = '.level1.increaseAll'
     const increaseLevel2All = '.level2.increaseAll'
-    const atomValueSelectors = [
-      '.level1.baseA',
-      '.level1.baseB',
-      '.level2.baseA',
-      '.level2.baseB',
-    ]
+    const atomValueSelectors = ['.level1.baseA', '.level1.baseB', '.level2.baseA', '.level2.baseB']
 
     /*
       baseA, baseB, derived(baseA + baseB)

@@ -4,4 +4,3 @@ export function leftpad(str: string, pad: string = '  '): string {
     .map((line) => pad + line)
     .join('\n')
 }
-
