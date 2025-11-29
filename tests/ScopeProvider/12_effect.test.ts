@@ -14,22 +14,22 @@ describe('atomEffect', () => {
     We want proxyAtom to not have its own state. So should purely be a router.
     It calls atom read and write directly.
 
-    _c is c or c@S1, NOT _c depends on c or c@S1.
+    c_ is c or c@S1, NOT c_ depends on c or c@S1.
 
     unscoped:
-      ensureAtomState(Sx, _c@S1) -> ensureAtomState(S0, c)
-      readAtomState(Sx, _c@S1) -> readAtomState(S0, c)
-      onInit(Sx, _c@S1) -> onInit(S0, c)
-      scope.getAtom(Sx, c) -> _c@S1
+      ensureAtomState(Sx, c_@S1) -> ensureAtomState(S0, c)
+      readAtomState(Sx, c_@S1) -> readAtomState(S0, c)
+      onInit(Sx, c_@S1) -> onInit(S0, c)
+      scope.getAtom(Sx, c) -> c_@S1
 
     scoped:
-      ensureAtomState(Sx, _c@S1) -> ensureAtomState(S1, c@S1)
-      readAtomState(Sx, _c@S1) -> readAtomState(S1, c@S1)
-      onInit(Sx, _c@S1) -> onInit(S1, c@S1)
-      scope.getAtom(Sx, c) -> _c@S1
+      ensureAtomState(Sx, c_@S1) -> ensureAtomState(S1, c@S1)
+      readAtomState(Sx, c_@S1) -> readAtomState(S1, c@S1)
+      onInit(Sx, c_@S1) -> onInit(S1, c@S1)
+      scope.getAtom(Sx, c) -> c_@S1
 
     disallowed:
-      scope.getAtom(Sx, _c@S1) -> throws
+      scope.getAtom(Sx, c_@S1) -> throws
 
     S0[_]: a0, b0, c0(a0 & b0)
     S1[b]: a0, b1, c1(a0 & b1)
@@ -40,7 +40,7 @@ describe('atomEffect', () => {
       c: v=undefined
         a: v=unscoped_0
       b@S1: v=0
-      _c@S1: v=undefined
+      c_@S1: v=undefined
         c: v=undefined
           a: v=unscoped_0
 

@@ -23,7 +23,7 @@ describe('open issues', () => {
 
   /*
     S0[_]: a0, b0, c0(a0 & b0)
-    S1[b]: a0, b1, c0|c1(a0 & b1)
+    S1[b]: a0, b1, c_(a0 & b1)
   */
   it.only('unscoped derived can change to dependent scoped and back', () => {
     const a = atom('unscoped_0')
@@ -72,14 +72,14 @@ describe('open issues', () => {
       c: v=undefined
         a: v=unscoped_0
       b@S1: v=0
-      _c@S1: v=undefined
+      c_@S1: v=undefined
         a: v=unscoped_0
     `)
     expect(cReadCount).toHaveBeenCalledTimes(1)
     cReadCount.mockClear()
 
-    printHeader("s[0].set(a, 'unscoped_1')", '_c@S1 recomputes but is still unscoped')
-    s[0].set(a, 'unscoped_1') // _c@S1 recomputes but is still unscoped
+    printHeader("s[0].set(a, 'unscoped_1')", 'c_@S1 recomputes but is still unscoped')
+    s[0].set(a, 'unscoped_1') // c_@S1 recomputes but is still unscoped
     printMountedDiff()
     expect(printAtomState(s[0])).toBe(dedent`
       a: v=unscoped_1
@@ -87,7 +87,7 @@ describe('open issues', () => {
       c: v=undefined
         a: v=unscoped_1
       b@S1: v=0
-      _c@S1: v=undefined
+      c_@S1: v=undefined
         a: v=unscoped_1
     `)
     expect(cReadCount).toHaveBeenCalledTimes(1)
@@ -103,7 +103,7 @@ describe('open issues', () => {
         a: v=scoped_2
         b: v=0
       b@S1: v=0
-      _c@S1: v=0
+      c_@S1: v=0
         a: v=scoped_2
         b@S1: v=0
       c@S1: v=0
@@ -123,7 +123,7 @@ describe('open issues', () => {
         a: v=scoped_2
         b: v=1
       b@S1: v=0
-      _c@S1: v=0
+      c_@S1: v=0
         a: v=scoped_2
         b@S1: v=0
       c@S1: v=0
@@ -143,7 +143,7 @@ describe('open issues', () => {
         a: v=scoped_2
         b: v=1
       b@S1: v=2
-      _c@S1: v=2
+      c_@S1: v=2
         a: v=scoped_2
         b@S1: v=2
       c@S1: v=2
@@ -162,7 +162,7 @@ describe('open issues', () => {
       c: v=undefined
         a: v=unscoped_3
       b@S1: v=2
-      _c@S1: v=undefined
+      c_@S1: v=undefined
         a: v=unscoped_3
       c@S1: v=2
         a: v=scoped_2
@@ -263,13 +263,13 @@ describe('open issues', () => {
       const listener1 = vi.fn()
       const unsub1 = s[1].sub(c, listener1)
 
-      // c should have a proxy atom (_c) that is tracked
+      // c should have a proxy atom (c_) that is tracked
       // Find the proxy atom in the scopeListenersMap
       let proxyAtom: AnyAtom | undefined
       const buildingBlocks = getBuildingBlocks(s[0])
       const mountedMap = buildingBlocks[1] as Map<AnyAtom, Mounted>
       for (const atom of mountedMap.keys()) {
-        if (atom.debugLabel?.startsWith('_c')) {
+        if (atom.debugLabel?.match(/^c_@/)) {
           proxyAtom = atom
           break
         }
@@ -320,8 +320,8 @@ describe('open issues', () => {
       - b: primitive atom, explicitly scoped in S1
       - c: derived atom, reads b only when a=true
 
-      When a=false: c is unscoped, _c proxies to c0
-      When a=true: c is dependent scoped, _c points to c1
+      When a=false: c is unscoped, c_ proxies to c0
+      When a=true: c is dependent scoped, c_ points to c1
     */
 
     // Helper to get mounted map and scope info
@@ -335,7 +335,7 @@ describe('open issues', () => {
       return { atomStateMap, mountedMap, storeHooks, scope, scopeListenersMap }
     }
 
-    // Helper to get proxy atom (_c@S1)
+    // Helper to get proxy atom (c_@S1)
     function getProxyAtom(s: ReturnType<typeof createScopes>, originalAtom: AnyAtom): AnyAtom {
       const { atomStateMap } = getTestContext(s)
       const proxyLabel = `_${originalAtom.debugLabel}@S1`
@@ -568,7 +568,7 @@ describe('open issues', () => {
         const buildingBlocks = getBuildingBlocks(s[0])
         const atomStateMap = buildingBlocks[0]
 
-        // Subscribe to c in S1 - this creates proxyAtom (_c@S1)
+        // Subscribe to c in S1 - this creates proxyAtom (c_@S1)
         const unsub = s[1].sub(c, () => {})
 
         // Transition to scoped by setting a=true
@@ -1067,7 +1067,7 @@ describe('open issues', () => {
     })
 
     describe('proxy atom identity', () => {
-      it.skip('_c.mounted aliases to c0.mounted when unscoped', () => {
+      it.skip('c_.mounted aliases to c0.mounted when unscoped', () => {
         const a = atom(false)
         a.debugLabel = 'a'
         const b = atom(0)
@@ -1081,14 +1081,14 @@ describe('open issues', () => {
         const listener1 = vi.fn()
         const unsub1 = s[1].sub(c, listener1)
 
-        const proxyC = [...mountedMap.keys()].find((a: AnyAtom) => a.debugLabel === '_c@S1')
+        const proxyC = [...mountedMap.keys()].find((a: AnyAtom) => a.debugLabel === 'c_@S1')
         expect(proxyC).toBeDefined()
         expect(mountedMap.get(proxyC!)).toBe(mountedMap.get(c))
 
         unsub1()
       })
 
-      it.skip('_c.mounted aliases to c1.mounted when scoped', () => {
+      it.skip('c_.mounted aliases to c1.mounted when scoped', () => {
         const a = atom(true) // Start scoped
         a.debugLabel = 'a'
         const b = atom(0)
@@ -1102,7 +1102,7 @@ describe('open issues', () => {
         const listener1 = vi.fn()
         const unsub1 = s[1].sub(c, listener1)
 
-        const proxyC = [...mountedMap.keys()].find((a: AnyAtom) => a.debugLabel === '_c@S1')
+        const proxyC = [...mountedMap.keys()].find((a: AnyAtom) => a.debugLabel === 'c_@S1')
         const c1 = [...mountedMap.keys()].find((a: AnyAtom) => a.debugLabel === 'c@S1')
         expect(proxyC).toBeDefined()
         expect(c1).toBeDefined()
@@ -1115,7 +1115,7 @@ describe('open issues', () => {
 
   /*
     S0[ ]: a0, b0, c0(a0 == true ? b0 : _)
-    S1[b]: a0, b1, _c(a0 == true ? b1 : _)
+    S1[b]: a0, b1, c_(a0 == true ? b1 : _)
 
     S0: subscriber0
     S1: subscriber1
@@ -1146,9 +1146,9 @@ describe('open issues', () => {
     const unsub1 = s[1].sub(c, function listener1() {})
 
     // Initially a=false, so c only reads a (not b)
-    // c is unscoped: _c proxies to c0, both listeners on c0
+    // c is unscoped: c_ proxies to c0, both listeners on c0
 
-    const proxyC = mountedMap.keys().find((a) => a.debugLabel === '_c')!
+    const proxyC = mountedMap.keys().find((a) => a.debugLabel === 'c_')!
     if (!proxyC) throw new Error('atom_C not found')
 
     expect(mountedMap.get(c)?.l.size).toBe(2)

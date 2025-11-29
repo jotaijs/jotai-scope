@@ -242,7 +242,7 @@ function cloneAtom<T>(
   ) => (() => void) | undefined
 ): Atom<T> {
   // TODO: Delete these checks
-  if (originalAtom.debugLabel?.startsWith('_')) {
+  if (originalAtom.debugLabel?.endsWith('_')) {
     throw new Error('Cannot clone proxy atom')
   }
   if (originalAtom.debugLabel?.includes('@')) {
@@ -304,7 +304,7 @@ function createMultiStableAtom<T>(
   isScopedFn: (atom: AnyAtom) => boolean
 ): Atom<T> {
   // TODO: Delete these checks
-  if (originalAtom.debugLabel?.startsWith('_')) {
+  if (originalAtom.debugLabel?.endsWith('_')) {
     throw new Error('Cannot clone proxy atom')
   }
   if (originalAtom.debugLabel?.includes('@')) {
@@ -793,7 +793,7 @@ function createMultiStableAtom<T>(
   if (__DEV__) {
     Object.defineProperty(proxyAtom, 'debugLabel', {
       get() {
-        return `_${originalAtom.debugLabel ?? String(originalAtom)}@${scope.name}`
+        return `${originalAtom.debugLabel ?? String(originalAtom)}_@${scope.name}`
       },
       configurable: true,
       enumerable: true,
