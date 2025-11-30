@@ -26,7 +26,7 @@ export interface ImplicitMap extends AtomPairMap {}
 
 export type InheritedSource = WeakMap<Scope | object, AtomPairMap>
 
-export type CleanupFamiliesSet = Set<() => void>
+export type CleanupListeners = Set<() => void>
 
 export interface DependentMap extends AtomPairMap {}
 
@@ -40,7 +40,7 @@ export type Scope = [
   inheritedSource: InheritedSource, //       3
   baseStore: Store, //                       4
   parentScope: Scope | undefined, //         5
-  cleanupFamiliesSet: CleanupFamiliesSet, // 6
+  cleanupListeners: CleanupListeners, // 6
   scopedStore: Store, //                     7
   scopeListenersMap: ScopeListenersMap, //   8
 ] & {

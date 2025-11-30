@@ -1,14 +1,15 @@
 import dedent from 'dedent'
 import { atom } from 'jotai'
 import { describe, expect, it, vi } from 'vitest'
-import { createScopes, leftpad, printAtomState, printMountedMap, subscribeAll, trackAtomStateMap } from '../utils'
 import chalk from 'chalk'
 import {
   INTERNAL_getBuildingBlocksRev2 as getBuildingBlocks,
   INTERNAL_Mounted as Mounted,
 } from 'jotai/vanilla/internals'
+import type { INTERNAL_Store as Store } from 'jotai/vanilla/internals'
 import { AnyAtom } from 'src/types'
 import { storeScopeMap } from '../../src/ScopeProvider/scope'
+import { createScopes, leftpad, printAtomState, printMountedMap, subscribeAll, trackAtomStateMap } from '../utils'
 
 describe('open issues', () => {
   // it('unscoped derived atom should not be recomputed when subscribed to in a child scope', () => {
@@ -43,29 +44,19 @@ describe('open issues', () => {
       }
     )
     c.debugLabel = 'c'
-    const s = createScopes([b])
-    trackAtomStateMap(s[0])
-    function printHeader(header: string, secondaryHeader?: string) {
-      console.log(
-        chalk.gray('-'.repeat(80)),
-        `\n${chalk.yellow(header)} ${secondaryHeader ? `${secondaryHeader}` : ''}\n`,
-        chalk.gray('-'.repeat(80))
-      )
-    }
-    printHeader('subscribeAll(s, [a, b, c])')
-    subscribeAll(s, [a, b, c])
-    console.log(`AtomState`)
-    console.log(leftpad(printAtomState.diff(s[0])))
-    function printMountedDiff() {
-      console.log(`MountedMap`)
-      console.log(leftpad(printMountedMap.diff(s[0])))
-    }
-    printMountedDiff()
-
-    /*
-      S0[_]: a0, b0, c0(a0 & b0)
-      S1[b]: a0, b1, c1(a0 & b1)
+    /**```
+      S0[_]: a0, b0, c0(a0 && b0)
+      S1[b]: a0, b1, c_(a0 && b0)
     */
+    const s = createScopes([b])
+
+    trackAtomStateMap(s[0])
+    printHeader('subscribeAll(s, [a, b, c])')
+
+    subscribeAll(s, [a, b, c])
+
+    printMountedDiff(s)
+
     expect(printAtomState(s[0])).toBe(dedent`
       a: v=unscoped_0
       b: v=0
@@ -80,7 +71,7 @@ describe('open issues', () => {
 
     printHeader("s[0].set(a, 'unscoped_1')", 'c_@S1 recomputes but is still unscoped')
     s[0].set(a, 'unscoped_1') // c_@S1 recomputes but is still unscoped
-    printMountedDiff()
+    printMountedDiff(s)
     expect(printAtomState(s[0])).toBe(dedent`
       a: v=unscoped_1
       b: v=0
@@ -95,7 +86,7 @@ describe('open issues', () => {
 
     printHeader("s[0].set(a, 'scoped_2')", 'c1 changes to dependent scoped')
     s[0].set(a, 'scoped_2') // c1 changes to dependent scoped
-    printMountedDiff()
+    printMountedDiff(s)
     expect(printAtomState(s[0])).toBe(dedent`
       a: v=scoped_2
       b: v=0
@@ -115,7 +106,7 @@ describe('open issues', () => {
 
     printHeader('s[0].set(c, 1)', 'c0 writes to b0')
     s[0].set(c, 1) // c0 writes to b0
-    printMountedDiff()
+    printMountedDiff(s)
     expect(printAtomState(s[0])).toBe(dedent`
       a: v=scoped_2
       b: v=1
@@ -135,7 +126,7 @@ describe('open issues', () => {
 
     printHeader('s[1].set(c, 2)', 'c1 is dependent scoped - so it writes to b1')
     s[1].set(c, 2) // c1 is dependent scoped - so it writes to b1
-    printMountedDiff()
+    printMountedDiff(s)
     expect(printAtomState(s[0])).toBe(dedent`
       a: v=scoped_2
       b: v=1
@@ -155,7 +146,7 @@ describe('open issues', () => {
 
     printHeader("s[1].set(a, 'unscoped_3')", 'changes c1 back to unscoped')
     s[1].set(a, 'unscoped_3') // changes c1 back to unscoped
-    printMountedDiff()
+    printMountedDiff(s)
     expect(printAtomState(s[0])).toBe(dedent`
       a: v=unscoped_3
       b: v=1
@@ -1210,3 +1201,19 @@ describe('open issues', () => {
     unsub1()
   })
 })
+
+function printHeader(header: string, secondaryHeader?: string) {
+  console.log(
+    chalk.gray('-'.repeat(80)),
+    `\n${chalk.yellow(header)} ${secondaryHeader ? `${secondaryHeader}` : ''}\n`,
+    chalk.gray('-'.repeat(80))
+  )
+}
+function printAtomStateDiff([store]: Store[]) {
+  console.log(`AtomState`)
+  console.log(leftpad(printAtomState.diff(store)))
+}
+function printMountedDiff([store]: Store[]) {
+  console.log(`MountedMap`)
+  console.log(leftpad(printMountedMap.diff(store)))
+}
