@@ -30,6 +30,7 @@ import type {
   WeakSetForAtoms,
 } from '../types'
 import { isCustomWrite, isDerived, isWritableAtom, toNameString } from '../utils'
+import chalk from 'chalk'
 
 /** WeakMap to store the scope associated with each scoped store */
 export const storeScopeMap = new WeakMap<Store, Scope>()
@@ -101,7 +102,6 @@ function createMultiStableAtom<T>(scope: Scope, originalAtom: Atom<T>, implicitS
   const dependentMap = scope[2]
   const baseStore = scope[4]
   const scopedStore = scope[7]
-  const scopeListenersMap = scope[8]
 
   const buildingBlocks = getBuildingBlocks(baseStore)
   const atomStateMap = buildingBlocks[0]
@@ -112,36 +112,36 @@ function createMultiStableAtom<T>(scope: Scope, originalAtom: Atom<T>, implicitS
   const atomWrite = buildingBlocks[8]
   const ensureAtomState = buildingBlocks[11]
   const readAtomState = buildingBlocks[14]
+  const writeAtomState = buildingBlocks[16]
   const mountAtom = buildingBlocks[18]
   const unmountAtom = buildingBlocks[19]
 
-  const { 14: proxyReadAtomState, 16: proxyWriteAtomState } = getBuildingBlocks(
-    buildStore(
-      ...(Object.assign([...buildingBlocks], {
-        /** reads as originalAtom when unscoped, scopedAtom when scoped */
-        7: function scopedAtomRead(store, toAtom, getter, options) {
-          const getter2 = proxyState.isScoped ? createScopedGet(scope, getter, implicitScope) : getter
-          return atomRead(store, toAtom, getter2, options)
-        } as AtomRead,
-        /** writes to originalAtom when unscoped, scopedAtom when scoped */
-        8: function scopedAtomWrite(store, toAtom, getter, setter, ...args) {
-          const getter2 = proxyState.isScoped ? createScopedGet(scope, getter, implicitScope) : getter
-          const setter2 = proxyState.isScoped ? createScopedSet(scope, setter, implicitScope) : setter
-          return atomWrite(store, toAtom, getter2, setter2, ...args)
-        } as AtomWrite,
-      }) as Partial<BuildingBlocks>)
-    )
+  const proxyStore = buildStore(
+    ...(Object.assign([...buildingBlocks], {
+      /** reads as originalAtom when unscoped, scopedAtom when scoped */
+      7: function scopedAtomRead(store, toAtom, getter, options) {
+        const getter2 = proxyState.isScoped ? createScopedGet(scope, getter, implicitScope) : getter
+        return atomRead(store, toAtom, getter2, options)
+      } as AtomRead,
+      /** writes to originalAtom when unscoped, scopedAtom when scoped */
+      8: function scopedAtomWrite(store, toAtom, getter, setter, ...args) {
+        const getter2 = proxyState.isScoped ? createScopedGet(scope, getter, implicitScope) : getter
+        const setter2 = proxyState.isScoped ? createScopedSet(scope, setter, implicitScope) : setter
+        return atomWrite(store, toAtom, getter2, setter2, ...args)
+      } as AtomWrite,
+    }) as Partial<BuildingBlocks>)
   )
 
   // This atom can either be the unscoped originalAtom or the scopedAtom depending on its dependencies.
   // It calls the originalAtom's read function as needed.
   const proxyAtom = {
     read: function proxyRead() {
+      console.log(chalk.bold.rgb(255, 165, 0)('proxyRead', proxyAtom.debugLabel))
       const classA = processScopeClassification()
-      let atomState = proxyReadAtomState(proxyState.store, proxyState.toAtom)
+      let atomState = readAtomState(proxyStore, proxyState.toAtom)
       const classB = processScopeClassification()
       if (classA !== classB) {
-        atomState = proxyReadAtomState(proxyState.store, proxyState.toAtom)
+        atomState = readAtomState(proxyStore, proxyState.toAtom)
       }
       // Sync proxyAtom in deps' mounted.t after each read
       syncProxyInDepMountedT()
@@ -150,7 +150,7 @@ function createMultiStableAtom<T>(scope: Scope, originalAtom: Atom<T>, implicitS
     ...(isWritableAtom(originalAtom)
       ? {
           write: function proxyWrite(_get, _set, ...args) {
-            return proxyWriteAtomState(baseStore, proxyState.toAtom as AnyWritableAtom, ...args)
+            return writeAtomState(proxyStore, proxyState.toAtom as AnyWritableAtom, ...args)
           } as (typeof originalAtom)['write'],
         }
       : {}),
@@ -255,7 +255,9 @@ function createMultiStableAtom<T>(scope: Scope, originalAtom: Atom<T>, implicitS
 
       // When toAtom is read/recomputed, check classification and sync deps
       storeHooks.r?.add(toAtom, () => {
-        processScopeClassification()
+        if (proxyState.isScoped !== processScopeClassification()) {
+          console.log(chalk.bold.rgb(255, 165, 0)('toAtom read recomputed classification change', toAtom.debugLabel))
+        }
         syncProxyInDepMountedT()
       }),
 
@@ -320,6 +322,9 @@ function createMultiStableAtom<T>(scope: Scope, originalAtom: Atom<T>, implicitS
       // Alias proxyAtom's atomState to toAtom's atomState
       const toAtomState = ensureAtomState(proxyState.store, proxyState.toAtom)
       atomStateMap.set(proxyAtom, toAtomState)
+      setupToAtomHooks(proxyState.toAtom)
+      syncProxyInDepMountedT()
+      changedAtoms.add(proxyAtom)
     }
 
     // Transfer listeners when classification changes
@@ -333,9 +338,6 @@ function createMultiStableAtom<T>(scope: Scope, originalAtom: Atom<T>, implicitS
       }
       // Move S1 listeners from fromAtom to toAtom
       transferListeners(proxyState.fromAtom, proxyState.toAtom)
-      setupToAtomHooks(proxyState.toAtom)
-      syncProxyInDepMountedT()
-      changedAtoms.add(proxyAtom)
     }
     return isScoped
   }
@@ -343,7 +345,7 @@ function createMultiStableAtom<T>(scope: Scope, originalAtom: Atom<T>, implicitS
   if (__DEV__) {
     Object.defineProperty(proxyAtom, 'debugLabel', {
       get() {
-        return `${originalAtom.debugLabel ?? String(originalAtom)}_@${scope.name}`
+        return `${originalAtom.debugLabel ?? String(originalAtom)}_@${scope.name}->${proxyState.toAtom.debugLabel}`
       },
       configurable: true,
       enumerable: true,

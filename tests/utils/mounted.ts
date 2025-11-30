@@ -59,7 +59,7 @@ function createMountedWrapper(atom: AnyAtom, mounted: Mounted, onChange: Mounted
   return wrappedMounted
 }
 
-function _printMountedMap(store: Store, highlightAtom?: AnyAtom, highlightField?: MountedChangeEvent) {
+function _printMountedMap(store: Store) {
   const buildingBlocks = getBuildingBlocks(store)
   if (buildingBlocks[1] instanceof WeakMap) {
     throw new Error('Cannot print mountedMap, store must be debug store')
@@ -74,19 +74,17 @@ function _printMountedMap(store: Store, highlightAtom?: AnyAtom, highlightField?
     return String(item)
   }
 
-  function formatSet(set: Set<unknown>, isBold: boolean): string {
-    const items = set.size === 0 ? 'undefined' : Array.from(set, formatItem).join(',')
-    return isBold ? chalk.bold(items) : items
+  function formatSet(set: Set<unknown>): string {
+    return set.size === 0 ? '[]' : Array.from(set, formatItem).join(',')
   }
 
   function printAtom(atom: AnyAtom) {
     const mounted = mountedMap.get(atom)
     if (!mounted) return
     const label = atom.debugLabel || String(atom)
-    const isHighlighted = atom === highlightAtom
-    const l = formatSet(mounted.l, isHighlighted && highlightField === 'l')
-    const d = formatSet(mounted.d, isHighlighted && highlightField === 'd')
-    const t = formatSet(mounted.t, isHighlighted && highlightField === 't')
+    const l = formatSet(mounted.l)
+    const d = formatSet(mounted.d)
+    const t = formatSet(mounted.t)
     result.push(`${label}: l=${l} d=${d} t=${t}`)
   }
   Array.from(mountedMap.keys(), printAtom)
@@ -94,21 +92,17 @@ function _printMountedMap(store: Store, highlightAtom?: AnyAtom, highlightField?
 }
 
 type PrintMountedMapFn = {
-  (store: Store, highlightAtom?: AnyAtom, highlightField?: MountedChangeEvent): string
+  (store: Store): string
   diff: (store: Store) => string
   clearDiff: () => void
 }
 
-export const printMountedMap: PrintMountedMapFn = Object.assign(
-  (store: Store, highlightAtom?: AnyAtom, highlightField?: MountedChangeEvent) =>
-    _printMountedMap(store, highlightAtom, highlightField),
-  {
-    diff: (store: Store) => mountedDiffer(_printMountedMap(store)),
-    clearDiff: () => {
-      mountedDiffer.previous = null
-    },
-  }
-)
+export const printMountedMap: PrintMountedMapFn = Object.assign((store: Store) => _printMountedMap(store), {
+  diff: (store: Store) => mountedDiffer(_printMountedMap(store)),
+  clearDiff: () => {
+    mountedDiffer.previous = null
+  },
+})
 
 export function trackMountedMap(store: Store) {
   const buildingBlocks = getBuildingBlocks(store)

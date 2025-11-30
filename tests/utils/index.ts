@@ -64,7 +64,7 @@ export function subscribeAll(stores: ReadonlyArray<Store>, atoms: AnyAtom[]) {
       store.sub(
         atom,
         new Function(
-          `return function ${(store as { name?: string }).name ?? 'Sx'}$${capitalize(getAtomLabel(atom))}(){}`
+          `return function ${getAtomLabel(atom)}$${(store as { name?: string }).name ?? 'Sx'}(){}`
         )() as () => void
       )
     )

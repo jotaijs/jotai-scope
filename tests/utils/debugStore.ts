@@ -13,7 +13,7 @@ type BuildingBlocks = Mutable<INTERNAL_BuildingBlocks>
 type DebugStore = Store & { name: string }
 
 export function getAtomLabel(atom: AnyAtom) {
-  return (atom.debugLabel ?? String(atom)).replace(/@S(\d+)$/, '$1').replace(/[^a-zA-Z0-9_]/g, '$')
+  return (atom.debugLabel ?? String(atom)).replace(/@S(\d+)(->\S+)?$/, '$1').replace(/[^a-zA-Z0-9_]/g, '$')
 }
 
 export function createDebugStore(name: string = `S0`): DebugStore {
@@ -24,6 +24,7 @@ export function createDebugStore(name: string = `S0`): DebugStore {
 
   storeHooks.i.add(undefined, (atom) => {
     const label = getAtomLabel(atom)
+    console.log('INITIALIZED', label)
     atom.toString = function toString() {
       return label
     }
