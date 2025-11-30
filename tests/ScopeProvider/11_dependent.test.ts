@@ -102,11 +102,6 @@ describe('open issues', () => {
     printHeader("s[0].set(a, 'scoped_2')", 'c1 changes to dependent scoped')
     s[0].set(a, 'scoped_2') // c1 changes to dependent scoped
     printMountedDiff(s)
-    // FIXME: c_@S1 does not become dependent scoped
-    // even though a is scoped_2
-    // Possibility 1: c_@S1 is not re-read
-    // Possibility 2: c_@S1 is not reclassified to dependent scoped
-    // Possibility 3: c_@S1 does not use scoped get to read b
     expect(printAtomState(s[0])).toBe(dedent`
       a: v=scoped_2
       b: v=0
@@ -122,12 +117,12 @@ describe('open issues', () => {
         b@S1: v=0
     `)
     expect(printMountedMap(s[0])).toBe(dedent`
-      a: l=a$S0,a$S1 d=[] t=c,c1,c_1
+      a: l=a$S0,a$S1 d=[] t=c,c_1,c1
       b: l=b$S0 d=[] t=c
       c: l=c$S0 d=a,b t=[]
       b@S1: l=b$S1 d=[] t=c1,c_1
-      c_@S1->c@S1: l=c$S1 d=a,b t=[]
-      c@S1: l=c$S1 d=a,b t=[]
+      c_@S1->c@S1: l=c$S1 d=a,b1 t=[]
+      c@S1: l=c$S1 d=a,b1 t=[]
     `)
     expect(cReadCount).toHaveBeenCalledTimes(2) // called for c0 and c1
     cReadCount.mockClear()
@@ -150,12 +145,12 @@ describe('open issues', () => {
         b@S1: v=0
     `)
     expect(printMountedMap(s[0])).toBe(dedent`
-      a: l=a$S0,a$S1 d=[] t=c,c1,c_1
+      a: l=a$S0,a$S1 d=[] t=c,c_1,c1
       b: l=b$S0 d=[] t=c
       c: l=c$S0 d=a,b t=[]
       b@S1: l=b$S1 d=[] t=c1,c_1
-      c_@S1->c@S1: l=c$S1 d=a,b t=[]
-      c@S1: l=c$S1 d=a,b t=[]
+      c_@S1->c@S1: l=c$S1 d=a,b1 t=[]
+      c@S1: l=c$S1 d=a,b1 t=[]
     `)
     expect(cReadCount).toHaveBeenCalledTimes(1) // called for c0
     cReadCount.mockClear()
@@ -178,12 +173,12 @@ describe('open issues', () => {
         b@S1: v=2
     `)
     expect(printMountedMap(s[0])).toBe(dedent`
-      a: l=a$S0,a$S1 d=[] t=c,c1,c_1
+      a: l=a$S0,a$S1 d=[] t=c,c_1,c1
       b: l=b$S0 d=[] t=c
       c: l=c$S0 d=a,b t=[]
       b@S1: l=b$S1 d=[] t=c1,c_1
-      c_@S1->c@S1: l=c$S1 d=a,b t=[]
-      c@S1: l=c$S1 d=a,b t=[]
+      c_@S1->c@S1: l=c$S1 d=a,b1 t=[]
+      c@S1: l=c$S1 d=a,b1 t=[]
     `)
     expect(cReadCount).toHaveBeenCalledTimes(1) // called for c1
     cReadCount.mockClear()
@@ -191,6 +186,13 @@ describe('open issues', () => {
     printHeader("s[1].set(a, 'unscoped_3')", 'changes c1 back to unscoped')
     s[1].set(a, 'unscoped_3') // changes c1 back to unscoped
     printMountedDiff(s)
+    expect(printMountedMap(s[0])).toBe(dedent`
+      a: l=a$S0,a$S1 d=[] t=c,c_1
+      b: l=b$S0 d=[] t=[]
+      c: l=c$S0,c$S1 d=a t=[]
+      b@S1: l=b$S1 d=[] t=[]
+      c_@S1->c: l=c$S0,c$S1 d=a t=[]
+    `)
     expect(printAtomState(s[0])).toBe(dedent`
       a: v=unscoped_3
       b: v=1
@@ -200,16 +202,8 @@ describe('open issues', () => {
       c_@S1->c: v=undefined
         a: v=unscoped_3
       c@S1: v=2
-        a: v=scoped_2
-        b@S1: v=2
     `)
-    expect(printMountedMap(s[0])).toBe(dedent`
-      a: l=a$S0,a$S1 d=[] t=c,c_1
-      b: l=b$S0 d=[] t=[]
-      c: l=c$S0,c$S1 d=a t=[]
-      b@S1: l=b$S1 d=[] t=[]
-      c_@S1->c: l=c$S0,c$S1 d=a t=[]
-    `)
+
     expect(cReadCount).toHaveBeenCalledTimes(2) // called for c0 and c1
     cReadCount.mockClear()
   })

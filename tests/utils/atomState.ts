@@ -6,7 +6,6 @@ import type {
 import { INTERNAL_getBuildingBlocksRev2 as getBuildingBlocks } from 'jotai/vanilla/internals'
 import { AnyAtom } from 'src/types'
 import { createDiffer } from './diff'
-import chalk from 'chalk'
 import { leftpad } from './leftpad'
 
 type Mutable<T> = { -readonly [P in keyof T]: T[P] }
