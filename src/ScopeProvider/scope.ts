@@ -140,12 +140,11 @@ function createMultiStableAtom<T>(scope: Scope, originalAtom: Atom<T>, implicitS
       console.log(chalk.bold.rgb(255, 165, 0)('proxyRead', proxyAtom.debugLabel))
       const classA = processScopeClassification()
       let atomState = readAtomState(proxyStore, proxyState.toAtom)
-      const classB = processScopeClassification()
-      if (classA !== classB) {
-        atomState = readAtomState(proxyStore, proxyState.toAtom)
-      }
+      // const classB = processScopeClassification()
+      // if (classA !== classB) {
+      //   atomState = readAtomState(proxyStore, proxyState.toAtom)
+      // }
       // Sync proxyAtom in deps' mounted.t after each read
-      syncProxyInDepMountedT()
       return returnAtomValue(atomState)
     },
     ...(isWritableAtom(originalAtom)
@@ -157,45 +156,21 @@ function createMultiStableAtom<T>(scope: Scope, originalAtom: Atom<T>, implicitS
       : {}),
   } as Atom<T>
 
-  /**
-   * Syncs proxyAtom in dependencies' mounted.t sets.
-   * Adds proxyAtom to new deps' mounted.t, removes from old deps' mounted.t.
-   */
-  function syncProxyInDepMountedT(): void {
-    const toAtomState = atomStateMap.get(proxyState.toAtom)
-    if (!toAtomState) return
-    const { prevDeps } = proxyState
-    const currentDeps = new Set(toAtomState.d.keys())
-    // Remove proxyAtom from deps that are no longer dependencies
-    for (const dep of prevDeps) {
-      if (!currentDeps.has(dep)) {
-        const depMounted = mountedMap.get(dep)
-        if (depMounted) {
-          depMounted.t.delete(proxyAtom)
-        }
-      }
-    }
-    // Add proxyAtom to new deps' mounted.t
-    for (const dep of currentDeps) {
-      if (!prevDeps.has(dep)) {
-        const depMounted = mountedMap.get(dep)
-        if (depMounted) {
-          depMounted.t.add(proxyAtom)
-        }
-      }
-    }
-    proxyState.prevDeps = currentDeps
-  }
-
   function getIsDependentScoped(): boolean {
     // Always re-read originalAtom to get current dependencies
-    const toAtomState = readAtomState(baseStore, proxyState.toAtom)
-    const dependencies = [...toAtomState.d.keys()]
+    const toAtomState = ensureAtomState(proxyState.store, proxyState.toAtom)
+    if (!isAtomStateInitialized(toAtomState)) {
+      readAtomState(baseStore, proxyState.toAtom)
+    }
+    const dependencies = Array.from(toAtomState.d.keys())
     // if there are scoped dependencies, it is scoped
     if (dependencies.some((a) => isExplictOrDependentScoped(scope, a))) {
       return true
     }
-    const originalAtomState = readAtomState(baseStore, originalAtom)
+    const originalAtomState = ensureAtomState(baseStore, originalAtom)
+    if (!isAtomStateInitialized(originalAtomState)) {
+      readAtomState(baseStore, originalAtom)
+    }
     // if dependencies are the same, it is unscoped
     if (dependencies.length === originalAtomState!.d.size && dependencies.every((a) => originalAtomState!.d.has(a))) {
       return false
@@ -251,7 +226,6 @@ function createMultiStableAtom<T>(scope: Scope, originalAtom: Atom<T>, implicitS
       storeHooks.m.add(toAtom, function onAtomMountStoreHook() {
         // When toAtom mounts, ensure proxyAtom is also mounted
         mountedMap.set(proxyAtom, mountedMap.get(toAtom)!)
-        syncProxyInDepMountedT()
         storeHooks.m(proxyAtom)
       }),
 
@@ -268,13 +242,12 @@ function createMultiStableAtom<T>(scope: Scope, originalAtom: Atom<T>, implicitS
         if (prevIsScoped !== isScoped) {
           console.log(chalk.bold.rgb(255, 165, 0)('toAtom read recomputed classification change', toAtom.debugLabel))
         }
-        syncProxyInDepMountedT()
         storeHooks.r(proxyAtom)
       }),
 
       storeHooks.c?.add(toAtom, function onAtomChangedStoreHook() {
-        changedAtoms.add(proxyAtom)
-        storeHooks.c(proxyAtom)
+        // changedAtoms.add(proxyAtom)
+        // storeHooks.c(proxyAtom)
       }),
     ]
 
@@ -312,6 +285,12 @@ function createMultiStableAtom<T>(scope: Scope, originalAtom: Atom<T>, implicitS
     if (fromMounted.l.size === 0) {
       const fromAtomState = atomStateMap.get(fromAtom)
       if (fromAtomState) {
+        for (const a of fromMounted.d) {
+          const aMounted = mountedMap.get(a)
+          if (aMounted) {
+            aMounted.t.delete(fromAtom)
+          }
+        }
         unmountAtom(proxyState.store, fromAtom)
       }
     }
@@ -347,7 +326,6 @@ function createMultiStableAtom<T>(scope: Scope, originalAtom: Atom<T>, implicitS
         storeHooks.u(proxyAtom)
       }
       setupToAtomHooks(proxyState.toAtom)
-      syncProxyInDepMountedT()
       changedAtoms.add(proxyAtom)
     }
     if (!isInitialized) {

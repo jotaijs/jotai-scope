@@ -12,15 +12,15 @@ import { storeScopeMap } from '../../src/ScopeProvider/scope'
 import { createScopes, leftpad, printAtomState, printMountedMap, subscribeAll, trackAtomStateMap } from '../utils'
 
 describe('open issues', () => {
-  // it('unscoped derived atom should not be recomputed when subscribed to in a child scope', () => {
-  //   const a = atom(0)
-  //   a.debugLabel = 'a'
-  //   const b = atom(vi.fn())
-  //   b.debugLabel = 'b'
-  //   const s = createScopes([])
-  //   subscribeAll(s, [a, b])
-  //   expect(b.read).toHaveBeenCalledTimes(1)
-  // })
+  it.only('unscoped derived atom should not be recomputed when subscribed to in a child scope', () => {
+    const a = atom(0)
+    a.debugLabel = 'a'
+    const b = atom(vi.fn())
+    b.debugLabel = 'b'
+    const s = createScopes([])
+    subscribeAll(s, [a, b])
+    expect(b.read).toHaveBeenCalledTimes(1)
+  })
 
   /*
     S0[_]: a0, b0, c0(a0 & b0)
@@ -68,7 +68,7 @@ describe('open issues', () => {
         a: v=unscoped_0
     `)
     expect(printMountedMap(s[0])).toBe(dedent`
-      a: l=a$S0,a$S1 d=[] t=c,c_1
+      a: l=a$S0,a$S1 d=[] t=c
       b: l=b$S0 d=[] t=[]
       c: l=c$S0,c$S1 d=a t=[]
       b@S1: l=b$S1 d=[] t=[]
@@ -90,7 +90,7 @@ describe('open issues', () => {
         a: v=unscoped_1
     `)
     expect(printMountedMap(s[0])).toBe(dedent`
-      a: l=a$S0,a$S1 d=[] t=c,c_1
+      a: l=a$S0,a$S1 d=[] t=c
       b: l=b$S0 d=[] t=[]
       c: l=c$S0,c$S1 d=a t=[]
       b@S1: l=b$S1 d=[] t=[]
@@ -117,10 +117,10 @@ describe('open issues', () => {
         b@S1: v=0
     `)
     expect(printMountedMap(s[0])).toBe(dedent`
-      a: l=a$S0,a$S1 d=[] t=c,c_1,c1
+      a: l=a$S0,a$S1 d=[] t=c,c1
       b: l=b$S0 d=[] t=c
       c: l=c$S0 d=a,b t=[]
-      b@S1: l=b$S1 d=[] t=c1,c_1
+      b@S1: l=b$S1 d=[] t=c1
       c_@S1->c@S1: l=c$S1 d=a,b1 t=[]
       c@S1: l=c$S1 d=a,b1 t=[]
     `)
@@ -145,10 +145,10 @@ describe('open issues', () => {
         b@S1: v=0
     `)
     expect(printMountedMap(s[0])).toBe(dedent`
-      a: l=a$S0,a$S1 d=[] t=c,c_1,c1
+      a: l=a$S0,a$S1 d=[] t=c,c1
       b: l=b$S0 d=[] t=c
       c: l=c$S0 d=a,b t=[]
-      b@S1: l=b$S1 d=[] t=c1,c_1
+      b@S1: l=b$S1 d=[] t=c1
       c_@S1->c@S1: l=c$S1 d=a,b1 t=[]
       c@S1: l=c$S1 d=a,b1 t=[]
     `)
@@ -173,10 +173,10 @@ describe('open issues', () => {
         b@S1: v=2
     `)
     expect(printMountedMap(s[0])).toBe(dedent`
-      a: l=a$S0,a$S1 d=[] t=c,c_1,c1
+      a: l=a$S0,a$S1 d=[] t=c,c1
       b: l=b$S0 d=[] t=c
       c: l=c$S0 d=a,b t=[]
-      b@S1: l=b$S1 d=[] t=c1,c_1
+      b@S1: l=b$S1 d=[] t=c1
       c_@S1->c@S1: l=c$S1 d=a,b1 t=[]
       c@S1: l=c$S1 d=a,b1 t=[]
     `)
@@ -187,7 +187,7 @@ describe('open issues', () => {
     s[1].set(a, 'unscoped_3') // changes c1 back to unscoped
     printMountedDiff(s)
     expect(printMountedMap(s[0])).toBe(dedent`
-      a: l=a$S0,a$S1 d=[] t=c,c_1
+      a: l=a$S0,a$S1 d=[] t=c
       b: l=b$S0 d=[] t=[]
       c: l=c$S0,c$S1 d=a t=[]
       b@S1: l=b$S1 d=[] t=[]
@@ -201,12 +201,15 @@ describe('open issues', () => {
       b@S1: v=2
       c_@S1->c: v=undefined
         a: v=unscoped_3
-      c@S1: v=2
+      c@S1: v=undefined
+        a: v=unscoped_3
     `)
 
     expect(cReadCount).toHaveBeenCalledTimes(2) // called for c0 and c1
     cReadCount.mockClear()
   })
+
+  it.skip('dependents of unscoped derived atoms work correctly', () => {})
 
   // TODO: Add more tests here for dependent scoped atoms and unscoped derived atoms
   // it.todo('unscoped derived can read dependent scoped atoms')
