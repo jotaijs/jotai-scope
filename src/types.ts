@@ -60,7 +60,9 @@ export type StoreHookForAtoms = NonNullable<StoreHooks['c']>
 
 export type WeakSetForAtoms = ChangedAtoms
 
-export type WeakMapForAtoms = {
-  get(atom: AnyAtom): any
-  set(atom: AnyAtom, value: any): void
-} & ({ has(atom: AnyAtom): boolean; delete(atom: AnyAtom): void } | Record<never, never>)
+export type WeakMapForAtoms<V = any> = {
+  get(atom: AnyAtom): V | undefined
+  set(atom: AnyAtom, value: V): void
+  has(atom: AnyAtom): boolean
+  delete(atom: AnyAtom): void
+}
