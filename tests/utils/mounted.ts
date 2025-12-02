@@ -67,15 +67,15 @@ function _printMountedMap(store: Store) {
   const mountedMap = buildingBlocks[1] as Map<AnyAtom, Mounted>
   const result: string[] = []
 
-  function formatItem(item: unknown): string {
+  function formatItem(item: AnyAtom | (() => void)): string {
     if (typeof item === 'function') {
       return item.name || 'Anonymous'
     }
-    return String(item)
+    return item.debugLabel?.replace(/->\S+\d+/, '') ?? String(item)
   }
 
-  function formatSet(set: Set<unknown>): string {
-    return set.size === 0 ? '[]' : Array.from(set, formatItem).join(',')
+  function formatSet(set: Set<AnyAtom> | Set<() => void>) {
+    return set.size === 0 ? '[]' : Array.from(set, formatItem)
   }
 
   function printAtom(atom: AnyAtom) {

@@ -1,15 +1,22 @@
 import dedent from 'dedent'
 import { atom } from 'jotai'
 import { describe, expect, it, vi } from 'vitest'
-import chalk from 'chalk'
 import {
   INTERNAL_getBuildingBlocksRev2 as getBuildingBlocks,
   INTERNAL_Mounted as Mounted,
 } from 'jotai/vanilla/internals'
-import type { INTERNAL_Store as Store } from 'jotai/vanilla/internals'
 import { AnyAtom } from 'src/types'
 import { storeScopeMap } from '../../src/ScopeProvider/scope'
-import { createScopes, leftpad, printAtomState, printMountedMap, subscribeAll, trackAtomStateMap } from '../utils'
+import {
+  createScopes,
+  printAtomState,
+  printAtomStateDiff,
+  printHeader,
+  printMountedDiff,
+  printMountedMap,
+  subscribeAll,
+  trackAtomStateMap,
+} from '../utils'
 
 describe('open issues', () => {
   it.only('unscoped derived atom should not be recomputed when subscribed to in a child scope', () => {
@@ -50,7 +57,7 @@ describe('open issues', () => {
     */
     const s = createScopes([b])
 
-    trackAtomStateMap(s[0])
+    trackAtomStateMap(s)
     printHeader('subscribeAll(s, [a, b, c])')
 
     subscribeAll(s, [a, b, c])
@@ -63,38 +70,38 @@ describe('open issues', () => {
       b: v=0
       c: v=undefined
         a: v=unscoped_0
-      b@S1: v=0
-      c_@S1->c: v=undefined
+      b1: v=0
+      c_1->c: v=undefined
         a: v=unscoped_0
     `)
     expect(printMountedMap(s[0])).toBe(dedent`
       a: l=a$S0,a$S1 d=[] t=c
       b: l=b$S0 d=[] t=[]
       c: l=c$S0,c$S1 d=a t=[]
-      b@S1: l=b$S1 d=[] t=[]
-      c_@S1->c: l=c$S0,c$S1 d=a t=[]
+      b1: l=b$S1 d=[] t=[]
+      c_1->c: l=c$S0,c$S1 d=a t=[]
     `)
     expect(cReadCount).toHaveBeenCalledTimes(1)
     cReadCount.mockClear()
 
-    printHeader("s[0].set(a, 'unscoped_1')", 'c_@S1 recomputes but is still unscoped')
-    s[0].set(a, 'unscoped_1') // c_@S1 recomputes but is still unscoped
+    printHeader("s[0].set(a, 'unscoped_1')", 'c_1 recomputes but is still unscoped')
+    s[0].set(a, 'unscoped_1') // c_1 recomputes but is still unscoped
     printMountedDiff(s)
     expect(printAtomState(s[0])).toBe(dedent`
       a: v=unscoped_1
       b: v=0
       c: v=undefined
         a: v=unscoped_1
-      b@S1: v=0
-      c_@S1->c: v=undefined
+      b1: v=0
+      c_1->c: v=undefined
         a: v=unscoped_1
     `)
     expect(printMountedMap(s[0])).toBe(dedent`
       a: l=a$S0,a$S1 d=[] t=c
       b: l=b$S0 d=[] t=[]
       c: l=c$S0,c$S1 d=a t=[]
-      b@S1: l=b$S1 d=[] t=[]
-      c_@S1->c: l=c$S0,c$S1 d=a t=[]
+      b1: l=b$S1 d=[] t=[]
+      c_1->c: l=c$S0,c$S1 d=a t=[]
     `)
     expect(cReadCount).toHaveBeenCalledTimes(1)
     cReadCount.mockClear()
@@ -108,21 +115,21 @@ describe('open issues', () => {
       c: v=0
         a: v=scoped_2
         b: v=0
-      b@S1: v=0
-      c_@S1->c@S1: v=0
+      b1: v=0
+      c_1->c1: v=0
         a: v=scoped_2
-        b@S1: v=0
-      c@S1: v=0
+        b1: v=0
+      c1: v=0
         a: v=scoped_2
-        b@S1: v=0
+        b1: v=0
     `)
     expect(printMountedMap(s[0])).toBe(dedent`
       a: l=a$S0,a$S1 d=[] t=c,c1
       b: l=b$S0 d=[] t=c
       c: l=c$S0 d=a,b t=[]
-      b@S1: l=b$S1 d=[] t=c1
-      c_@S1->c@S1: l=c$S1 d=a,b1 t=[]
-      c@S1: l=c$S1 d=a,b1 t=[]
+      b1: l=b$S1 d=[] t=c1
+      c_1->c1: l=c$S1 d=a,b1 t=[]
+      c1: l=c$S1 d=a,b1 t=[]
     `)
     expect(cReadCount).toHaveBeenCalledTimes(2) // called for c0 and c1
     cReadCount.mockClear()
@@ -136,21 +143,21 @@ describe('open issues', () => {
       c: v=1
         a: v=scoped_2
         b: v=1
-      b@S1: v=0
-      c_@S1->c@S1: v=0
+      b1: v=0
+      c_1->c1: v=0
         a: v=scoped_2
-        b@S1: v=0
-      c@S1: v=0
+        b1: v=0
+      c1: v=0
         a: v=scoped_2
-        b@S1: v=0
+        b1: v=0
     `)
     expect(printMountedMap(s[0])).toBe(dedent`
       a: l=a$S0,a$S1 d=[] t=c,c1
       b: l=b$S0 d=[] t=c
       c: l=c$S0 d=a,b t=[]
-      b@S1: l=b$S1 d=[] t=c1
-      c_@S1->c@S1: l=c$S1 d=a,b1 t=[]
-      c@S1: l=c$S1 d=a,b1 t=[]
+      b1: l=b$S1 d=[] t=c1
+      c_1->c1: l=c$S1 d=a,b1 t=[]
+      c1: l=c$S1 d=a,b1 t=[]
     `)
     expect(cReadCount).toHaveBeenCalledTimes(1) // called for c0
     cReadCount.mockClear()
@@ -164,21 +171,21 @@ describe('open issues', () => {
       c: v=1
         a: v=scoped_2
         b: v=1
-      b@S1: v=2
-      c_@S1->c@S1: v=2
+      b1: v=2
+      c_1->c1: v=2
         a: v=scoped_2
-        b@S1: v=2
-      c@S1: v=2
+        b1: v=2
+      c1: v=2
         a: v=scoped_2
-        b@S1: v=2
+        b1: v=2
     `)
     expect(printMountedMap(s[0])).toBe(dedent`
       a: l=a$S0,a$S1 d=[] t=c,c1
       b: l=b$S0 d=[] t=c
       c: l=c$S0 d=a,b t=[]
-      b@S1: l=b$S1 d=[] t=c1
-      c_@S1->c@S1: l=c$S1 d=a,b1 t=[]
-      c@S1: l=c$S1 d=a,b1 t=[]
+      b1: l=b$S1 d=[] t=c1
+      c_1->c1: l=c$S1 d=a,b1 t=[]
+      c1: l=c$S1 d=a,b1 t=[]
     `)
     expect(cReadCount).toHaveBeenCalledTimes(1) // called for c1
     cReadCount.mockClear()
@@ -190,18 +197,18 @@ describe('open issues', () => {
       a: l=a$S0,a$S1 d=[] t=c
       b: l=b$S0 d=[] t=[]
       c: l=c$S0,c$S1 d=a t=[]
-      b@S1: l=b$S1 d=[] t=[]
-      c_@S1->c: l=c$S0,c$S1 d=a t=[]
+      b1: l=b$S1 d=[] t=[]
+      c_1->c: l=c$S0,c$S1 d=a t=[]
     `)
     expect(printAtomState(s[0])).toBe(dedent`
       a: v=unscoped_3
       b: v=1
       c: v=undefined
         a: v=unscoped_3
-      b@S1: v=2
-      c_@S1->c: v=undefined
+      b1: v=2
+      c_1->c: v=undefined
         a: v=unscoped_3
-      c@S1: v=undefined
+      c1: v=undefined
         a: v=unscoped_3
     `)
 
@@ -374,10 +381,10 @@ describe('open issues', () => {
       return { atomStateMap, mountedMap, storeHooks, scope, scopeListenersMap }
     }
 
-    // Helper to get proxy atom (c_@S1)
+    // Helper to get proxy atom (c_1)
     function getProxyAtom(s: ReturnType<typeof createScopes>, originalAtom: AnyAtom): AnyAtom {
       const { atomStateMap } = getTestContext(s)
-      const proxyLabel = `_${originalAtom.debugLabel}@S1`
+      const proxyLabel = `_${originalAtom.debugLabel}1`
       const proxy = [...atomStateMap.keys()].find((at: AnyAtom) => at.debugLabel === proxyLabel)
       if (!proxy) {
         throw new Error(
@@ -387,10 +394,10 @@ describe('open issues', () => {
       return proxy
     }
 
-    // Helper to get scoped atom (c@S1)
+    // Helper to get scoped atom (c1)
     function getScopedAtom(s: ReturnType<typeof createScopes>, originalAtom: AnyAtom): AnyAtom {
       const { atomStateMap } = getTestContext(s)
-      const scopedLabel = `${originalAtom.debugLabel}@S1`
+      const scopedLabel = `${originalAtom.debugLabel}1`
       const scoped = [...atomStateMap.keys()].find((at: AnyAtom) => at.debugLabel === scopedLabel)
       if (!scoped) {
         throw new Error(
@@ -520,7 +527,7 @@ describe('open issues', () => {
         // Trigger classification change to scoped
         s[0].set(a, true)
 
-        // Now scopedAtom (c@S1) is toAtom
+        // Now scopedAtom (c1) is toAtom
         const scopedAtom = getScopedAtom(s, c)
         expect(mountedMap.get(scopedAtom)).toBeDefined()
 
@@ -595,7 +602,7 @@ describe('open issues', () => {
     })
 
     describe('scopedAtom deps issue', () => {
-      it('scopedAtom should depend on b@S1, not b', () => {
+      it('scopedAtom should depend on b1, not b', () => {
         const a = atom(false)
         a.debugLabel = 'a'
         const b = atom('value')
@@ -607,17 +614,17 @@ describe('open issues', () => {
         const buildingBlocks = getBuildingBlocks(s[0])
         const atomStateMap = buildingBlocks[0]
 
-        // Subscribe to c in S1 - this creates proxyAtom (c_@S1)
+        // Subscribe to c in S1 - this creates proxyAtom (c_1)
         const unsub = s[1].sub(c, () => {})
 
         // Transition to scoped by setting a=true
         s[0].set(a, true)
 
-        // Now c@S1 (scopedAtom) should be read and its deps should include b@S1
-        // Find c@S1 in atomStateMap
+        // Now c1 (scopedAtom) should be read and its deps should include b1
+        // Find c1 in atomStateMap
         let scopedAtom: AnyAtom | undefined
         ;(atomStateMap as any).forEach((_: any, atom: any) => {
-          if (atom.debugLabel === 'c@S1') {
+          if (atom.debugLabel === 'c1') {
             scopedAtom = atom
           }
         })
@@ -626,12 +633,12 @@ describe('open issues', () => {
         const scopedAtomState = atomStateMap.get(scopedAtom!)
         expect(scopedAtomState).toBeDefined()
 
-        // Check deps - should be [a, b@S1] not [a, b]
+        // Check deps - should be [a, b1] not [a, b]
         const deps = [...scopedAtomState!.d.keys()]
         const depLabels = deps.map((d: any) => d.debugLabel)
 
-        // b@S1 should be in deps, not b
-        expect(depLabels).toContain('b@S1')
+        // b1 should be in deps, not b
+        expect(depLabels).toContain('b1')
         expect(depLabels).not.toContain('b')
 
         unsub()
@@ -654,7 +661,7 @@ describe('open issues', () => {
         const unsub1 = s[1].sub(c, listener1)
 
         // Initially scoped: listener on c1
-        const c1 = [...mountedMap.keys()].find((a: AnyAtom) => a.debugLabel === 'c@S1')
+        const c1 = [...mountedMap.keys()].find((a: AnyAtom) => a.debugLabel === 'c1')
         expect(c1).toBeDefined()
         expect(mountedMap.get(c1!)?.l.size).toBe(1)
 
@@ -738,7 +745,7 @@ describe('open issues', () => {
 
         // Transition to scoped - moves to c1
         s[0].set(a, true)
-        const c1 = [...mountedMap.keys()].find((a: AnyAtom) => a.debugLabel === 'c@S1')
+        const c1 = [...mountedMap.keys()].find((a: AnyAtom) => a.debugLabel === 'c1')
         expect(mountedMap.get(c1!)?.l.size).toBe(1)
         expect(mountedMap.get(c)?.l).toBeUndefined() // c0 unmounted
 
@@ -771,7 +778,7 @@ describe('open issues', () => {
 
         // Transition: S0 stays on c0, S1 moves to c1
         s[0].set(a, true)
-        const c1 = [...mountedMap.keys()].find((a: AnyAtom) => a.debugLabel === 'c@S1')
+        const c1 = [...mountedMap.keys()].find((a: AnyAtom) => a.debugLabel === 'c1')
         expect(mountedMap.get(c)?.l.size).toBe(1)
         expect(mountedMap.get(c1!)?.l.size).toBe(1)
 
@@ -807,7 +814,7 @@ describe('open issues', () => {
         // Transition to scoped - c1 should be mounted
         s[0].set(a, true)
 
-        const c1 = [...mountedMap.keys()].find((a: AnyAtom) => a.debugLabel === 'c@S1')
+        const c1 = [...mountedMap.keys()].find((a: AnyAtom) => a.debugLabel === 'c1')
         expect(mountListener).toHaveBeenCalledWith(c1)
 
         unsub1()
@@ -830,7 +837,7 @@ describe('open issues', () => {
         const listener1 = vi.fn()
         const unsub1 = s[1].sub(c, listener1)
 
-        const c1 = [...mountedMap.keys()].find((a: AnyAtom) => a.debugLabel === 'c@S1')
+        const c1 = [...mountedMap.keys()].find((a: AnyAtom) => a.debugLabel === 'c1')
         unmountListener.mockClear()
 
         // Transition to unscoped - c1 should be unmounted
@@ -980,7 +987,7 @@ describe('open issues', () => {
 
         // Transition - all 3 move to c1
         s[0].set(a, true)
-        const c1 = [...mountedMap.keys()].find((a: AnyAtom) => a.debugLabel === 'c@S1')
+        const c1 = [...mountedMap.keys()].find((a: AnyAtom) => a.debugLabel === 'c1')
         expect(mountedMap.get(c1!)?.l.size).toBe(3)
 
         unsub1a()
@@ -1010,7 +1017,7 @@ describe('open issues', () => {
         for (let i = 0; i < 5; i++) {
           // To scoped
           s[0].set(a, true)
-          const c1 = [...mountedMap.keys()].find((a: AnyAtom) => a.debugLabel === 'c@S1')
+          const c1 = [...mountedMap.keys()].find((a: AnyAtom) => a.debugLabel === 'c1')
           expect(mountedMap.get(c)?.l.size).toBe(1)
           expect(mountedMap.get(c1!)?.l.size).toBe(1)
 
@@ -1120,7 +1127,7 @@ describe('open issues', () => {
         const listener1 = vi.fn()
         const unsub1 = s[1].sub(c, listener1)
 
-        const proxyC = [...mountedMap.keys()].find((a: AnyAtom) => a.debugLabel === 'c_@S1')
+        const proxyC = [...mountedMap.keys()].find((a: AnyAtom) => a.debugLabel === 'c_1')
         expect(proxyC).toBeDefined()
         expect(mountedMap.get(proxyC!)).toBe(mountedMap.get(c))
 
@@ -1141,8 +1148,8 @@ describe('open issues', () => {
         const listener1 = vi.fn()
         const unsub1 = s[1].sub(c, listener1)
 
-        const proxyC = [...mountedMap.keys()].find((a: AnyAtom) => a.debugLabel === 'c_@S1')
-        const c1 = [...mountedMap.keys()].find((a: AnyAtom) => a.debugLabel === 'c@S1')
+        const proxyC = [...mountedMap.keys()].find((a: AnyAtom) => a.debugLabel === 'c_1')
+        const c1 = [...mountedMap.keys()].find((a: AnyAtom) => a.debugLabel === 'c1')
         expect(proxyC).toBeDefined()
         expect(c1).toBeDefined()
         expect(mountedMap.get(proxyC!)).toBe(mountedMap.get(c1!))
@@ -1191,7 +1198,7 @@ describe('open issues', () => {
     if (!proxyC) throw new Error('atom_C not found')
 
     expect(mountedMap.get(c)?.l.size).toBe(2)
-    expect(mountedMap.keys().find((a: AnyAtom) => a.debugLabel === 'c@S1')).toBe(undefined)
+    expect(mountedMap.keys().find((a: AnyAtom) => a.debugLabel === 'c1')).toBe(undefined)
     expect(mountedMap.get(proxyC)).toBe(mountedMap.get(c))
 
     atomMountListener.mockClear()
@@ -1201,8 +1208,8 @@ describe('open issues', () => {
     // reassign the listeners to their respective scoped atoms
     s[0].set(a, true)
 
-    const c1 = mountedMap.keys().find((a) => a.debugLabel === 'c@S1')!
-    if (!c1) throw new Error('c@S1 not found')
+    const c1 = mountedMap.keys().find((a) => a.debugLabel === 'c1')!
+    if (!c1) throw new Error('c1 not found')
 
     expect(mountedMap.get(c)?.l.size).toBe(1)
     expect(mountedMap.get(c1)?.l.size).toBe(1)
@@ -1249,19 +1256,3 @@ describe('open issues', () => {
     unsub1()
   })
 })
-
-function printHeader(header: string, secondaryHeader?: string) {
-  console.log(
-    chalk.gray('-'.repeat(80)),
-    `\n${chalk.yellow(header)} ${secondaryHeader ? `${secondaryHeader}` : ''}\n`,
-    chalk.gray('-'.repeat(80))
-  )
-}
-function printAtomStateDiff([store]: Store[]) {
-  console.log(`AtomState`)
-  console.log(leftpad(printAtomState.diff(store)))
-}
-function printMountedDiff([store]: Store[]) {
-  console.log(`MountedMap`)
-  console.log(leftpad(printMountedMap.diff(store)))
-}

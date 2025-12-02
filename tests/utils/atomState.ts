@@ -58,7 +58,7 @@ export const printAtomState: PrintAtomStateFn = Object.assign((store: Store) => 
   },
 })
 
-export function trackAtomStateMap(store: Store) {
+export function trackAtomStateMap([store]: [Store, ...Store[]]) {
   const buildingBlocks = getBuildingBlocks(store)
   if (buildingBlocks[0] instanceof WeakMap) {
     throw new Error('Cannot print atomStateMap, store must be debug store')

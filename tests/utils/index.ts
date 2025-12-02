@@ -2,6 +2,10 @@ import { fireEvent } from '@testing-library/react'
 import type { INTERNAL_Store as Store } from 'jotai/vanilla/internals'
 import { AnyAtom } from 'src/types'
 import { getAtomLabel } from './debugStore'
+import chalk from 'chalk'
+import { leftpad } from './leftpad'
+import { printAtomState } from './atomState'
+import { printMountedMap } from './mounted'
 
 export { createDebugStore, createScopes, getAtomLabel } from './debugStore'
 export { printAtomState, trackAtomStateMap } from './atomState'
@@ -71,6 +75,20 @@ export function subscribeAll(stores: ReadonlyArray<Store>, atoms: AnyAtom[]) {
   )
 }
 
-function capitalize(str: string) {
-  return str.charAt(0).toUpperCase() + str.slice(1)
+export function printHeader(header: string, secondaryHeader?: string) {
+  console.log(
+    chalk.gray('-'.repeat(80)),
+    `\n${chalk.yellow(header)} ${secondaryHeader ? `${secondaryHeader}` : ''}\n`,
+    chalk.gray('-'.repeat(80))
+  )
+}
+
+export function printAtomStateDiff([store]: [Store, ...Store[]]) {
+  console.log(`AtomState`)
+  console.log(leftpad(printAtomState.diff(store)))
+}
+
+export function printMountedDiff([store]: Store[]) {
+  console.log(`MountedMap`)
+  console.log(leftpad(printMountedMap.diff(store)))
 }

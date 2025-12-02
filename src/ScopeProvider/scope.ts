@@ -49,12 +49,6 @@ type GlobalScopeKey = typeof globalScopeKey
 /** @returns a scoped copy of the atom */
 function cloneAtom<T>(scope: Scope, originalAtom: Atom<T>, implicitScope: Scope | undefined): Atom<T> {
   // TODO: Delete these checks
-  if (originalAtom.debugLabel?.endsWith('_')) {
-    throw new Error('Cannot clone proxy atom')
-  }
-  if (originalAtom.debugLabel?.includes('@')) {
-    throw new Error('Cannot clone already scoped atom')
-  }
   // avoid reading `init` to preserve lazy initialization
   const propDesc = Object.getOwnPropertyDescriptors(originalAtom)
   Object.keys(propDesc)
@@ -73,7 +67,7 @@ function cloneAtom<T>(scope: Scope, originalAtom: Atom<T>, implicitScope: Scope 
   if (__DEV__) {
     Object.defineProperty(scopedAtom, 'debugLabel', {
       get() {
-        return `${originalAtom.debugLabel}@${scope.name}`
+        return `${originalAtom.debugLabel}${scope.name?.replace('S', '')}`
       },
       configurable: true,
       enumerable: true,
@@ -137,7 +131,6 @@ function createMultiStableAtom<T>(scope: Scope, originalAtom: Atom<T>, implicitS
   // It calls the originalAtom's read function as needed.
   const proxyAtom = {
     read: function proxyRead() {
-      console.log(chalk.bold.rgb(255, 165, 0)('proxyRead', proxyAtom.debugLabel))
       const classA = processScopeClassification()
       let atomState = readAtomState(proxyStore, proxyState.toAtom)
       // const classB = processScopeClassification()
@@ -239,9 +232,9 @@ function createMultiStableAtom<T>(scope: Scope, originalAtom: Atom<T>, implicitS
       storeHooks.r?.add(toAtom, function onAtomReadStoreHook() {
         const prevIsScoped = proxyState.isScoped
         const isScoped = processScopeClassification()
-        if (prevIsScoped !== isScoped) {
-          console.log(chalk.bold.rgb(255, 165, 0)('toAtom read recomputed classification change', toAtom.debugLabel))
-        }
+        // if (prevIsScoped !== isScoped) {
+        //   console.log(chalk.bold.rgb(255, 165, 0)('toAtom read recomputed classification change', toAtom.debugLabel))
+        // }
         storeHooks.r(proxyAtom)
       }),
 
@@ -337,7 +330,7 @@ function createMultiStableAtom<T>(scope: Scope, originalAtom: Atom<T>, implicitS
   if (__DEV__) {
     Object.defineProperty(proxyAtom, 'debugLabel', {
       get() {
-        return `${originalAtom.debugLabel ?? String(originalAtom)}_@${scope.name}->${proxyState.toAtom.debugLabel}`
+        return `${originalAtom.debugLabel ?? String(originalAtom)}_${scope.name?.replace('S', '')}->${proxyState.toAtom.debugLabel}`
       },
       configurable: true,
       enumerable: true,
