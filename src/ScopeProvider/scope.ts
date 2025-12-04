@@ -325,6 +325,11 @@ function createMultiStableAtom<T>(
       implicitScope
     )
   }
+  // Wrap write function for scoped atom so it resolves atoms through the scope
+  // Use `scope` (not implicitScope) because dependent scoped atoms need to write to scoped versions
+  if (isWritableAtom(scopedAtom) && isWritableAtom(originalAtom) && isCustomWrite(scopedAtom)) {
+    scopedAtom.write = createScopedWrite(getAtomFn, prepareWriteAtomFn, originalAtom.write.bind(originalAtom), scope)
+  }
   Object.defineProperty(scopedAtom, 'debugLabel', {
     get() {
       return `${originalAtom.debugLabel}@${scope.name}`
@@ -336,6 +341,7 @@ function createMultiStableAtom<T>(
   const buildingBlocks = getBuildingBlocks(baseStore)
   const atomStateMap = buildingBlocks[0]
   const mountedMap = buildingBlocks[1]
+  const invalidatedAtoms = buildingBlocks[2]
   const changedAtoms = buildingBlocks[3]
   const storeHooks = initializeStoreHooks(buildingBlocks[6])
   const atomRead = buildingBlocks[7]
@@ -357,7 +363,9 @@ function createMultiStableAtom<T>(
         8: ((store, _atom, get, set, ...args) => {
           const targetAtom = proxyState.toAtom as AnyWritableAtom
           const getter = proxyState.isScoped ? createScopedGet(getAtomFn, get) : get
-          const setter = proxyState.isScoped ? createScopedSet(getAtomFn, prepareWriteAtomFn, set, implicitScope) : set
+          // When proxy is scoped, use `scope` for the setter so that dependent scoped atoms
+          // write to the scoped versions of atoms (e.g., b@S1 instead of b0)
+          const setter = proxyState.isScoped ? createScopedSet(getAtomFn, prepareWriteAtomFn, set, scope) : set
           return atomWrite(store, targetAtom, getter, setter, ...args)
         }) as AtomWrite,
       }) as Partial<BuildingBlocks>)
@@ -543,6 +551,40 @@ function createMultiStableAtom<T>(
     if (unsubUnmount) cleanups.push(unsubUnmount)
     if (unsubRead) cleanups.push(unsubRead)
 
+    // When targetAtom is scopedAtom, add hooks on its dependencies to detect
+    // when the classification is about to change from scoped to unscoped.
+    // This allows us to remove scopedAtom from invalidation before it's recomputed.
+    if (targetAtom === scopedAtom) {
+      const scopedAtomState = atomStateMap.get(scopedAtom)
+      if (scopedAtomState) {
+        for (const dep of scopedAtomState.d.keys()) {
+          // When a dependency changes, check if classification will change to unscoped
+          const unsubDepChange = storeHooks.c?.add(dep, () => {
+            // Re-read originalAtom to get its new dependencies
+            const original = readAtomState(baseStore, originalAtom)
+            // Check if the new dependencies include any scoped atoms
+            const newDeps = [...original.d.keys()]
+            const willBeScoped = newDeps.some(isScopedFn)
+
+            // If classification will change from scoped to unscoped,
+            // remove scopedAtom from its dependencies' mounted.t to prevent invalidation
+            if (proxyState.isScoped && !willBeScoped) {
+              const scopedState = atomStateMap.get(scopedAtom)
+              if (scopedState) {
+                for (const d of scopedState.d.keys()) {
+                  const dMounted = mountedMap.get(d)
+                  if (dMounted) {
+                    dMounted.t.delete(scopedAtom)
+                  }
+                }
+              }
+            }
+          })
+          if (unsubDepChange) cleanups.push(unsubDepChange)
+        }
+      }
+    }
+
     cleanupToAtomHooks = () => {
       cleanups.forEach((cleanup) => cleanup())
     }
@@ -637,11 +679,60 @@ function createMultiStableAtom<T>(
     const fromMounted = mountedMap.get(fromAtom)
     const toMounted = mountedMap.get(toAtom)
 
+    console.log('moveListenerBetweenAtoms', {
+      listener: listener.name,
+      fromAtom: fromAtom.debugLabel,
+      toAtom: toAtom.debugLabel,
+      fromMounted: fromMounted ? { l: [...fromMounted.l].map((l) => l.name) } : null,
+      toMounted: toMounted ? { l: [...toMounted.l].map((l) => l.name) } : null,
+    })
+
     if (fromMounted) {
-      fromMounted.l.delete(listener)
+      console.log(
+        '  fromMounted.l before delete:',
+        [...fromMounted.l].map((l) => l.name)
+      )
+      console.log('  fromMounted.l === mountedMap.get(fromAtom).l:', fromMounted.l === mountedMap.get(fromAtom)?.l)
+      const deleted = fromMounted.l.delete(listener)
+      console.log('  deleted from fromMounted.l:', deleted)
+      console.log(
+        '  fromMounted.l after delete:',
+        [...fromMounted.l].map((l) => l.name)
+      )
+      // Also check the mounted map directly
+      const fromMounted2 = mountedMap.get(fromAtom)
+      console.log(
+        '  mountedMap.get(fromAtom).l after delete:',
+        fromMounted2 ? [...fromMounted2.l].map((l) => l.name) : null
+      )
+      console.log('  fromMounted.l === fromMounted2.l:', fromMounted.l === fromMounted2?.l)
+      // Check if getBuildingBlocks returns the same mounted map
+      const bb = getBuildingBlocks(baseStore)
+      const mm = bb[1] as Map<AnyAtom, Mounted>
+      const fromMounted3 = mm.get(fromAtom)
+      console.log(
+        '  getBuildingBlocks(baseStore)[1].get(fromAtom).l:',
+        fromMounted3 ? [...fromMounted3.l].map((l) => l.name) : null
+      )
+      console.log('  mountedMap === bb[1]:', mountedMap === bb[1])
+      console.log('  fromMounted === fromMounted3:', fromMounted === fromMounted3)
+      console.log('  fromMounted.l === fromMounted3.l:', fromMounted.l === fromMounted3?.l)
+      // Store the Set reference for debugging (only for c@S1)
+      if (fromAtom.debugLabel === 'c@S1') {
+        ;(globalThis as any).__scopeFromMountedL = fromMounted.l
+        ;(globalThis as any).__scopeFromMounted = fromMounted
+        ;(globalThis as any).__scopeMountedMap = mountedMap
+        ;(globalThis as any).__scopeFromAtom = fromAtom
+        console.log('  stored scopeL.size:', fromMounted.l.size, 'for', fromAtom.debugLabel)
+        // Check if mountedMap.get(fromAtom) returns the same object
+        const fromMounted4 = mountedMap.get(fromAtom)
+        console.log('  fromMounted === mountedMap.get(fromAtom):', fromMounted === fromMounted4)
+        console.log('  mountedMap.has(fromAtom):', mountedMap.has(fromAtom))
+      }
     }
     if (toMounted) {
       toMounted.l.add(listener)
+      console.log('  added to toMounted.l')
     }
   }
 
@@ -741,6 +832,10 @@ function createMultiStableAtom<T>(
 
     // Unmount c1 (it should have no listeners now)
     unmountAtomIfEmpty(scopedAtom)
+
+    // Remove scopedAtom from invalidation queue to prevent stale recomputation
+    // The scopedAtom should keep its previous state when transitioning to unscoped
+    invalidatedAtoms.delete(scopedAtom)
 
     // Setup new hooks on originalAtom and alias proxyAtom to it
     setupToAtomHooks(originalAtom)
