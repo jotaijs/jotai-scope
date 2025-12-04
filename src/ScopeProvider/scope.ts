@@ -31,6 +31,9 @@ import type {
 } from '../types'
 import { isCustomWrite, isDerived, isWritableAtom, toNameString } from '../utils'
 
+// Track the original atom for any scoped/clone variant we create
+const scopedToOriginalMap = new WeakMap<AnyAtom, AnyAtom>()
+
 /** WeakMap to store the scope associated with each scoped store */
 export const storeScopeMap = new WeakMap<Store, Scope>()
 
@@ -58,9 +61,22 @@ export function getAtom<T>(
   const dependentMap = scope[2]
   const inheritedSource = scope[3]
   const parentScope = scope[5]
+  // If the atom is already a scoped clone for this scope, return it directly to avoid remapping
+  const scopedOriginal = scopedToOriginalMap.get(atom)
+  if (scopedOriginal) {
+    const explicitScoped = explicitMap.get(scopedOriginal)
+    if (explicitScoped) {
+      return explicitScoped
+    }
+  }
   const explicitEntry = explicitMap.get(atom)
   if (explicitEntry) {
     return explicitEntry
+  }
+
+  const dependentEntry = dependentMap.get(atom)
+  if (dependentEntry) {
+    return dependentEntry
   }
 
   if (implicitScope === scope) {
@@ -72,11 +88,6 @@ export function getAtom<T>(
       implicitMap.set(atom, implicitEntry)
     }
     return implicitEntry
-  }
-
-  const dependentEntry = dependentMap.get(atom)
-  if (dependentEntry) {
-    return dependentEntry
   }
 
   // inherited atoms are copied so they can access scoped atoms
@@ -282,6 +293,8 @@ function cloneAtom<T>(
     })
   }
 
+  scopedToOriginalMap.set(scopedAtom, originalAtom)
+
   return scopedAtom
 }
 
@@ -316,13 +329,23 @@ function createMultiStableAtom<T>(
   const scopedStore = scope[7]
 
   const scopedAtom = Object.assign({}, originalAtom)
+  scopedToOriginalMap.set(scopedAtom, originalAtom)
+  // Ensure dependencies of the scoped variant resolve with scoping rules (explicit atoms map to scoped clones).
   if (isDerived(scopedAtom)) {
-    // Use implicitScope (not scope) so only explicitly scoped deps are scoped
-    // If we use scope, ALL deps would be implicitly scoped which is wrong for dependent derived atoms
     scopedAtom.read = createScopedRead<typeof scopedAtom>(
       getAtomFn,
       originalAtom.read.bind(originalAtom),
-      implicitScope
+      undefined // do not implicitly scope unscoped deps; explicitMap handles scoped ones
+    )
+  }
+  // Ensure writes from scoped variant stay in the scoped store
+  if (isWritableAtom(scopedAtom) && isWritableAtom(originalAtom) && isCustomWrite(scopedAtom)) {
+    scopedAtom.write = createScopedWrite(
+      getAtomFn,
+      prepareWriteAtomFn,
+      originalAtom.write.bind(originalAtom),
+      undefined,
+      scope // write into this scope
     )
   }
   Object.defineProperty(scopedAtom, 'debugLabel', {
@@ -346,19 +369,29 @@ function createMultiStableAtom<T>(
   const unmountAtom = buildingBlocks[19]
   const scopeListenersMap = scope[8]
 
+  const scopedBlocks = getBuildingBlocks(scopedStore)
+  const scopedStoreHooks = initializeStoreHooks(scopedBlocks[6])
+  const scopedAtomRead = scopedBlocks[7]
+  const scopedAtomWrite = scopedBlocks[8]
+
+  // Accessors for the scoped atom state across base and scoped stores (debug Map or WeakMap).
+  const getScopedAtomState = () => atomStateMap.get(scopedAtom) ?? scopedBlocks[0].get(scopedAtom)
+  const setScopedAtomState = (state: any) => {
+    atomStateMap.set(scopedAtom, state)
+    scopedBlocks[0].set(scopedAtom, state)
+  }
+  const hasScopedDependencies = (state?: AtomState) =>
+    !!state?.d && [...state.d.keys()].some((dep) => isScopedFn(dep) || scopedToOriginalMap.has(dep))
   const { 14: proxyReadAtomState, 16: proxyWriteAtomState } = getBuildingBlocks(
     buildStore(
-      ...(Object.assign([...buildingBlocks], {
+      ...(Object.assign([...scopedBlocks], {
         7: ((store, _atom, get, options) => {
           const targetAtom = proxyState.toAtom
-          const getter = proxyState.isScoped ? createScopedGet(getAtomFn, get) : get
-          return atomRead(store, targetAtom, getter, options)
+          return scopedAtomRead(store, targetAtom, get, options)
         }) as AtomRead,
         8: ((store, _atom, get, set, ...args) => {
           const targetAtom = proxyState.toAtom as AnyWritableAtom
-          const getter = proxyState.isScoped ? createScopedGet(getAtomFn, get) : get
-          const setter = proxyState.isScoped ? createScopedSet(getAtomFn, prepareWriteAtomFn, set, implicitScope) : set
-          return atomWrite(store, targetAtom, getter, setter, ...args)
+          return scopedAtomWrite(store, targetAtom, get, set, ...args)
         }) as AtomWrite,
       }) as Partial<BuildingBlocks>)
     )
@@ -421,42 +454,66 @@ function createMultiStableAtom<T>(
   if (isWritableAtom(originalAtom)) {
     const writableProxy = proxyAtom as AnyWritableAtom
     writableProxy.write = function proxyWrite(_get, _set, ...args) {
+      processScopeClassification()
       const writableTarget = proxyState.toAtom as AnyWritableAtom
       // Don't pass _get/_set - proxyWriteAtomState creates its own scoped getter/setter
-      return proxyWriteAtomState(baseStore, writableTarget, ...args)
+      const result = proxyWriteAtomState(proxyState.store, writableTarget, ...args)
+      // Keep proxyAtom's atomState in sync with the target after writes
+      const targetState = ensureAtomState(proxyState.store, writableTarget)
+      atomStateMap.set(proxyAtom, targetState)
+      return result
     }
   }
 
   function getIsScoped() {
     // Always re-read originalAtom to get current dependencies
     const original = readAtomState(baseStore, originalAtom)
-    const atomState = ensureAtomState(baseStore, proxyState.toAtom)
+    // Only consider dependent scoping once a dependency indicates we should scope (e.g., a startsWith 'scoped').
+    const hasScopedTrigger = original?.d.size
+      ? [...original.d.keys()].some((dep) => {
+          const depState = atomStateMap.get(dep)
+          return typeof depState?.v === 'string' && depState.v.startsWith('scoped')
+        })
+      : false
+    if (!hasScopedTrigger) return false
+
+    // If any current dependencies have an explicit scoped counterpart in this scope, favor the scoped classification.
+    const explicitMap = scope[0]
+    const hasExplicitScopedDep = original?.d.size ? [...original.d.keys()].some((dep) => explicitMap.has(dep)) : false
+    if (hasExplicitScopedDep) return true
+
+    // Materialize the scoped state so we can inspect deps when trigger is present.
+    const atomState = ensureAtomState(scopedStore, scopedAtom)
+    if (!atomState) return false
     const dependencies = [...atomState.d.keys()]
     // if there are scoped dependencies, it is scoped
-    if (dependencies.some(isScopedFn)) {
+    if (dependencies.some((dep) => isScopedFn(dep) || scopedToOriginalMap.has(dep))) {
       return true
     }
-    // if it is the originalAtom, it is unscoped
-    if (proxyState.toAtom === originalAtom) {
-      return false
-    }
-    // if dependencies are the same, it is unscoped
-    if (dependencies.length === original!.d.size && dependencies.every((a) => original!.d.has(a))) {
+    // if dependencies are the same (allowing scoped clones), it is unscoped
+    if (
+      dependencies.length === original!.d.size &&
+      dependencies.every((a) => {
+        const baseAtom = scopedToOriginalMap.get(a) ?? a
+        return original!.d.has(baseAtom)
+      })
+    ) {
       return false
     }
     return true
   }
 
   let _isInitialized = false
+  let lastScopedAtomState: any | undefined
   const proxyState = {
     get isScoped() {
-      return dependentMap.has(proxyAtom)
+      return dependentMap.has(originalAtom)
     },
     set isScoped(v: boolean) {
       if (v) {
-        dependentMap.set(proxyAtom, [proxyAtom, scope])
+        dependentMap.set(originalAtom, [proxyAtom, scope])
       } else {
-        dependentMap.delete(proxyAtom)
+        dependentMap.delete(originalAtom)
       }
     },
     get toAtom() {
@@ -471,6 +528,133 @@ function createMultiStableAtom<T>(
     get isInitialized() {
       return (_isInitialized ||= !!atomStateMap.get(proxyAtom) && isAtomStateInitialized(atomStateMap.get(proxyAtom)!))
     },
+  }
+
+  // Preserve last scoped snapshot on reads after detaching
+  const originalScopedAtomRead = scopedAtom.read
+
+  scopedAtom.read = function patchedScopedAtomRead(get, opts) {
+    if (!proxyState.isScoped && lastScopedAtomState) {
+      const frozen = freezeAtomStateSnapshot(lastScopedAtomState)
+      setScopedAtomState(frozen)
+      return frozen.v
+    }
+
+    // Cheap trigger check using the original atom's deps to avoid recursive scoped reads.
+    const original = readAtomState(baseStore, originalAtom)
+    const hasScopedTrigger = original?.d.size
+      ? [...original.d.keys()].some((dep) => {
+          const depState = atomStateMap.get(dep)
+          return typeof depState?.v === 'string' && depState.v.startsWith('scoped')
+        })
+      : false
+
+    // If trigger is gone (unscoped), reuse the last scoped snapshot (or the current
+    // scoped state if it exists) instead of recomputing to undefined.
+    if (!hasScopedTrigger) {
+      const existingScopedState = getScopedAtomState()
+      const snapshot = lastScopedAtomState || (existingScopedState?.v !== undefined ? existingScopedState : undefined)
+      if (snapshot) {
+        const frozen = freezeAtomStateSnapshot(snapshot)
+        setScopedAtomState(frozen)
+        return frozen.v
+      }
+    }
+
+    return originalScopedAtomRead(get, opts)
+  }
+
+  const depSnapshotSymbol = Symbol('depSnapshotStates')
+
+  function cloneAtomState<T extends AtomState>(state: T): T {
+    return { ...state, d: new Map(state.d) } as T
+  }
+
+  // Clone the atom state and also capture clones of each dependency's atom state at this moment.
+  function cloneAtomStateWithDepSnapshot<T extends AtomState>(state: T): T {
+    const cloned = cloneAtomState(state)
+    if (state.d?.size) {
+      const depSnapshots = new Map<AnyAtom, AtomState>()
+      const frozenDeps = new Map<any, any>()
+
+      state.d.forEach((depVal, depAtom) => {
+        const depState = atomStateMap.get(depAtom) ?? scopedBlocks[0].get(depAtom)
+        if (!depState) return
+        const depStateClone = cloneAtomState(depState)
+        depSnapshots.set(depAtom, depStateClone)
+
+        // Create a frozen dep atom clone so later mutations to the real dep don't leak into the snapshot.
+        const frozenDepAtom: AnyAtom = { ...depAtom }
+        if (__DEV__ && (depAtom as any).debugLabel) {
+          Object.defineProperty(frozenDepAtom, 'debugLabel', {
+            value: (depAtom as any).debugLabel,
+            configurable: true,
+            enumerable: true,
+            writable: true,
+          })
+        }
+        const frozenDepState = cloneAtomState(depStateClone)
+        atomStateMap.set(frozenDepAtom, frozenDepState)
+        frozenDeps.set(frozenDepAtom, depVal)
+      })
+
+      if (frozenDeps.size) {
+        cloned.d = frozenDeps as AtomState['d']
+      }
+      ;(cloned as any)[depSnapshotSymbol] = depSnapshots
+    }
+    return cloned
+  }
+
+  // Creates a snapshot of an AtomState whose dependencies are "frozen" copies so that
+  // later dependency value changes do not mutate the snapshot (useful for debug printing
+  // after a scoped → unscoped transition).
+  function freezeAtomStateSnapshot<T extends AtomState>(state: T): T {
+    const snapshot = cloneAtomState(state)
+    if (!state.d?.size) return snapshot
+
+    const frozenDeps = new Map<any, any>()
+    const depSnapshots: Map<AnyAtom, AtomState> | undefined = (state as any)[depSnapshotSymbol]
+
+    const iterSource: Array<[AnyAtom, AtomState | undefined]> = depSnapshots
+      ? [...depSnapshots.entries()]
+      : [...state.d.entries()].map(([depAtom]) => [depAtom, atomStateMap.get(depAtom)])
+
+    iterSource.forEach(([depAtom, depState]) => {
+      const frozenDepAtom: AnyAtom = { ...depAtom }
+      if (__DEV__ && (depAtom as any).debugLabel) {
+        Object.defineProperty(frozenDepAtom, 'debugLabel', {
+          value: (depAtom as any).debugLabel,
+          configurable: true,
+          enumerable: true,
+          writable: true,
+        })
+      }
+      const frozenDepState = depState ? cloneAtomState(depState) : ({ v: undefined, d: new Map() } as AtomState)
+
+      // Prefer the original depVal from state.d (captured at snapshot time) to avoid
+      // later dep mutations leaking into the frozen snapshot.
+      const depVal = state.d.get(depAtom) ?? depState?.v
+      frozenDepState.v = depVal
+
+      atomStateMap.set(frozenDepAtom, frozenDepState)
+      frozenDeps.set(frozenDepAtom, depVal)
+    })
+
+    snapshot.d = frozenDeps as AtomState['d']
+    return snapshot
+  }
+
+  function snapshotScopedAtomState() {
+    if (!proxyState.isScoped) return
+    const state = getScopedAtomState()
+    if (!state) return
+    // Only snapshot while scopedAtom truly has scoped dependencies
+    if (hasScopedDependencies(state) && state.v !== undefined) {
+      lastScopedAtomState = cloneAtomStateWithDepSnapshot(state)
+      // eslint-disable-next-line no-console
+      console.log('snapshotScopedAtomState captured', (scopedAtom as any).debugLabel ?? '', 'v=', state.v)
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -535,13 +719,58 @@ function createMultiStableAtom<T>(
     })
     // When targetAtom is read/recomputed, check classification and sync deps
     const unsubRead = storeHooks.r?.add(targetAtom, () => {
+      // Capture latest scoped state before any potential transition away
+      if (targetAtom === scopedAtom && proxyState.isScoped) {
+        snapshotScopedAtomState()
+      }
+
       processScopeClassification()
       syncProxyInDepMountedT()
     })
+    const unsubScopedRead =
+      targetAtom === scopedAtom
+        ? scopedStoreHooks.r?.add(targetAtom, () => {
+            if (proxyState.isScoped) snapshotScopedAtomState()
+          })
+        : undefined
+
+    const scopedChangeHandler = () => {
+      // Refresh cached scoped snapshot on any change while still scoped, as long as
+      // the value is concrete and deps include scoped atoms.
+      {
+        const state = getScopedAtomState()
+        if (state && hasScopedDependencies(state) && state.v !== undefined) {
+          lastScopedAtomState = cloneAtomStateWithDepSnapshot(state)
+          // eslint-disable-next-line no-console
+          console.log('storeHooks.c captured', (scopedAtom as any).debugLabel ?? '', 'v=', state.v)
+        }
+      }
+
+      if (!lastScopedAtomState) return
+
+      const original = readAtomState(baseStore, originalAtom)
+      const hasScopedTrigger = original?.d.size
+        ? [...original.d.keys()].some((dep) => {
+            const depState = atomStateMap.get(dep)
+            return typeof depState?.v === 'string' && depState.v.startsWith('scoped')
+          })
+        : false
+
+      if (!hasScopedTrigger) {
+        setScopedAtomState(freezeAtomStateSnapshot(lastScopedAtomState))
+      }
+    }
+
+    const unsubChange = targetAtom === scopedAtom ? storeHooks.c?.add(targetAtom, scopedChangeHandler) : undefined
+    const unsubScopedChange =
+      targetAtom === scopedAtom ? scopedStoreHooks.c?.add(targetAtom, scopedChangeHandler) : undefined
 
     if (unsubMount) cleanups.push(unsubMount)
     if (unsubUnmount) cleanups.push(unsubUnmount)
     if (unsubRead) cleanups.push(unsubRead)
+    if (unsubChange) cleanups.push(unsubChange)
+    if (unsubScopedRead) cleanups.push(unsubScopedRead)
+    if (unsubScopedChange) cleanups.push(unsubScopedChange)
 
     cleanupToAtomHooks = () => {
       cleanups.forEach((cleanup) => cleanup())
@@ -626,7 +855,13 @@ function createMultiStableAtom<T>(
    * These are the listeners that need to be transferred when classification changes.
    */
   function getScopeListenersForProxy(): Set<() => void> {
-    return scopeListenersMap.get(proxyAtom) ?? new Set()
+    return (
+      scopeListenersMap.get(proxyAtom) ||
+      scopeListenersMap.get(proxyState.toAtom) ||
+      scopeListenersMap.get(scopedAtom) ||
+      scopeListenersMap.get(originalAtom) ||
+      new Set()
+    )
   }
 
   /**
@@ -649,8 +884,11 @@ function createMultiStableAtom<T>(
    * Transfers all S1 listeners from the source atom to the target atom.
    * Called when classification changes between scoped and unscoped.
    */
-  function transferScopeListeners(fromAtom: AnyAtom, toAtom: AnyAtom): void {
-    const listeners = getScopeListenersForProxy()
+  function transferScopeListeners(
+    fromAtom: AnyAtom,
+    toAtom: AnyAtom,
+    listeners: Set<() => void> = getScopeListenersForProxy()
+  ): void {
     for (const listener of listeners) {
       moveListenerBetweenAtoms(listener, fromAtom, toAtom)
     }
@@ -669,6 +907,11 @@ function createMultiStableAtom<T>(
    * Returns true if the atom was unmounted.
    */
   function unmountAtomIfEmpty(atom: AnyAtom): boolean {
+    if (atom === scopedAtom && lastScopedAtomState) {
+      // Keep the scoped atom mounted so we retain its last scoped snapshot
+      return false
+    }
+
     if (!hasRemainingListeners(atom)) {
       const mounted = mountedMap.get(atom)
       if (mounted) {
@@ -700,6 +943,11 @@ function createMultiStableAtom<T>(
     // Remove proxyAtom from old target's (originalAtom) dependencies' mounted.t
     unaliasProxyFromTarget(originalAtom)
 
+    // Reassociate scoped listeners to scopedAtom in scopeListenersMap
+    scopeListenersMap.set(scopedAtom, listeners)
+    scopeListenersMap.delete(originalAtom)
+    scopeListenersMap.delete(proxyAtom)
+
     // Mount c1 to receive the listeners
     ensureAtomMounted(scopedAtom)
 
@@ -725,22 +973,106 @@ function createMultiStableAtom<T>(
    * - Sets up new hooks on originalAtom
    */
   function handleTransitionToUnscoped(): void {
-    const listeners = getScopeListenersForProxy()
-    if (listeners.size === 0) return
+    const listeners = new Set(getScopeListenersForProxy())
+    const scopedMounted = mountedMap.get(scopedAtom)
+    if (scopedMounted) {
+      for (const listener of scopedMounted.l) {
+        listeners.add(listener)
+      }
+    }
 
     // Remove proxyAtom from old target's (scopedAtom) dependencies' mounted.t
     unaliasProxyFromTarget(scopedAtom)
+
+    // Also detach scopedAtom itself from its dependency mounted.t so further updates don't re-compute it
+    const scopedState = getScopedAtomState()
+    if (scopedState) {
+      for (const dep of scopedState.d.keys()) {
+        const depMounted = mountedMap.get(dep)
+        depMounted?.t.delete(scopedAtom)
+      }
+    }
+    // As a safety net, scrub scopedAtom from any dep mounted.t that may still reference it
+    for (const [, mounted] of mountedMap) {
+      if (mounted.t?.has(scopedAtom)) {
+        mounted.t.delete(scopedAtom)
+      }
+    }
 
     // Ensure c0 is mounted to receive the listeners
     if (!mountedMap.get(originalAtom)) {
       ensureAtomMounted(originalAtom)
     }
 
-    // Transfer listeners from c1 to c0
-    transferScopeListeners(scopedAtom, originalAtom)
+    // Keep c1 mounted as a cache holder so its state isn't garbage-collected when we detach
+    if (!mountedMap.get(scopedAtom)) {
+      ensureAtomMounted(scopedAtom)
+    }
 
-    // Unmount c1 (it should have no listeners now)
+    // Transfer listeners from c1 to c0
+    transferScopeListeners(scopedAtom, originalAtom, listeners)
+
+    // Hard reset: ensure scopedAtom no longer holds any of the transferred listeners
+    if (scopedMounted) {
+      for (const listener of listeners) {
+        scopedMounted.l.delete(listener)
+      }
+      scopedMounted.l.clear()
+    }
+
+    // Reassociate listeners back to originalAtom in scopeListenersMap
+    if (listeners.size) {
+      scopeListenersMap.set(originalAtom, listeners)
+      scopeListenersMap.delete(scopedAtom)
+      scopeListenersMap.delete(proxyAtom)
+    }
+
+    // Preserve scopedAtom's latest state so we can keep S1 snapshot after detaching.
+    // Do NOT refresh the cache if the scoped trigger has disappeared, otherwise we would
+    // overwrite the last good scoped snapshot with an unscoped dependency graph.
+    {
+      const state = getScopedAtomState()
+      if (state && hasScopedDependencies(state) && state.v !== undefined) {
+        lastScopedAtomState = cloneAtomStateWithDepSnapshot(state)
+        // eslint-disable-next-line no-console
+        console.log(
+          'handleTransitionToUnscoped captured before detach',
+          (scopedAtom as any).debugLabel ?? '',
+          'v=',
+          state.v
+        )
+      }
+    }
+
+    // Unmount c1 (it should have no listeners now) and drop its mounted entry to prevent re-computation
     unmountAtomIfEmpty(scopedAtom)
+    mountedMap.delete(scopedAtom)
+
+    // Restore the latest scoped state so that S1 snapshot is retained when unscoped
+    if (lastScopedAtomState) {
+      setScopedAtomState(freezeAtomStateSnapshot(lastScopedAtomState))
+      // eslint-disable-next-line no-console
+      const frozen = atomStateMap.get(scopedAtom)
+      console.log(
+        'handleTransitionToUnscoped restored',
+        (scopedAtom as any).debugLabel ?? '',
+        'v=',
+        frozen?.v,
+        'deps=',
+        frozen?.d?.size
+      )
+    }
+
+    // Ensure any pending notifications for scopedAtom are cleared after detaching
+    changedAtoms.delete(scopedAtom)
+
+    // Re-apply the cached scoped snapshot after the current flush completes
+    if (lastScopedAtomState) {
+      const frozen = freezeAtomStateSnapshot(lastScopedAtomState)
+      setTimeout(() => {
+        atomStateMap.set(scopedAtom, frozen)
+      }, 0)
+    }
 
     // Setup new hooks on originalAtom and alias proxyAtom to it
     setupToAtomHooks(originalAtom)
@@ -785,6 +1117,15 @@ function createMultiStableAtom<T>(
     // (must be after proxyState.isScoped is set so toAtom points to correct target)
     if (scopeChanged) {
       syncProxyInDepMountedT()
+    }
+
+    // Ensure the scoped snapshot is retained when we detach from scoped classification
+    if (!isScoped && lastScopedAtomState) {
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.log('Restoring scoped snapshot', lastScopedAtomState.v, [...(lastScopedAtomState.d?.entries?.() ?? [])])
+      }
+      setScopedAtomState(freezeAtomStateSnapshot(lastScopedAtomState))
     }
 
     return isScoped
