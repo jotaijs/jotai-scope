@@ -404,26 +404,33 @@ function createMultiStableAtom<T>(
     prevDeps = currentDeps
   }
 
-  proxyAtom.read = function proxyRead() {
-    const classA = processScopeClassification()
-    let atomState = proxyReadAtomState(proxyState.store, proxyState.toAtom)
-    const classB = processScopeClassification()
-    if (classA !== classB) {
-      atomState = proxyReadAtomState(proxyState.store, proxyState.toAtom)
-    }
+  proxyAtom.read = function proxyRead(get) {
+    // Ensure originalAtom is up-to-date
+    const originalAtomState = ensureAtomState(baseStore, originalAtom)
 
+    if (!processScopeClassification()) {
+      // originalAtom is unscoped, return its value
+      // Sync proxyAtom in deps' mounted.t after each read
+      syncProxyInDepMountedT()
+      return returnAtomValue(originalAtomState)
+    }
+    // originalAtom is scoped, get scopedAtom's value
+    const value = get(scopedAtom)
+    if (!processScopeClassification()) {
+      // scopedAtom is unscoped, return originalAtom's value
+      // Sync proxyAtom in deps' mounted.t after each read
+      syncProxyInDepMountedT()
+      return returnAtomValue(originalAtomState)
+    }
     // Sync proxyAtom in deps' mounted.t after each read
     syncProxyInDepMountedT()
-
-    return returnAtomValue(atomState)
+    return value
   }
 
-  if (isWritableAtom(originalAtom)) {
+  if (isWritableAtom(originalAtom) && isWritableAtom(scopedAtom)) {
     const writableProxy = proxyAtom as AnyWritableAtom
-    writableProxy.write = function proxyWrite(_get, _set, ...args) {
-      const writableTarget = proxyState.toAtom as AnyWritableAtom
-      // Don't pass _get/_set - proxyWriteAtomState creates its own scoped getter/setter
-      return proxyWriteAtomState(baseStore, writableTarget, ...args)
+    writableProxy.write = function proxyWrite(_get, set, ...args) {
+      return set(scopedAtom as AnyWritableAtom, ...args)
     }
   }
 
