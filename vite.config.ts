@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig(({ mode }) => {
-  const alias = {}
+  const alias = {} as Record<string, string>
   if (mode === 'development' || mode === 'test') {
     alias['jotai-scope'] = path.resolve(__dirname, 'src')
     const localJotai = path.resolve(__dirname, 'jotai/src')
