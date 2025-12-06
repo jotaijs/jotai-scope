@@ -196,7 +196,7 @@ describe('Counter', () => {
     S0[_]: a0, b0, c(a0 + b0)
     S1[a]: a1, b0, c(a1 + b0)
   */
-  test.only('05. unscoped derived can read both scoped and unscoped atoms', () => {
+  test('05. unscoped derived can read both scoped and unscoped atoms', () => {
     const a = atomWithReducer(0, (v) => v + 1)
     a.debugLabel = 'a'
     const b = atomWithReducer(0, (v) => v + 1)
@@ -226,16 +226,13 @@ describe('Counter', () => {
       c1: v=0,0
         a1: v=0
         b: v=0
-      c_1->c1: v=0,0
-        a1: v=0
-        b: v=0
     `)
     expect(printMountedMap(s[0])).toBe(dedent`
       a: l=a$S0 d=[] t=c
-      b: l=b$S0,b$S1 d=[] t=c,c1,c_1
+      b: l=b$S0,b$S1 d=[] t=c,c1
       c: l=c$S0 d=a,b t=[]
-      a1: l=a$S1 d=[] t=c1,c_1
-      c_1->c1: l=c$S1 d=a1,b t=[]
+      a1: l=a$S1 d=[] t=c1
+      c1: l=c$S1 d=a1,b t=[]
     `)
 
     s[0].set(a)
@@ -249,16 +246,13 @@ describe('Counter', () => {
       c1: v=0,0
         a1: v=0
         b: v=0
-      c_1->c1: v=0,0
-        a1: v=0
-        b: v=0
     `)
     expect(printMountedMap(s[0])).toBe(dedent`
       a: l=a$S0 d=[] t=c
-      b: l=b$S0,b$S1 d=[] t=c,c1,c_1
+      b: l=b$S0,b$S1 d=[] t=c,c1
       c: l=c$S0 d=a,b t=[]
-      a1: l=a$S1 d=[] t=c1,c_1
-      c_1->c1: l=c$S1 d=a1,b t=[]
+      a1: l=a$S1 d=[] t=c1
+      c1: l=c$S1 d=a1,b t=[]
     `)
 
     s[1].set(a)
@@ -272,16 +266,13 @@ describe('Counter', () => {
       c1: v=1,0
         a1: v=1
         b: v=0
-      c_1->c1: v=1,0
-        a1: v=1
-        b: v=0
     `)
     expect(printMountedMap(s[0])).toBe(dedent`
       a: l=a$S0 d=[] t=c
-      b: l=b$S0,b$S1 d=[] t=c,c1,c_1
+      b: l=b$S0,b$S1 d=[] t=c,c1
       c: l=c$S0 d=a,b t=[]
-      a1: l=a$S1 d=[] t=c1,c_1
-      c_1->c1: l=c$S1 d=a1,b t=[]
+      a1: l=a$S1 d=[] t=c1
+      c1: l=c$S1 d=a1,b t=[]
     `)
 
     s[0].set(b)
@@ -295,16 +286,13 @@ describe('Counter', () => {
       c1: v=1,1
         a1: v=1
         b: v=1
-      c_1->c1: v=1,1
-        a1: v=1
-        b: v=1
     `)
     expect(printMountedMap(s[0])).toBe(dedent`
       a: l=a$S0 d=[] t=c
-      b: l=b$S0,b$S1 d=[] t=c,c1,c_1
+      b: l=b$S0,b$S1 d=[] t=c,c1
       c: l=c$S0 d=a,b t=[]
-      a1: l=a$S1 d=[] t=c1,c_1
-      c_1->c1: l=c$S1 d=a1,b t=[]
+      a1: l=a$S1 d=[] t=c1
+      c1: l=c$S1 d=a1,b t=[]
     `)
   })
 
@@ -462,7 +450,7 @@ describe('Counter', () => {
     const s = getScopes()
     /*
       S0[]: b0, c0, d0(b0 + c0)
-      S1[b]: b1, c0, d0(b1 + c0)
+      S1[b]: b1, c0, d1(b1 + c0)
     */
     expect(printAtomState(s[0])).toBe(dedent`
       b: v=0
@@ -471,23 +459,11 @@ describe('Counter', () => {
         b: v=0
         c: v=0
       b1: v=0
-      _d1: v=00
-        d1: v=00
-          b1: v=0
-          c: v=0
       d1: v=00
         b1: v=0
         c: v=0
     `)
     s[0].set(d)
-    /*
-      1. set d
-      2. set b to 1
-      3. set c to 1
-      4. changedAtoms: [b, c, d]
-      5. invalidatedAtoms: [d, d1, d?1]
-      6. changedAtoms: [b, c, d]
-    */
     expect(printAtomState(s[0])).toBe(dedent`
       b: v=1
       c: v=1
@@ -495,10 +471,6 @@ describe('Counter', () => {
         b: v=1
         c: v=1
       b1: v=0
-      _d1: v=01
-        d1: v=01
-          b1: v=0
-          c: v=1
       d1: v=01
         b1: v=0
         c: v=1
