@@ -621,7 +621,7 @@ describe('Counter', () => {
     S1[b,c]: c1(a1 + b1)
     S2[b]: c2(a1 + b2) - c2 is created because b2 holds different value
   */
-  test.only('11.5. inherited scoped derived atoms can read and write to scoped primitive atoms at every nested level', () => {
+  test('11.5. inherited scoped derived atoms can read and write to scoped primitive atoms at every nested level', () => {
     const a = atom(0)
     a.debugLabel = 'a'
 

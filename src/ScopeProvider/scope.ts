@@ -92,19 +92,16 @@ function createMultiStableAtom<T>(
   originalAtom: Atom<T>,
   implicitScope: Scope | undefined
 ): ProxyState<T> {
-  // TODO: Delete these checks
-  if (originalAtom.debugLabel?.endsWith('_')) {
-    throw new Error('Cannot clone proxy atom')
-  }
-  if (originalAtom.debugLabel?.includes('@')) {
-    throw new Error('Cannot clone already scoped atom')
-  }
   const explicitMap = scope[0]
   const dependentMap = scope[2]
+  const inheritedSource = scope[3]
   const baseStore = scope[4]
   const scopedStore = scope[7]
   const scopedAtom = cloneAtom(scope, originalAtom, implicitScope)
   explicitMap.set(scopedAtom, [scopedAtom, scope])
+
+  // Key for inheritedSource map
+  const source = implicitScope ?? globalScopeKey
 
   const buildingBlocks = getBuildingBlocks(baseStore)
   const atomStateMap = buildingBlocks[0]
@@ -147,15 +144,20 @@ function createMultiStableAtom<T>(
 
   function setIsScoped(v: boolean) {
     proxyState.isScoped = v
+    const currentInheritedMap = inheritedSource.get(source)
     if (v) {
       proxyState.fromAtom = originalAtom
       proxyState.toAtom = scopedAtom
       proxyState.store = scopedStore
+      // scoped: add to dependentMap, remove from inheritedMap
       dependentMap.set(originalAtom, [scopedAtom, scope])
+      currentInheritedMap?.delete(originalAtom)
     } else {
       proxyState.fromAtom = scopedAtom
       proxyState.toAtom = originalAtom
       proxyState.store = baseStore
+      // unscoped: add to inheritedMap, remove from dependentMap
+      currentInheritedMap?.set(originalAtom, [originalAtom, undefined])
       dependentMap.delete(originalAtom)
     }
   }
@@ -277,14 +279,34 @@ function getAtom<T>(scope: Scope, atom: Atom<T>, implicitScope?: Scope | undefin
     return implicitEntry
   }
 
-  const dependentEntry = dependentMap.get(atom)
-  if (dependentEntry) {
-    return dependentEntry
+  // 3) derived atoms: handled via createMultiStableAtom
+  //    - scoped: stored in dependentMap
+  //    - unscoped: stored in inheritedMap
+  if (isDerived(atom)) {
+    const dependentEntry = dependentMap.get(atom)
+    if (dependentEntry) {
+      return dependentEntry
+    }
+
+    const source = implicitScope ?? globalScopeKey
+    let inheritedMap = inheritedSource.get(source)
+    if (!inheritedMap) {
+      inheritedMap = new WeakMap() as AtomPairMap
+      inheritedSource.set(source, inheritedMap)
+    }
+
+    const inheritedEntry = inheritedMap.get(atom)
+    if (inheritedEntry) {
+      return inheritedEntry
+    }
+
+    const ancestorImplicitScope = parentScope ? findAtomScope(parentScope, (s) => s[0].has(atom)) : undefined
+    const proxyState = createMultiStableAtom(scope, atom, ancestorImplicitScope)
+
+    return [proxyState.toAtom, proxyState.isScoped ? scope : undefined]
   }
 
-  // inherited atoms are copied so they can access scoped atoms
-  // dependencies of inherited atoms first check if they are explicitly scoped
-  // otherwise they use their original scope's atom
+  // 4) primitive inherited: found in inheritedMap, recurse to parent
   const source = implicitScope ?? globalScopeKey
   let inheritedMap = inheritedSource.get(source)
   if (!inheritedMap) {
@@ -294,25 +316,8 @@ function getAtom<T>(scope: Scope, atom: Atom<T>, implicitScope?: Scope | undefin
 
   let inheritedEntry = inheritedMap.get(atom)
   if (!inheritedEntry) {
-    const [
-      ancestorAtom,
-      ancestorScope, //
-    ] = parentScope ? getAtom(parentScope, atom, implicitScope) : [atom]
-
-    if (isDerived(atom)) {
-      // Create a multi-stable atom that can switch between inherited and scoped
-      // based on whether dependencies are scoped in this scope.
-      // This applies to both unscoped atoms and inherited explicitly-scoped atoms.
-      // If the atom is explicitly scoped in an ancestor, inherit that implicit scope
-      // so that dependencies like `a` become `a1` (shared with ancestor).
-      // Find the scope where atom is explicitly scoped (not dependent) for implicit scope inheritance
-      const ancestorImplicitScope = parentScope ? findAtomScope(parentScope, (s) => s[0].has(atom)) : undefined
-      const proxyState = createMultiStableAtom(scope, atom, ancestorImplicitScope)
-      // Return the current toAtom (either originalAtom or scopedAtom based on classification)
-      return [proxyState.toAtom, proxyState.isScoped ? scope : undefined]
-    } else {
-      inheritedEntry = [ancestorAtom, ancestorScope]
-    }
+    const [ancestorAtom, ancestorScope] = parentScope ? getAtom(parentScope, atom, implicitScope) : [atom]
+    inheritedEntry = [ancestorAtom, ancestorScope]
     inheritedMap.set(atom, inheritedEntry)
   }
   return inheritedEntry
@@ -370,11 +375,14 @@ function collectListeners(scope: Scope, toAtom: AnyAtom, originalAtom: AnyAtom):
     }
   }
   let currentScope: Scope | undefined = scope
-  do {
+  // Only gather from current scope up to (but not beyond) atomScope
+  while (currentScope) {
     gatherListeners(currentScope)
-    const parentScope: Scope | undefined = currentScope[5]
-    currentScope = parentScope
-  } while (currentScope && atomScope !== currentScope)
+    if (currentScope === atomScope) {
+      break
+    }
+    currentScope = currentScope[5]
+  }
   return listeners
 }
 
