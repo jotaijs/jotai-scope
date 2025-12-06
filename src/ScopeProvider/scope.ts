@@ -101,8 +101,8 @@ function createMultiStableAtom<T>(
   }
   const explicitMap = scope[0]
   const dependentMap = scope[2]
-  const baseStore = scope[4]
-  const scopedStore = scope[7]
+  const baseStore = scope[5]
+  const scopedStore = scope[8]
   const scopedAtom = cloneAtom(scope, originalAtom, implicitScope)
   explicitMap.set(scopedAtom, [scopedAtom, scope])
 
@@ -173,7 +173,7 @@ function createMultiStableAtom<T>(
       // When toAtom is read/recomputed, re-check classification
       processScopeClassification()
     })
-    const cleanupListeners = scope[6]
+    const cleanupListeners = scope[7]
     cleanupToAtomHook = () => {
       cleanup?.()
       cleanupListeners.delete(cleanupToAtomHook!)
@@ -255,15 +255,13 @@ function createMultiStableAtom<T>(
   return proxyState
 }
 
-/** Per-scope WeakMap to store multi-stable atom results for classification change handling */
-const scopeMultiStableMap = new WeakMap<Scope, WeakMap<Atom<unknown>, ProxyState<unknown>>>()
-
 function getAtom<T>(scope: Scope, atom: Atom<T>, implicitScope?: Scope | undefined): [Atom<T>, Scope?] {
   const explicitMap = scope[0]
   const implicitMap = scope[1]
   const dependentMap = scope[2]
-  const inheritedSource = scope[3]
-  const parentScope = scope[5]
+  const multiStableMap = scope[3]
+  const inheritedSource = scope[4]
+  const parentScope = scope[6]
   const explicitEntry = explicitMap.get(atom)
 
   if (explicitEntry) {
@@ -286,6 +284,13 @@ function getAtom<T>(scope: Scope, atom: Atom<T>, implicitScope?: Scope | undefin
     return dependentEntry
   }
 
+  // Check if we already have a multi-stable atom result for this atom in this scope
+  const proxyState = multiStableMap.get(atom) as ProxyState<T> | undefined
+  if (proxyState) {
+    // Always return the current toAtom (may have changed due to classification change)
+    return [proxyState.toAtom, proxyState.isScoped ? scope : undefined]
+  }
+
   // inherited atoms are copied so they can access scoped atoms
   // dependencies of inherited atoms first check if they are explicitly scoped
   // otherwise they use their original scope's atom
@@ -296,20 +301,6 @@ function getAtom<T>(scope: Scope, atom: Atom<T>, implicitScope?: Scope | undefin
     inheritedSource.set(source, inheritedMap)
   }
 
-  // Get or create the per-scope multi-stable map
-  let multiStableMap = scopeMultiStableMap.get(scope)
-  if (!multiStableMap) {
-    multiStableMap = new WeakMap()
-    scopeMultiStableMap.set(scope, multiStableMap)
-  }
-
-  // Check if we already have a multi-stable atom result for this atom in this scope
-  const proxyState = multiStableMap.get(atom)
-  if (proxyState) {
-    // Always return the current toAtom (may have changed due to classification change)
-    return [proxyState.toAtom as Atom<T>, proxyState.isScoped ? scope : undefined]
-  }
-
   let inheritedEntry = inheritedMap.get(atom)
   if (!inheritedEntry) {
     const [
@@ -318,18 +309,14 @@ function getAtom<T>(scope: Scope, atom: Atom<T>, implicitScope?: Scope | undefin
     ] = parentScope ? getAtom(parentScope, atom, implicitScope) : [atom]
 
     if (isDerived(atom)) {
-      // Check if atom is EXPLICITLY scoped in an ancestor (not dependent-scoped)
-      // If so, inherit it directly - child scopes should use the parent's scoped version
-      const isExplicitlyScoped = ancestorScope && ancestorScope[0].has(atom)
-      if (isExplicitlyScoped) {
-        inheritedEntry = [ancestorAtom, ancestorScope]
-        inheritedMap.set(atom, inheritedEntry)
-        return inheritedEntry
-      }
-      // Otherwise create a bistable atom that resolves deps fresh in this scope
-      // Do NOT inherit the ancestor's implicit scope - each scope should resolve
-      // dependencies based on what's explicitly scoped there
-      const proxyState = createMultiStableAtom(scope, atom, undefined)
+      // Create a multi-stable atom that can switch between inherited and scoped
+      // based on whether dependencies are scoped in this scope.
+      // This applies to both unscoped atoms and inherited explicitly-scoped atoms.
+      // If the atom is explicitly scoped in an ancestor, inherit that implicit scope
+      // so that dependencies like `a` become `a1` (shared with ancestor).
+      // Find the scope where atom is explicitly scoped (not dependent) for implicit scope inheritance
+      const ancestorImplicitScope = parentScope ? findAtomScope(parentScope, (s) => s[0].has(atom)) : undefined
+      const proxyState = createMultiStableAtom(scope, atom, ancestorImplicitScope)
       multiStableMap.set(atom, proxyState as ProxyState<unknown>)
       // Return the current toAtom (either originalAtom or scopedAtom based on classification)
       return [proxyState.toAtom, proxyState.isScoped ? scope : undefined]
@@ -342,7 +329,7 @@ function getAtom<T>(scope: Scope, atom: Atom<T>, implicitScope?: Scope | undefin
 }
 
 export function cleanup(scope: Scope): void {
-  for (const cleanupListeners of scope[6]) {
+  for (const cleanupListeners of scope[7]) {
     cleanupListeners()
   }
 }
@@ -368,10 +355,10 @@ function prepareWriteAtom<T extends AnyAtom>(
     atom.write = createScopedWrite(scope, originalAtom.write.bind(originalAtom), implicitScope, writeScope)
     const cleanupScopedWrite = () => {
       atom.write = write
-      const cleanupListeners = scope[6]
+      const cleanupListeners = scope[7]
       cleanupListeners.delete(cleanupScopedWrite)
     }
-    const cleanupListeners = scope[6]
+    const cleanupListeners = scope[7]
     cleanupListeners.add(cleanupScopedWrite)
     return cleanupScopedWrite
   }
@@ -384,7 +371,7 @@ function collectListeners(scope: Scope, toAtom: AnyAtom, originalAtom: AnyAtom):
   const atomScope = getExplicitOrDependentAtomScope(scope, toAtom)
 
   function gatherListeners(scope: Scope): void {
-    const scopeListenersMap = scope[8]
+    const scopeListenersMap = scope[9]
     const listenerSet = scopeListenersMap.get(originalAtom)
     if (listenerSet) {
       for (const listener of listenerSet) {
@@ -395,27 +382,27 @@ function collectListeners(scope: Scope, toAtom: AnyAtom, originalAtom: AnyAtom):
   let currentScope: Scope | undefined = scope
   do {
     gatherListeners(currentScope)
-    const parentScope: Scope | undefined = currentScope[5]
+    const parentScope: Scope | undefined = currentScope[6]
     currentScope = parentScope
   } while (currentScope && atomScope !== currentScope)
   return listeners
 }
 
-/** Returns the scope where the atom is defined. */
-function getExplicitOrDependentAtomScope(scope: Scope, atom: AnyAtom): Scope | undefined {
-  const explicitMap = scope[0]
-  const dependentMap = scope[2]
-  const parentScope = scope[5]
-  if (explicitMap.has(atom)) {
-    return scope
-  }
-  if (dependentMap.has(atom)) {
-    return scope
-  }
-  if (parentScope) {
-    return getExplicitOrDependentAtomScope(parentScope, atom)
+/** Iterates up the scope chain and returns the first scope matching the predicate. */
+function findAtomScope(scope: Scope, check: (scope: Scope) => boolean): Scope | undefined {
+  let currentScope: Scope | undefined = scope
+  while (currentScope) {
+    if (check(currentScope)) {
+      return currentScope
+    }
+    currentScope = currentScope[6]
   }
   return undefined
+}
+
+/** Returns the scope where the atom is explicitly or dependently scoped. */
+function getExplicitOrDependentAtomScope(scope: Scope, atom: AnyAtom): Scope | undefined {
+  return findAtomScope(scope, (s) => s[0].has(atom) || s[2].has(atom))
 }
 
 /** Returns true if the atom is defined in the scope or any of its parent scopes. */
@@ -476,21 +463,22 @@ export function createScope(props: CreateScopeProps): Store {
   const { atoms = [], atomFamilies = [], parentStore, name: scopeName } = props
   const atomsSet = new WeakSet(atoms)
   const parentScope = storeScopeMap.get(parentStore)
-  const baseStore = parentScope?.[4] ?? parentStore
+  const baseStore = parentScope?.[5] ?? parentStore
 
   const scope: Scope = [
-    new WeakMap() as AtomPairMap,
-    new WeakMap() as AtomPairMap,
-    new WeakMap() as AtomPairMap,
-    new WeakMap<Scope | GlobalScopeKey, AtomPairMap>(),
-    baseStore,
-    parentScope,
-    new Set<() => void>(),
-    undefined!, // Store - will be set after creating patched store
-    new WeakMap(),
+    new WeakMap() as AtomPairMap, //                    0: explicitMap
+    new WeakMap() as AtomPairMap, //                    1: implicitMap
+    new WeakMap() as AtomPairMap, //                    2: dependentMap
+    new WeakMap(), //                                   3: multiStableMap
+    new WeakMap<Scope | GlobalScopeKey, AtomPairMap>(), // 4: inheritedSource
+    baseStore, //                                       5: baseStore
+    parentScope, //                                     6: parentScope
+    new Set<() => void>(), //                           7: cleanupListeners
+    undefined!, //                                      8: scopedStore - will be set after creating patched store
+    new WeakMap(), //                                   9: scopeListenersMap
   ] as Scope
   const explicitMap = scope[0]
-  const cleanupListeners = scope[6]
+  const cleanupListeners = scope[7]
 
   if (scopeName && __DEV__) {
     scope.name = scopeName
@@ -498,7 +486,7 @@ export function createScope(props: CreateScopeProps): Store {
   }
 
   const scopedStore = createPatchedStore(scope)
-  scope[7] = scopedStore
+  scope[8] = scopedStore
   storeScopeMap.set(scopedStore, scope)
 
   // populate explicitly scoped atoms
@@ -528,7 +516,7 @@ export function createScope(props: CreateScopeProps): Store {
 
 /** @returns a patched store that intercepts atom access to apply the scope */
 function createPatchedStore(scope: Scope): Store {
-  const baseStore = scope[4]
+  const baseStore = scope[5]
   const baseBuildingBlocks = getBuildingBlocks(baseStore)
   const storeState: BuildingBlocks = [...baseBuildingBlocks]
   const storeGet = storeState[21]
@@ -685,7 +673,7 @@ function createPatchedStore(scope: Scope): Store {
 
   function scopedSub(store: Store, atom: AnyAtom, listener: () => void): () => void {
     const [scopedAtom] = getAtom(scope, atom)
-    const scopeListenersMap = scope[8]
+    const scopeListenersMap = scope[9]
 
     // Track this listener as belonging to this scope
     let listeners = scopeListenersMap.get(atom)

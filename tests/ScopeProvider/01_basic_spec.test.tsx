@@ -279,7 +279,7 @@ describe('Counter', () => {
     expect(printAtomState(s[0])).toBe(dedent`
       a: v=1
       b: v=1
-      c: v=1,0
+      c: v=1,1
         a: v=1
         b: v=1
       a1: v=1
@@ -615,5 +615,124 @@ describe('Counter', () => {
       '2', // level2 baseA1
       '1', // level2 baseB2
     ])
+  })
+
+  /**
+    S1[b,c]: c1(a1 + b1)
+    S2[b]: c2(a1 + b2) - c2 is created because b2 holds different value
+  */
+  test.only('11.5. inherited scoped derived atoms can read and write to scoped primitive atoms at every nested level', () => {
+    const a = atom(0)
+    a.debugLabel = 'a'
+
+    const b = atom(0)
+    b.debugLabel = 'b'
+
+    const c = atom(
+      (get) => [get(a), get(b)],
+      (_get, set, v: number) => {
+        set(a, v)
+        set(b, v)
+      }
+    )
+    c.debugLabel = 'c'
+
+    /**```
+      S1[b,c]: c1(a1 + b1)
+      S2[b]: c2(a1 + b2)
+    */
+    const s = createScopes([b, c], [b])
+    trackAtomStateMap(s)
+    subscribeAll(s, [c])
+
+    function getResults() {
+      return [s[1].get(c), s[2].get(c)].flat().join('')
+    }
+
+    expect(printAtomState(s[0])).toBe(dedent`
+      c: v=0,0
+        a: v=0
+        b: v=0
+      a: v=0
+      b: v=0
+      c1: v=0,0
+        a1: v=0
+        b1: v=0
+      a1: v=0
+      b1: v=0
+      c2: v=0,0
+        a1: v=0
+        b2: v=0
+      b2: v=0
+    `)
+    expect(printMountedMap(s[0])).toBe(dedent`
+      a: l=[] d=[] t=c
+      b: l=[] d=[] t=c
+      c: l=c$S0 d=a,b t=[]
+      a1: l=[] d=[] t=c1,c2
+      b1: l=[] d=[] t=c1
+      c1: l=c$S1 d=a1,b1 t=[]
+      b2: l=[] d=[] t=c2
+      c2: l=c$S2 d=a1,b2 t=[]
+    `)
+    expect(getResults()).toBe('0000')
+
+    s[1].set(c, 1)
+    expect(printAtomState(s[0])).toBe(dedent`
+      c: v=0,0
+        a: v=0
+        b: v=0
+      a: v=0
+      b: v=0
+      c1: v=1,1
+        a1: v=1
+        b1: v=1
+      a1: v=1
+      b1: v=1
+      c2: v=1,0
+        a1: v=1
+        b2: v=0
+      b2: v=0
+    `)
+    expect(printMountedMap(s[0])).toBe(dedent`
+      a: l=[] d=[] t=c
+      b: l=[] d=[] t=c
+      c: l=c$S0 d=a,b t=[]
+      a1: l=[] d=[] t=c1,c2
+      b1: l=[] d=[] t=c1
+      c1: l=c$S1 d=a1,b1 t=[]
+      b2: l=[] d=[] t=c2
+      c2: l=c$S2 d=a1,b2 t=[]
+    `)
+    expect(getResults()).toBe('1110')
+
+    s[2].set(c, 2)
+    expect(printAtomState(s[0])).toBe(dedent`
+      c: v=0,0
+        a: v=0
+        b: v=0
+      a: v=0
+      b: v=0
+      c1: v=2,1
+        a1: v=2
+        b1: v=1
+      a1: v=2
+      b1: v=1
+      c2: v=2,2
+        a1: v=2
+        b2: v=2
+      b2: v=2
+    `)
+    expect(printMountedMap(s[0])).toBe(dedent`
+      a: l=[] d=[] t=c
+      b: l=[] d=[] t=c
+      c: l=c$S0 d=a,b t=[]
+      a1: l=[] d=[] t=c1,c2
+      b1: l=[] d=[] t=c1
+      c1: l=c$S1 d=a1,b1 t=[]
+      b2: l=[] d=[] t=c2
+      c2: l=c$S2 d=a1,b2 t=[]
+    `)
+    expect(getResults()).toBe('2122')
   })
 })
