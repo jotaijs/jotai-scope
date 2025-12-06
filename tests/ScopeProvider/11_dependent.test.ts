@@ -259,7 +259,7 @@ describe('open issues', () => {
 
       const s = createScopes([a]) // a is explicitly scoped in S1
       const scope = storeScopeMap.get(s[1])!
-      const scopeListenersMap = scope[9]
+      const scopeListenersMap = scope[8]
 
       // Initially no listeners
       expect(scopeListenersMap.get(a)).toBe(undefined)
@@ -299,7 +299,7 @@ describe('open issues', () => {
       const s = createScopes([a]) // a is explicitly scoped in S1
       const scope0 = storeScopeMap.get(s[0])
       const scope1 = storeScopeMap.get(s[1])!
-      const scopeListenersMap1 = scope1[9]
+      const scopeListenersMap1 = scope1[8]
 
       // Subscribe in S0 - should NOT be tracked in S1's scopeListenersMap
       const listener0 = vi.fn()

@@ -29,19 +29,16 @@ export interface DependentMap extends AtomPairMap {}
 /** Map of proxy atoms to the set of listeners subscribed in this scope */
 export type ScopeListenersMap = WeakMap<AnyAtom, Set<() => void>>
 
-export type MultiStableMap = WeakMap<Atom<unknown>, unknown>
-
 export type Scope = [
   explicitMap: ExplicitMap, //               0
   implicitMap: ImplicitMap, //               1
   dependentMap: DependentMap, //             2
-  multiStableMap: MultiStableMap, //         3
-  inheritedSource: InheritedSource, //       4
-  baseStore: Store, //                       5
-  parentScope: Scope | undefined, //         6
-  cleanupListeners: CleanupListeners, //     7
-  scopedStore: Store, //                     8
-  scopeListenersMap: ScopeListenersMap, //   9
+  inheritedSource: InheritedSource, //       3
+  baseStore: Store, //                       4
+  parentScope: Scope | undefined, //         5
+  cleanupListeners: CleanupListeners, //     6
+  scopedStore: Store, //                     7
+  scopeListenersMap: ScopeListenersMap, //   8
 ] & {
   /** @debug */
   name?: string
