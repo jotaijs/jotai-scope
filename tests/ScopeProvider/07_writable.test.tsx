@@ -18,12 +18,9 @@ const writableAtom: WritableNumberAtom = atom(0, (get, set, value = 0) => {
 })
 writableAtom.debugLabel = 'writableAtom'
 
-const thisWritableAtom: WritableNumberAtom = atom(
-  0,
-  function write(this: WritableNumberAtom, get, set, value = 0) {
-    set(this, get(this) + get(baseAtom) + value)
-  }
-)
+const thisWritableAtom: WritableNumberAtom = atom(0, function write(this: WritableNumberAtom, get, set, value = 0) {
+  set(this, get(this) + get(baseAtom) + value)
+})
 
 function renderTest(targetAtom: WritableNumberAtom) {
   baseAtom = atom(0)
@@ -44,10 +41,7 @@ function renderTest(targetAtom: WritableNumberAtom) {
           }}>
           increase writable atom
         </button>
-        <button
-          type="button"
-          className="writeBase"
-          onClick={() => increaseBase(level === 'level0' ? 1 : 10)}>
+        <button type="button" className="writeBase" onClick={() => increaseBase(level === 'level0' ? 1 : 10)}>
           increase scoped atom
         </button>
       </div>
@@ -61,10 +55,7 @@ function renderTest(targetAtom: WritableNumberAtom) {
         <Component level="level0" />
         <ScopeProvider atoms={[baseAtom]} name="level1">
           <h1>scoped</h1>
-          <p>
-            writable atom should update its value in both scoped and unscoped
-            and read scoped atom
-          </p>
+          <p>writable atom should update its value in both scoped and unscoped and read scoped atom</p>
           <Component level="level1" />
         </ScopeProvider>
       </>
@@ -82,8 +73,7 @@ describe('Self', () => {
   test.each(['writableAtom', 'thisWritableAtom'])(
     '%p updates its value in both scoped and unscoped and read scoped atom',
     (atomKey) => {
-      const target =
-        atomKey === 'writableAtom' ? writableAtom : thisWritableAtom
+      const target = atomKey === 'writableAtom' ? writableAtom : thisWritableAtom
       const { container } = renderTest(target)
 
       const increaseLevel0BaseAtom = '.level0 .writeBase'
@@ -91,12 +81,7 @@ describe('Self', () => {
       const increaseLevel1BaseAtom = '.level1 .writeBase'
       const increaseLevel1Writable = '.level1 .write'
 
-      const selectors = [
-        '.level0 .readBase',
-        '.level0 .read',
-        '.level1 .readBase',
-        '.level1 .read',
-      ]
+      const selectors = ['.level0 .readBase', '.level0 .read', '.level1 .readBase', '.level1 .read']
 
       // all initial values are zero
       expect(getTextContents(container, selectors)).toEqual([

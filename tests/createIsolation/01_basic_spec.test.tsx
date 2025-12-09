@@ -13,11 +13,7 @@ describe('basic spec', () => {
 
 describe('createIsolation ScopeProvider', () => {
   it('should scope atoms within isolated context', () => {
-    const {
-      Provider,
-      ScopeProvider,
-      useAtomValue: useIsolatedAtomValue,
-    } = createIsolation()
+    const { Provider, ScopeProvider, useAtomValue: useIsolatedAtomValue } = createIsolation()
     const countAtom = atom(0)
     countAtom.debugLabel = 'count'
 
@@ -40,11 +36,7 @@ describe('createIsolation ScopeProvider', () => {
   })
 
   it('should isolate scoped state from global jotai context', () => {
-    const {
-      Provider,
-      ScopeProvider,
-      useAtom: useIsolatedAtom,
-    } = createIsolation()
+    const { Provider, ScopeProvider, useAtom: useIsolatedAtom } = createIsolation()
     const countAtom = atom(0)
     countAtom.debugLabel = 'count'
 
@@ -88,50 +80,30 @@ describe('createIsolation ScopeProvider', () => {
 
     // All start at 0
     expect(container.querySelector('.global .value')!.textContent).toBe('0')
-    expect(
-      container.querySelector('.isolated-unscoped .value')!.textContent
-    ).toBe('0')
-    expect(
-      container.querySelector('.isolated-scoped .value')!.textContent
-    ).toBe('0')
+    expect(container.querySelector('.isolated-unscoped .value')!.textContent).toBe('0')
+    expect(container.querySelector('.isolated-scoped .value')!.textContent).toBe('0')
 
     // Increment global - should not affect isolated
     clickButton(container, '.global button')
     expect(container.querySelector('.global .value')!.textContent).toBe('1')
-    expect(
-      container.querySelector('.isolated-unscoped .value')!.textContent
-    ).toBe('0')
-    expect(
-      container.querySelector('.isolated-scoped .value')!.textContent
-    ).toBe('0')
+    expect(container.querySelector('.isolated-unscoped .value')!.textContent).toBe('0')
+    expect(container.querySelector('.isolated-scoped .value')!.textContent).toBe('0')
 
     // Increment isolated unscoped - should not affect scoped
     clickButton(container, '.isolated-unscoped button')
     expect(container.querySelector('.global .value')!.textContent).toBe('1')
-    expect(
-      container.querySelector('.isolated-unscoped .value')!.textContent
-    ).toBe('1')
-    expect(
-      container.querySelector('.isolated-scoped .value')!.textContent
-    ).toBe('0')
+    expect(container.querySelector('.isolated-unscoped .value')!.textContent).toBe('1')
+    expect(container.querySelector('.isolated-scoped .value')!.textContent).toBe('0')
 
     // Increment isolated scoped - completely independent
     clickButton(container, '.isolated-scoped button')
     expect(container.querySelector('.global .value')!.textContent).toBe('1')
-    expect(
-      container.querySelector('.isolated-unscoped .value')!.textContent
-    ).toBe('1')
-    expect(
-      container.querySelector('.isolated-scoped .value')!.textContent
-    ).toBe('1')
+    expect(container.querySelector('.isolated-unscoped .value')!.textContent).toBe('1')
+    expect(container.querySelector('.isolated-scoped .value')!.textContent).toBe('1')
   })
 
   it('should work with derived atoms in isolated scope', () => {
-    const {
-      Provider,
-      ScopeProvider,
-      useAtomValue: useIsolatedAtomValue,
-    } = createIsolation()
+    const { Provider, ScopeProvider, useAtomValue: useIsolatedAtomValue } = createIsolation()
     const baseAtom = atom(5)
     const derivedAtom = atom((get) => get(baseAtom) * 2)
     baseAtom.debugLabel = 'base'
@@ -159,9 +131,7 @@ describe('createIsolation ScopeProvider', () => {
 
     // Unscoped: base=5, derived=10
     expect(container.querySelector('.unscoped .base')!.textContent).toBe('5')
-    expect(container.querySelector('.unscoped .derived')!.textContent).toBe(
-      '10'
-    )
+    expect(container.querySelector('.unscoped .derived')!.textContent).toBe('10')
 
     // Scoped: base=10, derived reads scoped base=10, so derived=20
     expect(container.querySelector('.scoped .base')!.textContent).toBe('10')
@@ -169,11 +139,7 @@ describe('createIsolation ScopeProvider', () => {
   })
 
   it('should differentiate scoped vs unscoped atoms within a scoped context', () => {
-    const {
-      Provider,
-      ScopeProvider,
-      useAtom: useIsolatedAtom,
-    } = createIsolation()
+    const { Provider, ScopeProvider, useAtom: useIsolatedAtom } = createIsolation()
     const scopedAtom = atom(0)
     const unscopedAtom = atom(0)
     scopedAtom.debugLabel = 'scoped'
@@ -186,16 +152,10 @@ describe('createIsolation ScopeProvider', () => {
         <div className={className}>
           <span className="scoped-value">{scoped}</span>
           <span className="unscoped-value">{unscoped}</span>
-          <button
-            className="inc-scoped"
-            type="button"
-            onClick={() => setScoped((c) => c + 1)}>
+          <button className="inc-scoped" type="button" onClick={() => setScoped((c) => c + 1)}>
             +scoped
           </button>
-          <button
-            className="inc-unscoped"
-            type="button"
-            onClick={() => setUnscoped((c) => c + 1)}>
+          <button className="inc-unscoped" type="button" onClick={() => setUnscoped((c) => c + 1)}>
             +unscoped
           </button>
         </div>

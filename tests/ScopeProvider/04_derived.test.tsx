@@ -43,30 +43,21 @@ function clickButtonGetResults(buttonSelector: string) {
       <>
         <div>
           base:<span className={`${counterClass} base`}>{base}</span>
-          <button
-            className={`${counterClass} setBase`}
-            type="button"
-            onClick={() => setBase((c) => c + 1)}>
+          <button className={`${counterClass} setBase`} type="button" onClick={() => setBase((c) => c + 1)}>
             increment
           </button>
         </div>
         <div>
           derivedA:
           <span className={`${counterClass} derivedA`}>{derivedA}</span>
-          <button
-            className={`${counterClass} setDerivedA`}
-            type="button"
-            onClick={() => setDerivedA()}>
+          <button className={`${counterClass} setDerivedA`} type="button" onClick={() => setDerivedA()}>
             increment
           </button>
         </div>
         <div>
           derivedB:
           <span className={`${counterClass} derivedB`}>{derivedB}</span>
-          <button
-            className={`${counterClass} setDerivedB`}
-            type="button"
-            onClick={() => setDerivedB()}>
+          <button className={`${counterClass} setDerivedB`} type="button" onClick={() => setDerivedB()}>
             increment
           </button>
         </div>
@@ -92,10 +83,7 @@ function clickButtonGetResults(buttonSelector: string) {
         <ScopeProvider atoms={[derivedAtomA]} name="layer1">
           <Counter counterClass="layer1" />
           <h2>Layer2: Base and derivedB are scoped</h2>
-          <p>
-            derivedA should use layer2&apos;s atom, base and derivedB are layer
-            2 scoped
-          </p>
+          <p>derivedA should use layer2&apos;s atom, base and derivedB are layer 2 scoped</p>
           <ScopeProvider atoms={[baseAtom, derivedAtomB]} name="layer2">
             <Counter counterClass="layer2" />
           </ScopeProvider>

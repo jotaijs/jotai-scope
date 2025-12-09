@@ -19,11 +19,7 @@ describe('ScopeProvider atom defaults', () => {
       </>
     ))
     function getValues(container: HTMLElement) {
-      return String(
-        ['a', 'b', 'c'].map(
-          (className) => container.querySelector(`.${className}`)!.textContent
-        )
-      )
+      return String(['a', 'b', 'c'].map((className) => container.querySelector(`.${className}`)!.textContent))
     }
     {
       // without defaults

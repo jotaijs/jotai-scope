@@ -19,10 +19,10 @@ import type {
   AnyWritableAtom,
   AtomPairMap,
   Scope,
+  SetLike,
   StoreHookForAtoms,
   StoreHooks,
   WeakMapLike,
-  SetLike,
 } from '../types'
 import { isWritableAtom, toNameString } from '../utils'
 
@@ -39,11 +39,7 @@ type GlobalScopeKey = typeof globalScopeKey
 
 const { read: defaultRead, write: defaultWrite } = createAtom<unknown>(null)
 
-export function getAtom<T>(
-  scope: Scope,
-  atom: Atom<T>,
-  implicitScope?: Scope
-): [Atom<T>, Scope?] {
+export function getAtom<T>(scope: Scope, atom: Atom<T>, implicitScope?: Scope): [Atom<T>, Scope?] {
   const [explicitMap, implicitMap, inheritedSource, , parentScope] = scope
 
   const explicitEntry = explicitMap.get(atom)
@@ -77,10 +73,7 @@ export function getAtom<T>(
       ancestorAtom,
       ancestorScope, //
     ] = parentScope ? getAtom(parentScope, atom, implicitScope) : [atom]
-    const inheritedClone =
-      atom.read === defaultRead
-        ? ancestorAtom
-        : cloneAtom(scope, atom, ancestorScope)
+    const inheritedClone = atom.read === defaultRead ? ancestorAtom : cloneAtom(scope, atom, ancestorScope)
     inheritedEntry = [inheritedClone, ancestorScope]
     inheritedMap.set(atom, inheritedEntry)
   }
@@ -124,11 +117,7 @@ export function prepareWriteAtom<T extends AnyAtom>(
   return undefined
 }
 
-function createScopedRead<T extends Atom<unknown>>(
-  scope: Scope,
-  read: T['read'],
-  implicitScope?: Scope
-): T['read'] {
+function createScopedRead<T extends Atom<unknown>>(scope: Scope, read: T['read'], implicitScope?: Scope): T['read'] {
   return function scopedRead(get, opts) {
     return read(function scopedGet(a) {
       const [scopedAtom] = getAtom(scope, a, implicitScope)
@@ -151,13 +140,7 @@ function createScopedWrite<T extends AnyWritableAtom>(
       },
       function scopedSet(a, ...v) {
         const [scopedAtom] = getAtom(scope, a, implicitScope)
-        const restore = prepareWriteAtom(
-          scope,
-          scopedAtom,
-          a,
-          implicitScope,
-          writeScope
-        )
+        const restore = prepareWriteAtom(scope, scopedAtom, a, implicitScope, writeScope)
         try {
           return set(scopedAtom as typeof a, ...v)
         } finally {
@@ -169,11 +152,7 @@ function createScopedWrite<T extends AnyWritableAtom>(
   }
 }
 
-function cloneAtom<T>(
-  scope: Scope,
-  originalAtom: Atom<T>,
-  implicitScope: Scope | undefined
-): Atom<T> {
+function cloneAtom<T>(scope: Scope, originalAtom: Atom<T>, implicitScope: Scope | undefined): Atom<T> {
   // avoid reading `init` to preserve lazy initialization
   const propDesc = Object.getOwnPropertyDescriptors(originalAtom)
   Object.keys(propDesc)
@@ -183,23 +162,11 @@ function cloneAtom<T>(
   const scopedAtom: Atom<T> = Object.create(atomProto, propDesc)
 
   if (scopedAtom.read !== defaultRead) {
-    scopedAtom.read = createScopedRead<typeof scopedAtom>(
-      scope,
-      originalAtom.read.bind(originalAtom),
-      implicitScope
-    )
+    scopedAtom.read = createScopedRead<typeof scopedAtom>(scope, originalAtom.read.bind(originalAtom), implicitScope)
   }
 
-  if (
-    isWritableAtom(scopedAtom) &&
-    isWritableAtom(originalAtom) &&
-    scopedAtom.write !== defaultWrite
-  ) {
-    scopedAtom.write = createScopedWrite(
-      scope,
-      originalAtom.write.bind(originalAtom),
-      implicitScope
-    )
+  if (isWritableAtom(scopedAtom) && isWritableAtom(originalAtom) && scopedAtom.write !== defaultWrite) {
+    scopedAtom.write = createScopedWrite(scope, originalAtom.write.bind(originalAtom), implicitScope)
   }
   if (__DEV__) {
     Object.defineProperty(scopedAtom, 'debugLabel', {
@@ -221,12 +188,7 @@ type CreateScopeProps = {
   name?: string
 }
 
-export function createScope({
-  atoms = [],
-  atomFamilies = [],
-  parentStore,
-  name: scopeName,
-}: CreateScopeProps): Store {
+export function createScope({ atoms = [], atomFamilies = [], parentStore, name: scopeName }: CreateScopeProps): Store {
   const atomsSet = new WeakSet(atoms)
   const parentScope = storeScopeMap.get(parentStore)
   const baseStore = parentScope?.[3] ?? parentStore
@@ -416,13 +378,7 @@ function createPatchedStore(scope: Scope): Store {
     ...args: Args
   ): Result {
     const [scopedAtom, implicitScope] = getAtom(scope, atom)
-    const restore = prepareWriteAtom(
-      scope,
-      scopedAtom,
-      atom,
-      implicitScope,
-      scope
-    )
+    const restore = prepareWriteAtom(scope, scopedAtom, atom, implicitScope, scope)
     try {
       return storeSet(store, scopedAtom as typeof atom, ...args)
     } finally {
@@ -430,10 +386,7 @@ function createPatchedStore(scope: Scope): Store {
     }
   }
 
-  function patchAtomFn<T extends (...args: any[]) => any>(
-    fn: T,
-    patch?: (fn: T) => T
-  ) {
+  function patchAtomFn<T extends (...args: any[]) => any>(fn: T, patch?: (fn: T) => T) {
     return function scopedAtomFn(atom, ...args) {
       const [scopedAtom] = getAtom(scope, atom)
       const f = patch ? patch(fn) : fn
@@ -441,10 +394,7 @@ function createPatchedStore(scope: Scope): Store {
     } as T
   }
 
-  function patchStoreFn<T extends (...args: any[]) => any>(
-    fn: T,
-    patch?: (fn: T) => T
-  ) {
+  function patchStoreFn<T extends (...args: any[]) => any>(fn: T, patch?: (fn: T) => T) {
     return function scopedStoreFn(store, atom, ...args) {
       const [scopedAtom] = getAtom(scope, atom)
       const f = patch ? patch(fn) : fn
@@ -452,10 +402,7 @@ function createPatchedStore(scope: Scope): Store {
     } as T
   }
 
-  function patchWeakMap<T extends WeakMapLike<AnyAtom, unknown>>(
-    wm: T,
-    patch?: (fn: T['get']) => T['get']
-  ): T {
+  function patchWeakMap<T extends WeakMapLike<AnyAtom, unknown>>(wm: T, patch?: (fn: T['get']) => T['get']): T {
     const patchedWm: WeakMapLike<AnyAtom, unknown> = {
       get: patchAtomFn(wm.get.bind(wm), patch),
       set: patchAtomFn(wm.set.bind(wm)),

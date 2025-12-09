@@ -22,10 +22,7 @@ describe('AtomFamily with ScopeProvider', () => {
       return (
         <div>
           {param}:<span className={`${level} ${param}`}>{value}</span>
-          <button
-            className={`${level} set-${param}`}
-            type="button"
-            onClick={() => setValue((c) => c + 1)}>
+          <button className={`${level} set-${param}`} type="button" onClick={() => setValue((c) => c + 1)}>
             increase
           </button>
         </div>
@@ -100,10 +97,7 @@ describe('AtomFamily with ScopeProvider', () => {
       return (
         <div>
           {param}:<span className={`${level} ${param}`}>{value}</span>
-          <button
-            className={`${level} set-${param}`}
-            type="button"
-            onClick={() => setValue((c) => c + 1)}>
+          <button className={`${level} set-${param}`} type="button" onClick={() => setValue((c) => c + 1)}>
             increase
           </button>
         </div>
@@ -184,10 +178,7 @@ describe('AtomFamily with ScopeProvider', () => {
       return (
         <div>
           {param}:<span className={`${level} ${param}`}>{value}</span>
-          <button
-            className={`${level} set-${param}`}
-            type="button"
-            onClick={() => setValue((c) => c + 1)}>
+          <button className={`${level} set-${param}`} type="button" onClick={() => setValue((c) => c + 1)}>
             increase
           </button>
         </div>

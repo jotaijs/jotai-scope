@@ -44,14 +44,11 @@ export function createScopeProvider(
       name,
     } = props as BaseProps & ProvidedScope
     const parentStore: Store = useStoreHook()
-    const atoms = Array.from(atomsOrTuples, (a) =>
-      Array.isArray(a) ? a[0] : a
-    )
+    const atoms = Array.from(atomsOrTuples, (a) => (Array.isArray(a) ? a[0] : a))
 
     function initialize() {
       return [
-        providedScope ??
-          createScope({ atoms, atomFamilies, parentStore, name }),
+        providedScope ?? createScope({ atoms, atomFamilies, parentStore, name }),
         function hasChanged(current: {
           parentStore: Store
           atoms: Iterable<AnyAtom | AtomDefault>
@@ -74,10 +71,7 @@ export function createScopeProvider(
       if (scope) cleanup(scope)
       setState(initialize)
     }
-    useHydrateAtoms(
-      Array.from(atomsOrTuples).filter(Array.isArray) as AtomDefault[],
-      { store }
-    )
+    useHydrateAtoms(Array.from(atomsOrTuples).filter(Array.isArray) as AtomDefault[], { store })
     useEffect(() => {
       const scope = storeScopeMap.get(store)
       return () => {
