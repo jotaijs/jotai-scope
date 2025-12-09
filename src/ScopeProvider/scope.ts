@@ -21,8 +21,8 @@ import type {
   Scope,
   StoreHookForAtoms,
   StoreHooks,
-  WeakMapForAtoms,
-  WeakSetForAtoms,
+  WeakMapLike,
+  SetLike,
 } from '../types'
 import { isWritableAtom, toNameString } from '../utils'
 
@@ -286,43 +286,43 @@ function createPatchedStore(scope: Scope): Store {
   const storeGet = storeState[21]
   const storeSet = storeState[22]
   const storeSub = storeState[23]
+  const atomOnInit = storeState[9]
   const alreadyPatched: StoreHooks = {}
 
-  storeState[9] = (_: Store, atom: AnyAtom) =>
-    atom.unstable_onInit?.(scopedStore)
+  storeState[9] = (_, atom) => atomOnInit(scopedStore, atom)
   storeState[21] = patchStoreFn(storeGet)
   storeState[22] = scopedSet
   storeState[23] = patchStoreFn(storeSub)
   storeState[24] = ([...buildingBlocks]) => {
     const patchedBuildingBlocks: BuildingBlocks = [
-      patchWeakMap(buildingBlocks[0], patchGetAtomState), // atomStateMap
-      patchWeakMap(buildingBlocks[1], patchGetMounted), // mountedMap
-      patchWeakMap(buildingBlocks[2]), // invalidatedAtoms
-      patchSet(buildingBlocks[3]), // changedAtoms
-      buildingBlocks[4], // mountCallbacks
-      buildingBlocks[5], // unmountCallbacks
-      patchStoreHooks(buildingBlocks[6]), // storeHooks
-      patchStoreFn(buildingBlocks[7]), // atomRead
-      patchStoreFn(buildingBlocks[8]), // atomWrite
-      buildingBlocks[9], // atomOnInit
-      patchStoreFn(buildingBlocks[10]), // atomOnMount
+      patchWeakMap(buildingBlocks[0], patchGetAtomState), //  atomStateMap
+      patchWeakMap(buildingBlocks[1], patchGetMounted), //    mountedMap
+      patchWeakMap(buildingBlocks[2]), //                     invalidatedAtoms
+      patchSet(buildingBlocks[3]), //                         changedAtoms
+      buildingBlocks[4], //                                   mountCallbacks
+      buildingBlocks[5], //                                   unmountCallbacks
+      patchStoreHooks(buildingBlocks[6]), //                  storeHooks
+      patchStoreFn(buildingBlocks[7]), //                     atomRead
+      patchStoreFn(buildingBlocks[8]), //                     atomWrite
+      buildingBlocks[9], //                                   atomOnInit
+      patchStoreFn(buildingBlocks[10]), //                    atomOnMount
       patchStoreFn(
-        buildingBlocks[11], // ensureAtomState
+        buildingBlocks[11], //                                ensureAtomState
         (fn) => patchEnsureAtomState(patchedBuildingBlocks[0], fn)
       ),
-      buildingBlocks[12], // flushCallbacks
-      buildingBlocks[13], // recomputeInvalidatedAtoms
-      patchStoreFn(buildingBlocks[14]), // readAtomState
-      patchStoreFn(buildingBlocks[15]), // invalidateDependents
-      patchStoreFn(buildingBlocks[16]), // writeAtomState
-      patchStoreFn(buildingBlocks[17]), // mountDependencies
-      patchStoreFn(buildingBlocks[18]), // mountAtom
-      patchStoreFn(buildingBlocks[19]), // unmountAtom
-      patchStoreFn(buildingBlocks[20]), // setAtomStateValueOrPromise
-      patchStoreFn(buildingBlocks[21]), // getAtom
-      patchStoreFn(buildingBlocks[22]), // setAtom
-      patchStoreFn(buildingBlocks[23]), // subAtom
-      () => buildingBlocks, // enhanceBuildingBlocks (raw)
+      buildingBlocks[12], //                                  flushCallbacks
+      buildingBlocks[13], //                                  recomputeInvalidatedAtoms
+      patchStoreFn(buildingBlocks[14]), //                    readAtomState
+      patchStoreFn(buildingBlocks[15]), //                    invalidateDependents
+      patchStoreFn(buildingBlocks[16]), //                    writeAtomState
+      patchStoreFn(buildingBlocks[17]), //                    mountDependencies
+      patchStoreFn(buildingBlocks[18]), //                    mountAtom
+      patchStoreFn(buildingBlocks[19]), //                    unmountAtom
+      patchStoreFn(buildingBlocks[20]), //                    setAtomStateValueOrPromise
+      patchStoreFn(buildingBlocks[21]), //                    getAtom
+      patchStoreFn(buildingBlocks[22]), //                    setAtom
+      patchStoreFn(buildingBlocks[23]), //                    subAtom
+      () => buildingBlocks, //                                enhanceBuildingBlocks (raw)
     ]
     return patchedBuildingBlocks
   }
@@ -452,36 +452,33 @@ function createPatchedStore(scope: Scope): Store {
     } as T
   }
 
-  function patchWeakMap<T extends WeakMapForAtoms>(
+  function patchWeakMap<T extends WeakMapLike<AnyAtom, unknown>>(
     wm: T,
     patch?: (fn: T['get']) => T['get']
   ): T {
-    const patchedWm: any = {
+    const patchedWm: WeakMapLike<AnyAtom, unknown> = {
       get: patchAtomFn(wm.get.bind(wm), patch),
       set: patchAtomFn(wm.set.bind(wm)),
+      has: patchAtomFn(wm.has.bind(wm)),
+      delete: patchAtomFn(wm.delete.bind(wm)),
     }
-    if ('has' in wm) {
-      patchedWm.has = patchAtomFn(wm.has.bind(wm))
-    }
-    if ('delete' in wm) {
-      patchedWm.delete = patchAtomFn(wm.delete.bind(wm))
-    }
-    return patchedWm
+    return patchedWm as T
   }
 
-  function patchSet(s: WeakSetForAtoms) {
+  function patchSet(s: SetLike<AnyAtom>) {
     return {
       get size() {
         return s.size
       },
       add: patchAtomFn(s.add.bind(s)),
       has: patchAtomFn(s.has.bind(s)),
+      delete: patchAtomFn(s.delete.bind(s)),
       clear: s.clear.bind(s),
       forEach: (cb) => s.forEach(patchAtomFn(cb)),
       *[Symbol.iterator](): IterableIterator<AnyAtom> {
         for (const atom of s) yield getAtom(scope, atom)[0]
       },
-    } as WeakSetForAtoms
+    } satisfies SetLike<AnyAtom>
   }
 
   function patchStoreHook(fn: StoreHookForAtoms | undefined) {

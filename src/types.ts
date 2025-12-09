@@ -1,10 +1,9 @@
 import { type Atom, type WritableAtom } from 'jotai'
 import type {
-  INTERNAL_ChangedAtoms as ChangedAtoms,
   INTERNAL_StoreHooks,
   INTERNAL_Store as Store,
 } from 'jotai/vanilla/internals'
-import type { AtomFamily } from 'jotai/vanilla/utils/atomFamily'
+import type { AtomFamily } from 'jotai-family'
 
 export type AnyAtom = Atom<any> | AnyWritableAtom
 
@@ -51,12 +50,18 @@ export type StoreHooks = Mutable<INTERNAL_StoreHooks>
 
 export type StoreHookForAtoms = NonNullable<StoreHooks['c']>
 
-export type WeakSetForAtoms = ChangedAtoms
-
-export type WeakMapForAtoms = {
-  get(atom: AnyAtom): any
-  set(atom: AnyAtom, value: any): void
-} & (
-  | { has(atom: AnyAtom): boolean; delete(atom: AnyAtom): void }
-  | Record<never, never>
-)
+export type WeakMapLike<K extends object, V> = {
+  get(key: K): V | undefined
+  set(key: K, value: V): void
+  has(key: K): boolean
+  delete(key: K): boolean
+}
+export type SetLike<T> = {
+  readonly size: number
+  add(value: T): void
+  has(value: T): boolean
+  delete(value: T): boolean
+  clear(): void
+  forEach(callback: (value: T) => void): void
+  [Symbol.iterator](): IterableIterator<T>
+}

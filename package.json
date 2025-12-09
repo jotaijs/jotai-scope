@@ -52,7 +52,7 @@
   ],
   "license": "MIT",
   "peerDependencies": {
-    "jotai": ">=2.15.0",
+    "jotai": ">=2.16.0",
     "react": ">=16.0.0"
   },
   "devDependencies": {
@@ -72,8 +72,9 @@
     "eslint-plugin-prettier": "^5.2.3",
     "happy-dom": "^15.11.7",
     "jiti": "^2.4.2",
-    "jotai": "2.15.0",
+    "jotai": "2.16.0",
     "jotai-effect": "2.1.2",
+    "jotai-family": "^1.0.0",
     "prettier": "^3.4.2",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.21.0",

@@ -195,7 +195,7 @@ To avoid conflicting the contexts, a utility function called `createIsolation` i
 ```tsx
 import { createIsolation } from 'jotai-scope'
 
-const { Provider, useStore, useAtom, useAtomValue, useSetAtom } =
+const { Provider, ScopeProvider, useStore, useAtom, useAtomValue, useSetAtom } =
   createIsolation()
 
 function Library() {
