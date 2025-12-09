@@ -24,29 +24,20 @@ function Counter({ counterClass }: { counterClass: string }) {
     <>
       <div>
         base1: <span className={`${counterClass} base1`}>{base1}</span>
-        <button
-          className={`${counterClass} setBase1`}
-          type="button"
-          onClick={() => increaseBase1()}>
+        <button className={`${counterClass} setBase1`} type="button" onClick={() => increaseBase1()}>
           increase
         </button>
       </div>
       <div>
         base2: <span className={`${counterClass} base2`}>{base2}</span>
-        <button
-          className={`${counterClass} setBase2`}
-          type="button"
-          onClick={() => increaseBase2()}>
+        <button className={`${counterClass} setBase2`} type="button" onClick={() => increaseBase2()}>
           increase
         </button>
       </div>
       <div>
         base: <span className={`${counterClass} base`}>{base}</span>
       </div>
-      <button
-        className={`${counterClass} setAll`}
-        type="button"
-        onClick={() => increaseAll()}>
+      <button className={`${counterClass} setAll`} type="button" onClick={() => increaseAll()}>
         increase all three atoms
       </button>
     </>
@@ -63,10 +54,7 @@ function App() {
       <ScopeProvider atoms={[baseAtom1]} name="layer1">
         <Counter counterClass="layer1" />
         <h1>Layer 2: Scope base 2</h1>
-        <p>
-          base 1 should be shared between layer 1 and layer 2, base should be
-          globally shared
-        </p>
+        <p>base 1 should be shared between layer 1 and layer 2, base should be globally shared</p>
         <ScopeProvider atoms={[baseAtom2]} name="layer2">
           <Counter counterClass="layer2" />
         </ScopeProvider>
@@ -105,133 +93,33 @@ describe('Counter', () => {
       '.layer2.base',
     ]
 
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '0',
-      '0',
-      '0',
-      '0',
-      '0',
-      '0',
-      '0',
-      '0',
-      '0',
-    ])
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['0', '0', '0', '0', '0', '0', '0', '0', '0'])
 
     clickButton(container, increaseUnscopedBase1)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '1',
-      '0',
-      '0',
-      '0',
-      '0',
-      '0',
-      '0',
-      '0',
-      '0',
-    ])
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['1', '0', '0', '0', '0', '0', '0', '0', '0'])
 
     clickButton(container, increaseUnscopedBase2)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '1',
-      '1',
-      '0',
-      '0',
-      '1',
-      '0',
-      '0',
-      '0',
-      '0',
-    ])
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['1', '1', '0', '0', '1', '0', '0', '0', '0'])
 
     clickButton(container, increaseAllUnscoped)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '2',
-      '2',
-      '1',
-      '0',
-      '2',
-      '1',
-      '0',
-      '0',
-      '1',
-    ])
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['2', '2', '1', '0', '2', '1', '0', '0', '1'])
 
     clickButton(container, increaseLayer1Base1)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '2',
-      '2',
-      '1',
-      '1',
-      '2',
-      '1',
-      '1',
-      '0',
-      '1',
-    ])
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['2', '2', '1', '1', '2', '1', '1', '0', '1'])
 
     clickButton(container, increaseLayer1Base2)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '2',
-      '3',
-      '1',
-      '1',
-      '3',
-      '1',
-      '1',
-      '0',
-      '1',
-    ])
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['2', '3', '1', '1', '3', '1', '1', '0', '1'])
 
     clickButton(container, increaseAllLayer1)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '2',
-      '4',
-      '2',
-      '2',
-      '4',
-      '2',
-      '2',
-      '0',
-      '2',
-    ])
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['2', '4', '2', '2', '4', '2', '2', '0', '2'])
 
     clickButton(container, increaseLayer2Base1)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '2',
-      '4',
-      '2',
-      '3',
-      '4',
-      '2',
-      '3',
-      '0',
-      '2',
-    ])
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['2', '4', '2', '3', '4', '2', '3', '0', '2'])
 
     clickButton(container, increaseLayer2Base2)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '2',
-      '4',
-      '2',
-      '3',
-      '4',
-      '2',
-      '3',
-      '1',
-      '2',
-    ])
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['2', '4', '2', '3', '4', '2', '3', '1', '2'])
 
     clickButton(container, increaseAllLayer2)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '2',
-      '4',
-      '3',
-      '4',
-      '4',
-      '3',
-      '4',
-      '2',
-      '3',
-    ])
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['2', '4', '3', '4', '4', '3', '4', '2', '3'])
   })
 })

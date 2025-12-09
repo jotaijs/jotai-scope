@@ -13,13 +13,7 @@ const derivedAtom1 = atom(
   }
 )
 
-function Component({
-  className,
-  initialValue = 0,
-}: {
-  className: string
-  initialValue?: number
-}) {
+function Component({ className, initialValue = 0 }: { className: string; initialValue?: number }) {
   useHydrateAtoms([[baseAtom, initialValue]])
   const [atom1ReadValue, setAtom1Value] = useAtom(derivedAtom1)
   const atom1WriteValue = setAtom1Value()
@@ -53,12 +47,8 @@ describe('Self', () => {
   */
   test('derived dep scope is preserved in self reference', () => {
     const { container } = render(<App />)
-    expect(
-      getTextContents(container, ['.unscoped .read', '.unscoped .write'])
-    ).toEqual(['0', '0'])
+    expect(getTextContents(container, ['.unscoped .read', '.unscoped .write'])).toEqual(['0', '0'])
 
-    expect(
-      getTextContents(container, ['.scoped .read', '.scoped .write'])
-    ).toEqual(['1', '1'])
+    expect(getTextContents(container, ['.scoped .read', '.scoped .write'])).toEqual(['1', '1'])
   })
 })

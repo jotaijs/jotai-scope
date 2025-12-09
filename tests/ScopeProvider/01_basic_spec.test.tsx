@@ -1,6 +1,6 @@
 import { render } from '@testing-library/react'
 import dedent from 'dedent'
-import { atom, createStore, useAtom, useAtomValue, useSetAtom } from 'jotai'
+import { atom, createStore, useAtom } from 'jotai'
 import { INTERNAL_Store as Store } from 'jotai/vanilla/internals'
 import { atomWithReducer } from 'jotai/vanilla/utils'
 import { describe, expect, test } from 'vitest'
@@ -8,11 +8,16 @@ import { ScopeProvider } from 'jotai-scope'
 import { createScope } from '../../src/ScopeProvider/scope'
 import {
   clickButton,
-  createDebugStore,
-  cross,
+  createScopes,
   getTextContents,
+  initializeAll,
   printAtomState,
-  storeGet,
+  printAtomStateDiff,
+  printHeader,
+  printMountedDiff,
+  printMountedMap,
+  subscribeAll,
+  trackAtomStateMap,
 } from '../utils'
 
 describe('Counter', () => {
@@ -29,10 +34,7 @@ describe('Counter', () => {
       return (
         <div>
           base:<span className={`${level} base`}>{base}</span>
-          <button
-            className={`${level} setBase`}
-            type="button"
-            onClick={() => increaseBase((c) => c + 1)}>
+          <button className={`${level} setBase`} type="button" onClick={() => increaseBase((c) => c + 1)}>
             increase
           </button>
         </div>
@@ -119,10 +121,7 @@ describe('Counter', () => {
       return (
         <div>
           base:<span className={`${level} base`}>{base}</span>
-          <button
-            className={`${level} setBase`}
-            type="button"
-            onClick={() => increaseBase((c) => c + 1)}>
+          <button className={`${level} setBase`} type="button" onClick={() => increaseBase((c) => c + 1)}>
             increase
           </button>
         </div>
@@ -177,122 +176,124 @@ describe('Counter', () => {
     )
     b.debugLabel = 'b'
 
-    function scopes() {
-      const s0 = createStore()
-      const s1 = createScope({ atoms: [a], parentStore: s0, name: 'S1' })
-      return [s0, s1] as const
-    }
     function results(s: readonly [Store, Store]) {
-      return cross(s, [a, b], storeGet).flat().join('')
+      return initializeAll(s, [a, b]).flat().join('')
     }
 
     {
-      const s = scopes()
+      const s = createScopes([a])
       s[0].set(b)
       expect(results(s)).toBe('1100') // Received '1101'
     }
     {
-      const s = scopes()
+      const s = createScopes([a])
       s[1].set(b)
       expect(results(s)).toBe('0011') // Received '0010'
     }
   })
 
-  /*
-    base, notScoped, derived(base + notScoped)
-    S0[base]: derived0(base0 + notScoped0)
-    S1[base]: derived0(base1 + notScoped0)
+  /**
+    S0[_]: a0, b0, c(a0 + b0)
+    S1[a]: a1, b0, c(a1 + b0)
   */
   test('05. unscoped derived can read both scoped and unscoped atoms', () => {
-    const baseAtom = atomWithReducer(0, (v) => v + 1)
-    baseAtom.debugLabel = 'base'
-    const notScopedAtom = atomWithReducer(0, (v) => v + 1)
-    notScopedAtom.debugLabel = 'notScoped'
-    const derivedAtom = atom((get) => ({
-      base: get(baseAtom),
-      notScoped: get(notScopedAtom),
-    }))
-    derivedAtom.debugLabel = 'derived'
+    const a = atomWithReducer(0, (v) => v + 1)
+    a.debugLabel = 'a'
+    const b = atomWithReducer(0, (v) => v + 1)
+    b.debugLabel = 'b'
+    const c = atom((get) => [get(a), get(b)])
+    c.debugLabel = 'c'
 
-    function Counter({ level }: { level: string }) {
-      const increaseBase = useSetAtom(baseAtom)
-      const derived = useAtomValue(derivedAtom)
-      return (
-        <div>
-          base:<span className={`${level} base`}>{derived.base}</span>
-          not scoped:
-          <span className={`${level} notScoped`}>{derived.notScoped}</span>
-          <button
-            className={`${level} setBase`}
-            type="button"
-            onClick={increaseBase}>
-            increase
-          </button>
-        </div>
-      )
-    }
+    /**```
+      S0[_]: a0, b0, c(a0 + b0)
+      S1[a]: a1, b0, c(a1 + b0)
+    */
+    const s = createScopes([a])
+    trackAtomStateMap(s)
+    printHeader('subscribeAll(s, [a, b, c])')
+    subscribeAll(s, [a, b, c])
 
-    function IncreaseUnscoped() {
-      const increaseNotScoped = useSetAtom(notScopedAtom)
-      return (
-        <button
-          type="button"
-          onClick={increaseNotScoped}
-          className="increaseNotScoped">
-          increase unscoped
-        </button>
-      )
-    }
+    printAtomStateDiff(s)
+    printMountedDiff(s)
 
-    function App() {
-      return (
-        <div>
-          <h1>Unscoped</h1>
-          <Counter level="level0" />
-          <IncreaseUnscoped />
-          <h1>Scoped Provider</h1>
-          <ScopeProvider atoms={[baseAtom]} name="level1">
-            <Counter level="level1" />
-          </ScopeProvider>
-        </div>
-      )
-    }
-    const { container } = render(<App />)
-    const increaseUnscopedBase = '.level0.setBase'
-    const increaseScopedBase = '.level1.setBase'
-    const increaseNotScoped = '.increaseNotScoped'
-    const atomValueSelectors = [
-      '.level0.base',
-      '.level1.base',
-      '.level1.notScoped',
-    ]
+    expect(printAtomState(s[0])).toBe(dedent`
+      a: v=0
+      b: v=0
+      c: v=0,0
+        a: v=0
+        b: v=0
+      a1: v=0
+      c1: v=0,0
+        a1: v=0
+        b: v=0
+    `)
+    expect(printMountedMap(s[0])).toBe(dedent`
+      a: l=a$S0 d=[] t=c
+      b: l=b$S0,b$S1 d=[] t=c,c1
+      c: l=c$S0 d=a,b t=[]
+      a1: l=a$S1 d=[] t=c1
+      c1: l=c$S1 d=a1,b t=[]
+    `)
 
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '0', // level0 base
-      '0', // level1 base
-      '0', // level1 notScoped
-    ])
+    s[0].set(a)
+    expect(printAtomState(s[0])).toBe(dedent`
+      a: v=1
+      b: v=0
+      c: v=1,0
+        a: v=1
+        b: v=0
+      a1: v=0
+      c1: v=0,0
+        a1: v=0
+        b: v=0
+    `)
+    expect(printMountedMap(s[0])).toBe(dedent`
+      a: l=a$S0 d=[] t=c
+      b: l=b$S0,b$S1 d=[] t=c,c1
+      c: l=c$S0 d=a,b t=[]
+      a1: l=a$S1 d=[] t=c1
+      c1: l=c$S1 d=a1,b t=[]
+    `)
 
-    clickButton(container, increaseUnscopedBase)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '1', // level0 base
-      '0', // level1 base
-      '0', // level1 notScoped
-    ])
+    s[1].set(a)
+    expect(printAtomState(s[0])).toBe(dedent`
+      a: v=1
+      b: v=0
+      c: v=1,0
+        a: v=1
+        b: v=0
+      a1: v=1
+      c1: v=1,0
+        a1: v=1
+        b: v=0
+    `)
+    expect(printMountedMap(s[0])).toBe(dedent`
+      a: l=a$S0 d=[] t=c
+      b: l=b$S0,b$S1 d=[] t=c,c1
+      c: l=c$S0 d=a,b t=[]
+      a1: l=a$S1 d=[] t=c1
+      c1: l=c$S1 d=a1,b t=[]
+    `)
 
-    clickButton(container, increaseScopedBase)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '1', // level0 base
-      '1', // level1 base
-      '0', // level1 notScoped
-    ])
-
-    clickButton(container, increaseNotScoped)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '1', // level0 base
-      '1', // level1 base
-      '1', // level1 notScoped
-    ])
+    s[0].set(b)
+    expect(printAtomState(s[0])).toBe(dedent`
+      a: v=1
+      b: v=1
+      c: v=1,1
+        a: v=1
+        b: v=1
+      a1: v=1
+      c1: v=1,1
+        a1: v=1
+        b: v=1
+    `)
+    expect(printMountedMap(s[0])).toBe(dedent`
+      a: l=a$S0 d=[] t=c
+      b: l=b$S0,b$S1 d=[] t=c,c1
+      c: l=c$S0 d=a,b t=[]
+      a1: l=a$S1 d=[] t=c1
+      c1: l=c$S1 d=a1,b t=[]
+    `)
   })
 
   /*
@@ -309,24 +310,18 @@ describe('Counter', () => {
     )
     b.debugLabel = 'b'
 
-    function getScopes() {
-      const s0 = createStore()
-      const s1 = createScope({ atoms: [b], parentStore: s0, name: 'S1' })
-      return [s0, s1] as const
-    }
-
     {
-      const s = getScopes()
+      const s = createScopes([b])
       s[0].set(a, (v) => v + 1)
       expect(s.map((s) => s.get(b)).join('')).toBe('10') // Received '11' <===========
     }
     {
-      const s = getScopes()
+      const s = createScopes([b])
       s[1].set(a, (v) => v + 1)
       expect(s.map((s) => s.get(b)).join('')).toBe('10') // Received '11'
     }
     {
-      const s = getScopes()
+      const s = createScopes([b])
       s[1].set(b)
       expect(s.map((s) => s.get(b)).join('')).toBe('01') // Received '00'
     }
@@ -351,10 +346,9 @@ describe('Counter', () => {
     c.debugLabel = 'c'
 
     function getScopes() {
-      const s0 = createStore()
-      const s1 = createScope({ atoms: [b, c], parentStore: s0, name: 'S1' })
-      s0.sub(b, () => {})
-      return [s0, s1] as const
+      const s = createScopes([b, c])
+      s[0].sub(b, () => {})
+      return s
     }
     {
       const s = getScopes()
@@ -393,10 +387,7 @@ describe('Counter', () => {
       return (
         <div>
           base:<span className={`${level} base`}>{base}</span>
-          <button
-            className={`${level} setBase`}
-            type="button"
-            onClick={() => increaseBase()}>
+          <button className={`${level} setBase`} type="button" onClick={() => increaseBase()}>
             increase
           </button>
         </div>
@@ -424,32 +415,16 @@ describe('Counter', () => {
     const increaseDoubleScopedBase = '.level2.setBase'
     const atomValueSelectors = ['.level0.base', '.level1.base', '.level2.base']
 
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '0',
-      '0',
-      '0',
-    ])
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['0', '0', '0'])
 
     clickButton(container, increaseUnscopedBase)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '1',
-      '0',
-      '0',
-    ])
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['1', '0', '0'])
 
     clickButton(container, increaseScopedBase)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '1',
-      '1',
-      '0',
-    ])
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['1', '1', '0'])
 
     clickButton(container, increaseDoubleScopedBase)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '1',
-      '1',
-      '1',
-    ])
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['1', '1', '1'])
   })
 
   /*
@@ -467,21 +442,15 @@ describe('Counter', () => {
     )
     d.debugLabel = 'd'
     function getScopes() {
-      const s0 = createDebugStore()
-      const s1 = createScope({
-        atoms: [b],
-        parentStore: s0,
-        name: 'S1',
-      })
-      const s = [s0, s1] as const
-      cross(s, [b, c, d], (sx, ax) => sx.sub(ax as any, () => {}))
+      const s = createScopes([b])
+      subscribeAll(s, [b, c, d])
       return s
     }
 
     const s = getScopes()
     /*
       S0[]: b0, c0, d0(b0 + c0)
-      S1[b]: b1, c0, d0(b1 + c0)
+      S1[b]: b1, c0, d1(b1 + c0)
     */
     expect(printAtomState(s[0])).toBe(dedent`
       b: v=0
@@ -489,73 +458,75 @@ describe('Counter', () => {
       d: v=00
         b: v=0
         c: v=0
-      b@S1: v=0
-      d@S1: v=00
-        b@S1: v=0
+      b1: v=0
+      d1: v=00
+        b1: v=0
         c: v=0
-      --------------------
     `)
     s[0].set(d)
-    /*
-      1. set d
-      2. set b to 1
-      3. set c to 1
-      4. changedAtoms: [b, c, d]
-      5. invalidatedAtoms: [d, d@S1]
-      6. changedAtoms: [b, c, d]
-    */
     expect(printAtomState(s[0])).toBe(dedent`
       b: v=1
       c: v=1
       d: v=11
         b: v=1
         c: v=1
-      b@S1: v=0
-      d@S1: v=01
-        b@S1: v=0
+      b1: v=0
+      d1: v=01
+        b1: v=0
         c: v=1
-      --------------------
     `)
   })
 
-  /*
-    baseA, baseB, baseC, derived(baseA + baseB + baseC)
-    S0[     ]: derived(baseA0 + baseB0 + baseC0)
-    S1[baseB]: derived(baseA0 + baseB1 + baseC0)
-    S2[baseC]: derived(baseA0 + baseB1 + baseC2)
+  /**
+    S0[_]: d0(a0 + b0 + c0)
+    S1[b]: d1(a0 + b1 + c0)
+    S2[c]: d2(a0 + b1 + c2)
   */
   test('10. unscoped derived atoms in nested scoped can read and write to scoped primitive atoms at every level (vanilla)', () => {
     const a = atomWithReducer(0, (v) => v + 1)
+    a.debugLabel = 'a'
     const b = atomWithReducer(0, (v) => v + 1)
+    b.debugLabel = 'b'
     const c = atomWithReducer(0, (v) => v + 1)
+    c.debugLabel = 'c'
     const d = atom(
       (get) => [get(a), get(b), get(c)],
       (_, set) => [set(a), set(b), set(c)]
     )
+    d.debugLabel = 'd'
     function when(fn?: (s: readonly [Store, Store, Store]) => void) {
-      const s0 = createStore()
-      const s1 = createScope({
-        atoms: [b],
-        parentStore: s0,
-        name: 'S1',
-      })
-      const s2 = createScope({
-        atoms: [c],
-        parentStore: s1,
-        name: 'S2',
-      })
-      const s = [s0, s1, s2] as const
-      s0.sub(a, () => {})
-      s0.sub(d, () => {})
-      s1.sub(b, () => {})
-      s1.sub(d, () => {})
-      s2.sub(c, () => {})
-      s2.sub(d, () => {})
+      /**```
+        S0[_]: d0(a0 + b0 + c0)
+        S1[b]: d1(a0 + b1 + c0)
+        S2[c]: d2(a0 + b1 + c2)
+      */
+      const s = createScopes([b], [c])
+      subscribeAll(s, [a, b, c, d])
       fn?.(s)
-      return s
-        .map((sx) => [sx.get(a), sx.get(b), sx.get(c), ...sx.get(d)].join(''))
-        .join('|')
+      return s.map((sx) => [sx.get(a), sx.get(b), sx.get(c), ...sx.get(d)].join('')).join('|')
     }
+    const s = createScopes([b], [c])
+    subscribeAll(s, [a, b, c, d])
+    s[0].set(a)
+    expect(printAtomState(s[0])).toBe(dedent`
+      a: v=1
+      b: v=0
+      c: v=0
+      d: v=1,0,0
+        a: v=1
+        b: v=0
+        c: v=0
+      b1: v=0
+      d1: v=1,0,0
+        a: v=1
+        b1: v=0
+        c: v=0
+      c2: v=0
+      d2: v=1,0,0
+        a: v=1
+        b1: v=0
+        c2: v=0
+    `)
     expect(when((s) => s[0].set(a))).toBe('100100|100100|100100')
     expect(when((s) => s[1].set(b))).toBe('000000|010010|010010')
     expect(when((s) => s[2].set(c))).toBe('000000|000000|001001')
@@ -564,107 +535,123 @@ describe('Counter', () => {
     expect(when((s) => s[2].set(d))).toBe('100100|110110|111111')
   })
 
-  /*
-    baseA, baseB, derived(baseA + baseB)
-    S1[baseB, derived]: derived1(baseA1 + baseB1)
-    S2[baseB]: derived1(baseA1 + baseB2)
+  /**
+    S0[   ]: a0, b0, c0(a0 + b0)
+    S1[b,c]: c1(a1 + b1)
+    S2[b  ]: c2(a1 + b2)
   */
   test('11. inherited scoped derived atoms can read and write to scoped primitive atoms at every nested level', () => {
-    const baseAAtom = atomWithReducer(0, (v) => v + 1)
-    baseAAtom.debugLabel = 'baseA'
+    const a = atom(0)
+    a.debugLabel = 'a'
 
-    const baseBAtom = atomWithReducer(0, (v) => v + 1)
-    baseBAtom.debugLabel = 'baseB'
+    const b = atom(0)
+    b.debugLabel = 'b'
 
-    const derivedAtom = atom(
-      (get) => ({
-        baseA: get(baseAAtom),
-        baseB: get(baseBAtom),
-      }),
-      (_get, set) => {
-        set(baseAAtom)
-        set(baseBAtom)
+    const c = atom(
+      (get) => [get(a), get(b)],
+      (_get, set, v: number) => {
+        set(a, v)
+        set(b, v)
       }
     )
-    derivedAtom.debugLabel = 'derived'
+    c.debugLabel = 'c'
 
-    function Counter({ level }: { level: string }) {
-      const [{ baseA, baseB }, increaseAll] = useAtom(derivedAtom)
-      return (
-        <div>
-          baseA:<span className={`${level} baseA`}>{baseA}</span>
-          baseB:<span className={`${level} baseB`}>{baseB}</span>
-          <button
-            className={`${level} increaseAll`}
-            type="button"
-            onClick={increaseAll}>
-            increase all
-          </button>
-        </div>
-      )
+    /**```
+      S1[b,c]: c1(a1 + b1)
+      S2[b]: c2(a1 + b2)
+    */
+    const s = createScopes([b, c], [b])
+    trackAtomStateMap(s)
+    subscribeAll(s, [c])
+
+    function getResults() {
+      return [s[1].get(c), s[2].get(c)].flat().join('')
     }
 
-    function App() {
-      return (
-        <div>
-          <h1>Unscoped</h1>
-          <h1>Scoped Provider</h1>
-          <ScopeProvider atoms={[baseBAtom, derivedAtom]} name="level1">
-            <Counter level="level1" />
-            <ScopeProvider atoms={[baseBAtom]} name="level2">
-              <Counter level="level2" />
-            </ScopeProvider>
-          </ScopeProvider>
-        </div>
-      )
-    }
-    const { container } = render(<App />)
+    expect(printAtomState(s[0])).toBe(dedent`
+      c: v=0,0
+        a: v=0
+        b: v=0
+      a: v=0
+      b: v=0
+      c1: v=0,0
+        a1: v=0
+        b1: v=0
+      a1: v=0
+      b1: v=0
+      c2: v=0,0
+        a1: v=0
+        b2: v=0
+      b2: v=0
+    `)
+    expect(printMountedMap(s[0])).toBe(dedent`
+      a: l=[] d=[] t=c
+      b: l=[] d=[] t=c
+      c: l=c$S0 d=a,b t=[]
+      a1: l=[] d=[] t=c1,c2
+      b1: l=[] d=[] t=c1
+      c1: l=c$S1 d=a1,b1 t=[]
+      b2: l=[] d=[] t=c2
+      c2: l=c$S2 d=a1,b2 t=[]
+    `)
+    expect(getResults()).toBe('0000')
 
-    const increaseLevel1All = '.level1.increaseAll'
-    const increaseLevel2All = '.level2.increaseAll'
-    const atomValueSelectors = [
-      '.level1.baseA',
-      '.level1.baseB',
-      '.level2.baseA',
-      '.level2.baseB',
-    ]
+    s[1].set(c, 1)
+    expect(printAtomState(s[0])).toBe(dedent`
+      c: v=0,0
+        a: v=0
+        b: v=0
+      a: v=0
+      b: v=0
+      c1: v=1,1
+        a1: v=1
+        b1: v=1
+      a1: v=1
+      b1: v=1
+      c2: v=1,0
+        a1: v=1
+        b2: v=0
+      b2: v=0
+    `)
+    expect(printMountedMap(s[0])).toBe(dedent`
+      a: l=[] d=[] t=c
+      b: l=[] d=[] t=c
+      c: l=c$S0 d=a,b t=[]
+      a1: l=[] d=[] t=c1,c2
+      b1: l=[] d=[] t=c1
+      c1: l=c$S1 d=a1,b1 t=[]
+      b2: l=[] d=[] t=c2
+      c2: l=c$S2 d=a1,b2 t=[]
+    `)
+    expect(getResults()).toBe('1110')
 
-    /*
-      baseA, baseB, derived(baseA + baseB)
-      S1[baseB, derived]: derived1(baseA1 + baseB1)
-      S2[baseB]: derived1(baseA1 + baseB2)
-    */
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '0', // level1 baseA1
-      '0', // level1 baseB1
-      '0', // level2 baseA1
-      '0', // level2 baseB2
-    ])
-
-    /*
-      baseA, baseB, derived(baseA + baseB)
-      S1[baseB, derived]: derived1(baseA1 + baseB1)
-      S2[baseB]: derived1(baseA1 + baseB2)
-    */
-    clickButton(container, increaseLevel1All)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '1', // level1 baseA1
-      '1', // level1 baseB1
-      '1', // level2 baseA1
-      '0', // level2 baseB2
-    ])
-
-    /*
-      baseA, baseB, derived(baseA + baseB)
-      S1[baseB, derived]: derived1(baseA1 + baseB1)
-      S2[baseB]: derived1(baseA1 + baseB2)
-    */
-    clickButton(container, increaseLevel2All)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '2', // level1 baseA1
-      '1', // level1 baseB1
-      '2', // level2 baseA1
-      '1', // level2 baseB2
-    ])
+    s[2].set(c, 2)
+    expect(printAtomState(s[0])).toBe(dedent`
+      c: v=0,0
+        a: v=0
+        b: v=0
+      a: v=0
+      b: v=0
+      c1: v=2,1
+        a1: v=2
+        b1: v=1
+      a1: v=2
+      b1: v=1
+      c2: v=2,2
+        a1: v=2
+        b2: v=2
+      b2: v=2
+    `)
+    expect(printMountedMap(s[0])).toBe(dedent`
+      a: l=[] d=[] t=c
+      b: l=[] d=[] t=c
+      c: l=c$S0 d=a,b t=[]
+      a1: l=[] d=[] t=c1,c2
+      b1: l=[] d=[] t=c1
+      c1: l=c$S1 d=a1,b1 t=[]
+      b2: l=[] d=[] t=c2
+      c2: l=c$S2 d=a1,b2 t=[]
+    `)
+    expect(getResults()).toBe('2122')
   })
 })

@@ -17,19 +17,13 @@ function Counter({ counterClass }: { counterClass: string }) {
     <>
       <div>
         base1: <span className={`${counterClass} base1`}>{base1}</span>
-        <button
-          className={`${counterClass} setBase1`}
-          type="button"
-          onClick={() => increaseBase1()}>
+        <button className={`${counterClass} setBase1`} type="button" onClick={() => increaseBase1()}>
           increase
         </button>
       </div>
       <div>
         base2: <span className={`${counterClass} base2`}>{base2}</span>
-        <button
-          className={`${counterClass} setBase2`}
-          type="button"
-          onClick={() => increaseBase2()}>
+        <button className={`${counterClass} setBase2`} type="button" onClick={() => increaseBase2()}>
           increase
         </button>
       </div>
@@ -39,20 +33,13 @@ function Counter({ counterClass }: { counterClass: string }) {
 
 function Wrapper({ children }: PropsWithChildren) {
   const shouldHaveScope = useAtomValue(shouldHaveScopeAtom)
-  return shouldHaveScope ? (
-    <ScopeProvider atoms={[baseAtom2]}>{children}</ScopeProvider>
-  ) : (
-    children
-  )
+  return shouldHaveScope ? <ScopeProvider atoms={[baseAtom2]}>{children}</ScopeProvider> : children
 }
 
 function ScopeButton() {
   const [shouldHaveScope, setShouldHaveScope] = useAtom(shouldHaveScopeAtom)
   return (
-    <button
-      id="toggleScope"
-      type="button"
-      onClick={() => setShouldHaveScope((prev) => !prev)}>
+    <button id="toggleScope" type="button" onClick={() => setShouldHaveScope((prev) => !prev)}>
       {shouldHaveScope ? 'Disable' : 'Enable'} Scope
     </button>
   )
@@ -81,125 +68,50 @@ describe('Counter', () => {
     const increaseScopedBase2 = '.scoped.setBase2'
     const toggleScope = '#toggleScope'
 
-    const atomValueSelectors = [
-      '.unscoped.base1',
-      '.unscoped.base2',
-      '.scoped.base1',
-      '.scoped.base2',
-    ]
+    const atomValueSelectors = ['.unscoped.base1', '.unscoped.base2', '.scoped.base1', '.scoped.base2']
 
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '0',
-      '0',
-      '0',
-      '0',
-    ])
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['0', '0', '0', '0'])
 
     clickButton(container, increaseUnscopedBase1)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '1',
-      '0',
-      '1',
-      '0',
-    ])
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['1', '0', '1', '0'])
 
     clickButton(container, increaseUnscopedBase2)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '1',
-      '1',
-      '1',
-      '0',
-    ])
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['1', '1', '1', '0'])
 
     clickButton(container, increaseScopedBase1)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '2',
-      '1',
-      '2',
-      '0',
-    ])
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['2', '1', '2', '0'])
 
     clickButton(container, increaseScopedBase2)
     clickButton(container, increaseScopedBase2)
     clickButton(container, increaseScopedBase2)
 
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '2',
-      '1',
-      '2',
-      '3',
-    ])
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['2', '1', '2', '3'])
 
     clickButton(container, toggleScope)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '2',
-      '1',
-      '2',
-      '1',
-    ])
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['2', '1', '2', '1'])
 
     clickButton(container, increaseUnscopedBase1)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '3',
-      '1',
-      '3',
-      '1',
-    ])
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['3', '1', '3', '1'])
 
     clickButton(container, increaseUnscopedBase2)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '3',
-      '2',
-      '3',
-      '2',
-    ])
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['3', '2', '3', '2'])
 
     clickButton(container, increaseScopedBase1)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '4',
-      '2',
-      '4',
-      '2',
-    ])
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['4', '2', '4', '2'])
 
     clickButton(container, increaseScopedBase2)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '4',
-      '3',
-      '4',
-      '3',
-    ])
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['4', '3', '4', '3'])
 
     clickButton(container, toggleScope)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '4',
-      '3',
-      '4',
-      '0',
-    ])
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['4', '3', '4', '0'])
 
     clickButton(container, increaseScopedBase2)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '4',
-      '3',
-      '4',
-      '1',
-    ])
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['4', '3', '4', '1'])
 
     clickButton(container, increaseScopedBase2)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '4',
-      '3',
-      '4',
-      '2',
-    ])
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['4', '3', '4', '2'])
 
     clickButton(container, increaseScopedBase2)
-    expect(getTextContents(container, atomValueSelectors)).toEqual([
-      '4',
-      '3',
-      '4',
-      '3',
-    ])
+    expect(getTextContents(container, atomValueSelectors)).toEqual(['4', '3', '4', '3'])
   })
 })

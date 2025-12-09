@@ -27,9 +27,7 @@ export function ScopeProvider(
   } & BaseProps
 ): React.JSX.Element
 
-export function ScopeProvider(
-  props: PropsWithChildren<{ scope: Store }>
-): React.JSX.Element
+export function ScopeProvider(props: PropsWithChildren<{ scope: Store }>): React.JSX.Element
 
 export function ScopeProvider(props: BaseProps | ProvidedScope) {
   const {
@@ -67,10 +65,7 @@ export function ScopeProvider(props: BaseProps | ProvidedScope) {
     if (scope) cleanup(scope)
     setState(initialize)
   }
-  useHydrateAtoms(
-    Array.from(atomsOrTuples).filter(Array.isArray) as AtomDefault[],
-    { store }
-  )
+  useHydrateAtoms(Array.from(atomsOrTuples).filter(Array.isArray) as AtomDefault[], { store })
   useEffect(() => {
     const scope = storeScopeMap.get(store)
     return () => {
