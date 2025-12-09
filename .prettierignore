@@ -3,4 +3,4 @@
 README.md
 /jotai
 /jotai-effect
-.prettierignore
+*.unformatted.*

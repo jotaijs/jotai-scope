@@ -22,16 +22,21 @@ export interface ImplicitMap extends AtomPairMap {}
 
 export type InheritedSource = WeakMap<Scope | object, AtomPairMap>
 
-export type CleanupFamiliesSet = Set<() => void>
+export interface DependentMap extends AtomPairMap {}
+
+/** Map of proxy atoms to the set of listeners subscribed in this scope */
+export type ScopeListenersMap = WeakMap<AnyAtom, Set<() => void>>
 
 export type Scope = [
-  explicitMap: ExplicitMap,
-  implicitMap: ImplicitMap,
-  inheritedSource: InheritedSource,
-  baseStore: Store,
-  parentScope: Scope | undefined,
-  cleanupFamiliesSet: CleanupFamiliesSet,
-  scopedStore: Store,
+  explicitMap: ExplicitMap, //             0
+  implicitMap: ImplicitMap, //             1
+  dependentMap: DependentMap, //           2
+  inheritedSource: InheritedSource, //     3
+  baseStore: Store, //                     4
+  parentScope: Scope | undefined, //       5
+  cleanupListeners: StoreHookWithOnce, //  6
+  scopedStore: Store, //                   7
+  scopeListenersMap: ScopeListenersMap, // 8
 ] & {
   /** @debug */
   name?: string
@@ -44,6 +49,8 @@ export type AtomDefault = readonly [AnyWritableAtom, unknown]
 type Mutable<T> = { -readonly [P in keyof T]: T[P] }
 
 export type StoreHooks = Mutable<INTERNAL_StoreHooks>
+
+type StoreHook = NonNullable<StoreHooks['f']>
 
 export type StoreHookForAtoms = NonNullable<StoreHooks['c']>
 
@@ -61,4 +68,8 @@ export type SetLike<T> = {
   clear(): void
   forEach(callback: (value: T) => void): void
   [Symbol.iterator](): IterableIterator<T>
+}
+
+export type StoreHookWithOnce = StoreHook & {
+  once: (callback: () => void) => void
 }
