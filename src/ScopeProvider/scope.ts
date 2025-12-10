@@ -3,6 +3,7 @@ import {
   INTERNAL_buildStoreRev2 as buildStore,
   INTERNAL_getBuildingBlocksRev2 as getBuildingBlocks,
   INTERNAL_initializeStoreHooksRev2 as initializeStoreHooks,
+  INTERNAL_isAtomStateInitialized as isAtomStateInitialized,
 } from 'jotai/vanilla/internals'
 import type {
   INTERNAL_AtomState as AtomState,
@@ -42,18 +43,13 @@ type GlobalScopeKey = typeof globalScopeKey
 // ---------------------------------------------------------------------------------
 
 /** @returns a scoped copy of the atom */
-function cloneAtom<T extends Atom<any>>(
-  scope: Scope,
-  parentAtom: T,
-  implicitScope: Scope | undefined,
-  baseAtom: AnyAtom = parentAtom
-): ScopedAtom<T> {
+function cloneAtom<T extends Atom<any>>(scope: Scope, baseAtom: T, implicitScope: Scope | undefined): ScopedAtom<T> {
   // avoid reading `init` to preserve lazy initialization
-  const propDesc = Object.getOwnPropertyDescriptors(parentAtom)
+  const propDesc = Object.getOwnPropertyDescriptors(baseAtom)
   Object.keys(propDesc)
     .filter((k) => ['read', 'write', 'debugLabel'].includes(k))
     .forEach((k) => (propDesc[k].configurable = true))
-  const atomProto = Object.getPrototypeOf(parentAtom)
+  const atomProto = Object.getPrototypeOf(baseAtom)
   const scopedAtom: ScopedAtom<T> = Object.create(atomProto, propDesc)
   scopedAtom.__originalAtom = baseAtom
   // Store the scope level for fast lookup
@@ -88,6 +84,7 @@ type ProxyState = {
   fromAtom: AnyAtom
   store: Store
   isInitialized: boolean
+  maxDepLevel: number
 }
 
 /**
@@ -97,17 +94,19 @@ type ProxyState = {
  */
 function createMultiStableAtom<T>(
   scope: Scope,
-  inheritedAtom: Atom<T>,
+  initialInheritedAtom: Atom<T>,
   implicitScope: Scope | undefined,
   baseAtom: Atom<T>
 ): ProxyState {
+  let inheritedAtom = initialInheritedAtom
   const explicitMap = scope[0]
   const dependentMap = scope[2]
   const inheritedSource = scope[3]
   const baseStore = scope[4]
   const scopedStore = scope[7]
+  // TODO: understand why findAtomScope is needed
   const isExplicitScoped = findAtomScope(scope, (s) => s[0].has(baseAtom)) !== undefined
-  const scopedAtom = cloneAtom(scope, inheritedAtom, isExplicitScoped ? implicitScope : undefined, baseAtom)
+  const scopedAtom = cloneAtom(scope, baseAtom, isExplicitScoped ? implicitScope : undefined)
   explicitMap.set(scopedAtom, [scopedAtom, scope])
 
   // Key for inheritedSource map
@@ -131,6 +130,7 @@ function createMultiStableAtom<T>(
     fromAtom: scopedAtom,
     store: baseStore,
     isInitialized: false,
+    maxDepLevel: 0,
   }
 
   function setIsScoped(v: boolean, maxDepLevel = 0) {
@@ -218,19 +218,119 @@ function createMultiStableAtom<T>(
     if (isDerived(originalAtom)) {
       return findAtomScope(scope, (s) => s[0].get(originalAtom) || s[2].get(originalAtom))?.[0]
     }
-    return findAtomScope(scope, (s) => s[0].get(originalAtom) || s[2].get(originalAtom))?.[0]
+    return findAtomScope(scope, (s) => s[0].get(originalAtom))?.[0]
   }
 
   /**
-   * Computes the maximum scope level of the atom's dependencies.
-   * @returns maxDepLevel - the highest scope level among all dependencies (0 if none are scoped)
+   * Computes the scope level of a dependency atom.
+   * For derived atoms without a scopeLevel, recursively computes it from their dependencies.
    */
-  function getMaxDepLevel(): number {
+  function getDepScopeLevel(dep: AnyAtom): number {
+    const scopedDep = getScopedAtom(dep)
+    if (scopedDep?.__scopeLevel !== undefined) {
+      return scopedDep.__scopeLevel
+    }
+
+    if (!isDerived(dep)) {
+      return 0
+    }
+
+    // Derived atom without scopeLevel - compute from its dependencies
+    const depAtomState = atomStateMap.get(dep)
+    if (!depAtomState || !isAtomStateInitialized(depAtomState)) {
+      // atomState doesn't exist or hasn't been read yet - cannot compute level
+      // This shouldn't happen in normal flow since deps are read before we iterate them
+      throw new Error(`atomState not initialized for dependency ${dep.debugLabel}`)
+    }
+
+    return Math.max(0, ...Array.from(depAtomState.d.keys()).map(getDepScopeLevel))
+  }
+
+  /**
+   * Computes the maximum scope level of the atom's dependencies and finds the inherited atom at that level.
+   * @returns { maxDepLevel, inheritedAtomAtLevel }
+   *   - maxDepLevel: the highest scope level among all dependencies (0 if none are scoped)
+   *   - inheritedAtomAtLevel: the scoped atom at that level, or baseAtom if level is 0
+   */
+  function getMaxDepLevelAndInheritedAtom(): { maxDepLevel: number; inheritedAtomAtLevel: Atom<T> } {
     let atomState = atomStateMap.get(scopedAtom) ?? atomStateMap.get(inheritedAtom)
     if (!atomState) {
       atomState = readAtomState(scopedStore, inheritedAtom)
     }
-    return Math.max(0, ...Array.from(atomState.d.keys()).map((dep) => getScopedAtom(dep)?.__scopeLevel ?? 0))
+    const maxDepLevel = Math.max(0, ...Array.from(atomState.d.keys()).map((dep) => getDepScopeLevel(dep)))
+
+    if (maxDepLevel === 0) {
+      return { maxDepLevel, inheritedAtomAtLevel: baseAtom }
+    }
+
+    // Walk up the scope chain to find the scope at maxDepLevel
+    let currentScope: Scope | undefined = scope
+    while (currentScope) {
+      const scopeLevel = currentScope[9]
+      if (scopeLevel === maxDepLevel) {
+        // Found the scope at the target level, look for the scoped atom
+        const entry = currentScope[0].get(baseAtom) || currentScope[2].get(baseAtom)
+        if (entry) {
+          return { maxDepLevel, inheritedAtomAtLevel: entry[0] }
+        }
+      }
+      currentScope = currentScope[5]
+    }
+
+    return { maxDepLevel, inheritedAtomAtLevel: baseAtom }
+  }
+
+  /**
+   * Reassigns inheritedAtom when it changes.
+   * Transfers listeners from old inheritedAtom to new inheritedAtom.
+   */
+  function reassignInheritedAtom(newInheritedAtom: Atom<T>): void {
+    const oldInheritedAtom = inheritedAtom
+
+    if (oldInheritedAtom === newInheritedAtom) {
+      return
+    }
+
+    // Transfer listeners from old inheritedAtom to new inheritedAtom
+    const oldMounted = mountedMap.get(oldInheritedAtom)
+    if (oldMounted && oldMounted.l.size > 0) {
+      // Get listeners that were subscribed to the old inherited atom
+      const scopeListeners = collectListeners(scope, newInheritedAtom, oldInheritedAtom)
+
+      if (scopeListeners.size > 0) {
+        // Ensure new inheritedAtom is mounted
+        ensureAtomState(baseStore, newInheritedAtom)
+        const newMounted = mountAtom(baseStore, newInheritedAtom)
+
+        // Move listeners
+        for (const listener of scopeListeners) {
+          oldMounted.l.delete(listener)
+          newMounted.l.add(listener)
+        }
+
+        // Unmount old if no listeners remain
+        if (oldMounted.l.size === 0) {
+          const oldAtomState = atomStateMap.get(oldInheritedAtom)
+          if (oldAtomState) {
+            for (const a of oldMounted.d) {
+              const aMounted = mountedMap.get(a)
+              if (aMounted) {
+                aMounted.t.delete(oldInheritedAtom)
+              }
+            }
+            unmountAtom(baseStore, oldInheritedAtom)
+          }
+        }
+      }
+    }
+
+    // Reassign inheritedAtom
+    inheritedAtom = newInheritedAtom
+
+    // Update proxyState.toAtom if currently unscoped
+    if (!proxyState.isScoped) {
+      proxyState.toAtom = inheritedAtom
+    }
   }
 
   /**
@@ -241,15 +341,23 @@ function createMultiStableAtom<T>(
    *   2. atomState dependencies are different from inheritedAtomState dependencies
    */
   function processScopeClassification(): boolean {
-    const maxDepLevel = getMaxDepLevel()
+    const { maxDepLevel, inheritedAtomAtLevel } = getMaxDepLevelAndInheritedAtom()
     // Atom is scoped if max dependency level is AFTER the implicit scope level
     const implicitLevel = implicitScope?.[9] ?? 0
     const isScoped = maxDepLevel > implicitLevel
     const scopeChanged = isScoped !== proxyState.isScoped
+    const levelChanged = maxDepLevel !== proxyState.maxDepLevel
+
+    // If maxDepLevel changed, reassign inheritedAtom
+    if (levelChanged && proxyState.isInitialized) {
+      reassignInheritedAtom(inheritedAtomAtLevel)
+      proxyState.maxDepLevel = maxDepLevel
+    }
 
     // if there is a scope change, or proxyState is not yet initialized, process classification change
     if (scopeChanged || !proxyState.isInitialized) {
       setIsScoped(isScoped, maxDepLevel)
+      proxyState.maxDepLevel = maxDepLevel
       // Transfer listeners when classification changes
       transferListeners(proxyState.fromAtom, proxyState.toAtom)
 
@@ -317,6 +425,7 @@ function getAtom<T>(scope: Scope, atom: Atom<T>, implicitScope?: Scope | undefin
   const [ancestorAtom, ancestorScope] = parentScope ? getAtom(parentScope, atom, implicitScope) : [atom]
 
   if (isDerived(atom)) {
+    // FIXME: pass atom instead of ancestorAtom
     const proxyState = createMultiStableAtom(scope, ancestorAtom, ancestorScope, atom)
     return [proxyState.toAtom, proxyState.isScoped ? scope : undefined]
   }

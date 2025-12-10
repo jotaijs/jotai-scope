@@ -972,4 +972,67 @@ describe('open issues', () => {
       })
     })
   })
+
+  describe('getDepScopeLevel', () => {
+    /*
+      S0[_]: a0, b0
+      S1[b]: a0, b1, d1(b1), c1(d1)
+
+      When c is read first (before d has been processed):
+      - getMaxDepLevel() for c iterates its deps → finds d
+      - d doesn't have __scopeLevel yet, so we recursively compute from d's deps
+      - d's deps include b1 which has __scopeLevel = 1
+      - Returns 1 for d, so maxDepLevel = 1 for c
+    */
+    it.only('recursively computes scope level for derived dependencies without __scopeLevel', () => {
+      const a = atom(0)
+      a.debugLabel = 'a'
+      const b = atom(0)
+      b.debugLabel = 'b'
+      const d = atom((get) => get(b))
+      d.debugLabel = 'd'
+      const c = atom((get) => get(d))
+      c.debugLabel = 'c'
+
+      /**```
+        S0[_]: a0, b0, d0(b0), c0(d0)
+        S1[b]: a0, b1, d1(b1), c1(d1)
+        S2[_]: a0, b1, d1(b1), c1(d1)
+        S3[a]: a3, b1, d1(b1), c1(d1)
+      */
+      const s = createScopes([b], [], [])
+
+      // get c in S3 - this should trigger getDepScopeLevel recursively for d
+      s[3].get(c)
+      expect(printAtomState(s[0])).toBe(dedent`
+        c: v=0
+          d: v=0
+            b: v=0
+        d: v=0
+          b: v=0
+        b: v=0
+        c1: v=0
+          d1: v=0
+            b1: v=0
+        d1: v=0
+          b1: v=0
+        b1: v=0
+        c3: v=undefined
+      `)
+
+      // c should be scoped because it depends on d which depends on b1
+      // maxDepLevel should be 1 (from b1)
+      expect(s[1].get(c)).toBe(0)
+
+      // Change b1 in S1 - c should update
+      s[1].set(b, 42)
+      expect(s[1].get(c)).toBe(42)
+
+      // Change b0 in S0 - c in S1 should NOT update (it uses b1)
+      s[0].set(b, 100)
+      expect(s[1].get(c)).toBe(42) // still 42, not 100
+
+      unsub()
+    })
+  })
 })
