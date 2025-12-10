@@ -37,6 +37,7 @@ export type Scope = [
   cleanupListeners: StoreHookWithOnce, //  6
   scopedStore: Store, //                   7
   scopeListenersMap: ScopeListenersMap, // 8
+  level: number, //                        9
 ] & {
   /** @debug */
   name?: string

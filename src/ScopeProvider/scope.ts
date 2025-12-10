@@ -1,4 +1,4 @@
-import type { Atom, Getter, Setter, WritableAtom } from 'jotai'
+import { atom, type Atom, type Getter, type Setter, type WritableAtom } from 'jotai'
 import {
   INTERNAL_buildStoreRev2 as buildStore,
   INTERNAL_getBuildingBlocksRev2 as getBuildingBlocks,
@@ -115,27 +115,9 @@ function createMultiStableAtom<T>(
   const changedAtoms = buildingBlocks[3]
   const storeHooks = initializeStoreHooks(buildingBlocks[6])
   const ensureAtomState = buildingBlocks[11]
+  const readAtomState = buildingBlocks[14]
   const mountAtom = buildingBlocks[18]
   const unmountAtom = buildingBlocks[19]
-
-  function getIsDependentScoped(): boolean {
-    const atomState = atomStateMap.get(proxyState.toAtom)
-    const dependencies = Array.from(atomState?.d.keys() ?? [])
-    // if there are scoped dependencies, it is scoped
-    if (dependencies.some((a) => isExplictOrDependentScoped(scope, a))) {
-      return true
-    }
-    const originalAtomState = atomStateMap.get(inheritedAtom)
-    // if dependencies are the same, it is unscoped
-    if (
-      originalAtomState &&
-      dependencies.length === originalAtomState.d.size &&
-      dependencies.every((a) => originalAtomState.d.has(a))
-    ) {
-      return false
-    }
-    return true
-  }
 
   const proxyState = {
     prevDeps: new Set<AnyAtom>(),
@@ -220,20 +202,33 @@ function createMultiStableAtom<T>(
     }
   }
 
+  function getIsDependentScoped(): boolean {
+    let atomState = atomStateMap.get(scopedAtom) ?? atomStateMap.get(inheritedAtom)
+    if (!atomState) {
+      atomState = readAtomState(scopedStore, inheritedAtom)
+    }
+    const dependencies = Array.from(atomState.d.keys())
+    // if there are scoped dependencies AFTER the implicit scope, it is scoped
+    if (dependencies.some((a) => isExplictOrDependentScoped(scope, a, implicitScope))) {
+      return true
+    }
+    // if dependencies are the same, it is unscoped
+    return false
+  }
+
   /**
    * Checks if atomState dependencies are either dependent or explicit in current scope
    * and processes classification change.
    * @returns {boolean} isScoped
    *   1. atomState dependencies are either dependent or explicit in current scope
-   *   2. atomState dependencies are different from originalAtomState dependencies
+   *   2. atomState dependencies are different from inheritedAtomState dependencies
    */
   function processScopeClassification(): boolean {
     const isScoped = getIsDependentScoped()
     const scopeChanged = isScoped !== proxyState.isScoped
-    const isInitialized = proxyState.isInitialized
 
     // if there is a scope change, or proxyState is not yet initialized, process classification change
-    if (scopeChanged || !isInitialized) {
+    if (scopeChanged || !proxyState.isInitialized) {
       setIsScoped(isScoped)
       // Transfer listeners when classification changes
       transferListeners(proxyState.fromAtom, proxyState.toAtom)
@@ -247,9 +242,7 @@ function createMultiStableAtom<T>(
       // Set up hook on new toAtom to re-check classification when it's read
       setupToAtomReadHook(proxyState.toAtom)
     }
-    if (!isInitialized) {
-      proxyState.isInitialized = true
-    }
+    proxyState.isInitialized = true
     return isScoped
   }
 
@@ -321,22 +314,22 @@ export function cleanup(scope: Scope): void {
 function prepareWriteAtom<T extends AnyAtom>(
   scope: Scope,
   atom: T,
-  originalAtom: T,
+  inheritedAtom: T,
   implicitScope: Scope | undefined,
   writeScope: Scope | undefined
 ): (() => void) | undefined {
   if (
-    !isDerived(originalAtom) &&
-    isWritableAtom(originalAtom) &&
+    !isDerived(inheritedAtom) &&
+    isWritableAtom(inheritedAtom) &&
     isWritableAtom(atom) &&
-    isCustomWrite(originalAtom) &&
+    isCustomWrite(inheritedAtom) &&
     scope !== implicitScope
   ) {
     // atom is writable with init and holds a value
     // we need to preserve the value, so we don't want to copy the atom
     // instead, we need to override write until the write is finished
-    const { write } = originalAtom
-    atom.write = createScopedWrite(scope, originalAtom.write.bind(originalAtom), implicitScope, writeScope)
+    const { write } = inheritedAtom
+    atom.write = createScopedWrite(scope, inheritedAtom.write.bind(inheritedAtom), implicitScope, writeScope)
     const cleanupScopedWrite = () => {
       atom.write = write
     }
@@ -348,13 +341,13 @@ function prepareWriteAtom<T extends AnyAtom>(
 }
 
 /** Collects all listeners subscribed from the current scope to the ancestor scope where the atom is defined. */
-function collectListeners(scope: Scope, toAtom: AnyAtom, originalAtom: AnyAtom): Set<() => void> {
+function collectListeners(scope: Scope, toAtom: AnyAtom, inheritedAtom: AnyAtom): Set<() => void> {
   const listeners = new Set<() => void>()
   const atomScope = getExplicitOrDependentAtomScope(scope, toAtom)
 
   function gatherListeners(scope: Scope): void {
     const scopeListenersMap = scope[8]
-    const listenerSet = scopeListenersMap.get(originalAtom)
+    const listenerSet = scopeListenersMap.get(inheritedAtom)
     if (listenerSet) {
       for (const listener of listenerSet) {
         listeners.add(listener)
@@ -390,10 +383,20 @@ function getExplicitOrDependentAtomScope(scope: Scope, atom: AnyAtom): Scope | u
   return findAtomScope(scope, (s) => s[0].has(atom) || s[2].has(atom))
 }
 
-/** Returns true if the atom is defined in the scope or any of its parent scopes. */
-function isExplictOrDependentScoped(scope: Scope, atom: AnyAtom): boolean {
+/**
+ * Returns true if the atom is scoped after the given afterScope.
+ * If afterScope is undefined, returns true if the atom is scoped anywhere.
+ * @param scope - The scope to search from
+ * @param atom - The atom to check
+ * @param afterScope - Only return true if the atom is scoped strictly after this scope
+ */
+function isExplictOrDependentScoped(scope: Scope, atom: AnyAtom, afterScope?: Scope): boolean {
   const originalAtom = (atom as any).__originalAtom ?? atom
-  return getExplicitOrDependentAtomScope(scope, originalAtom) !== undefined
+  const atomScope = getExplicitOrDependentAtomScope(scope, originalAtom)
+  if (!atomScope) return false
+  if (!afterScope) return true
+  // Check if atomScope is strictly deeper than afterScope using level comparison
+  return atomScope[9] > afterScope[9]
 }
 
 function createScopedGet(scope: Scope, get: Getter, implicitScope?: Scope): Getter {
@@ -451,6 +454,7 @@ export function createScope(props: CreateScopeProps): Store {
   const parentScope = storeScopeMap.get(parentStore)
   const baseStore = parentScope?.[4] ?? parentStore
 
+  const level = parentScope ? parentScope[9] + 1 : 1
   const scope: Scope = [
     new WeakMap() as AtomPairMap, //                       0: explicitMap
     new WeakMap() as AtomPairMap, //                       1: implicitMap
@@ -461,6 +465,7 @@ export function createScope(props: CreateScopeProps): Store {
     storeHookWithOnce(), //                                6: cleanupListeners
     undefined!, //                                         7: scopedStore
     new WeakMap(), //                                      8: scopeListenersMap
+    level, //                                              9: level
   ] as Scope
 
   if (scopeName && __DEV__) {
