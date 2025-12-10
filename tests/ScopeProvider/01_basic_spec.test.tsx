@@ -167,7 +167,7 @@ describe('Counter', () => {
     S0[a]: b0(a0)
     S1[a]: b0(a1)
   */
-  test('04. unscoped derived can read and write to scoped primitive atoms', () => {
+  describe('0.4 unscoped derived can read and write to scoped primitive atoms', () => {
     const a = atom(0)
     a.debugLabel = 'a'
     const b = atom(
@@ -179,17 +179,119 @@ describe('Counter', () => {
     function results(s: readonly [Store, Store]) {
       return initializeAll(s, [a, b]).flat().join('')
     }
-
-    {
+    test('04.1 Writing through S0 should write to a (not a1)', () => {
       const s = createScopes([a])
+      subscribeAll(s, [a, b])
       s[0].set(b)
-      expect(results(s)).toBe('1100') // Received '1101'
-    }
-    {
+      // After s[0].set(b): b.write calls set(a, ...) which writes to a (S0's atom)
+      expect(printAtomState(s[0])).toBe(dedent`
+        a: v=1
+        b: v=1
+          a: v=1
+        a1: v=0
+        b1: v=0
+          a1: v=0
+      `)
+      expect(printMountedMap(s[0])).toBe(dedent`
+        a: l=a$S0 d=[] t=b
+        b: l=b$S0 d=a t=[]
+        a1: l=a$S1 d=[] t=b1
+        b1: l=b$S1 d=a1 t=[]
+      `)
+
+      // After results(s): both stores are initialized
+      expect(results(s)).toBe('1100')
+      expect(printAtomState(s[0])).toBe(dedent`
+        a: v=1
+        b: v=1
+          a: v=1
+        a1: v=0
+        b1: v=0
+          a1: v=0
+      `)
+    })
+
+    test('04.2 Writing through S1 should write to a1 (not a)', () => {
       const s = createScopes([a])
+      subscribeAll(s, [a, b])
+      expect(printAtomState(s[0])).toBe(dedent`
+        a: v=0
+        b: v=0
+          a: v=0
+        a1: v=0
+        b1: v=0
+          a1: v=0
+      `)
+      expect(printMountedMap(s[0])).toBe(dedent`
+        a: l=a$S0 d=[] t=b
+        b: l=b$S0 d=a t=[]
+        a1: l=a$S1 d=[] t=b1
+        b1: l=b$S1 d=a1 t=[]
+      `)
+
       s[1].set(b)
-      expect(results(s)).toBe('0011') // Received '0010'
-    }
+      // EXPECTED: b.write calls set(a, ...) which should write to a1 (S1's scoped atom)
+      // because we're calling through S1, so set should be scope-aware
+      expect(s[0].get(a)).toBe(0) // a should NOT be modified
+      expect(s[1].get(a)).toBe(1) // a1 SHOULD be incremented
+      expect(printAtomState(s[0])).toBe(dedent`
+        a: v=0
+        b: v=0
+          a: v=0
+        a1: v=1
+        b1: v=1
+          a1: v=1
+      `)
+      expect(printMountedMap(s[0])).toBe(dedent`
+        a: l=a$S0 d=[] t=b
+        b: l=b$S0 d=a t=[]
+        a1: l=a$S1 d=[] t=b1
+        b1: l=b$S1 d=a1 t=[]
+      `)
+
+      expect(results(s)).toBe('0011')
+      expect(printAtomState(s[0])).toBe(dedent`
+        a: v=0
+        b: v=0
+          a: v=0
+        a1: v=1
+        b1: v=1
+          a1: v=1
+      `)
+      expect(printMountedMap(s[0])).toBe(dedent`
+        a: l=a$S0 d=[] t=b
+        b: l=b$S0 d=a t=[]
+        a1: l=a$S1 d=[] t=b1
+        b1: l=b$S1 d=a1 t=[]
+      `)
+    })
+
+    test('04.3 Writing through S1 (unsubscribed) should write to a1 (not a)', () => {
+      const s = createScopes([a])
+
+      s[1].set(b)
+      // EXPECTED: b.write calls set(a, ...) which should write to a1 (S1's scoped atom)
+      // because we're calling through S1, so set should be scope-aware
+      expect(s[0].get(a)).toBe(0) // a should NOT be modified
+      expect(s[1].get(a)).toBe(1) // a1 SHOULD be incremented
+      expect(printAtomState(s[0])).toBe(dedent`
+        b: v=0
+          a: v=0
+        a: v=0
+        b1: v=undefined
+        a1: v=1
+      `)
+
+      expect(results(s)).toBe('0011')
+      expect(printAtomState(s[0])).toBe(dedent`
+        b: v=0
+          a: v=0
+        a: v=0
+        b1: v=1
+          a1: v=1
+        a1: v=1
+      `)
+    })
   })
 
   /**
