@@ -518,6 +518,7 @@ describe('open issues', () => {
           a: v=false
           b1: v=0
         `)
+        // FIXME: c1 is not unmounted and is still in mountedMap
         expect(printMountedMap(s[0])).toBe(dedent`
           a: l=[] d=[] t=c
           c: l=spy d=a t=[]

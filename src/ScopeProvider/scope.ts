@@ -18,6 +18,7 @@ import type {
   AnyWritableAtom,
   AtomPairMap,
   Scope,
+  ScopedAtom,
   SetLike,
   StoreHookForAtoms,
   StoreHooks,
@@ -41,20 +42,24 @@ type GlobalScopeKey = typeof globalScopeKey
 // ---------------------------------------------------------------------------------
 
 /** @returns a scoped copy of the atom */
-function cloneAtom<T>(
+function cloneAtom<T extends Atom<any>>(
   scope: Scope,
-  parentAtom: Atom<T>,
+  parentAtom: T,
   implicitScope: Scope | undefined,
-  baseAtom = parentAtom
-): Atom<T> {
+  baseAtom: AnyAtom = parentAtom
+): ScopedAtom<T> {
   // avoid reading `init` to preserve lazy initialization
   const propDesc = Object.getOwnPropertyDescriptors(parentAtom)
   Object.keys(propDesc)
     .filter((k) => ['read', 'write', 'debugLabel'].includes(k))
     .forEach((k) => (propDesc[k].configurable = true))
   const atomProto = Object.getPrototypeOf(parentAtom)
-  const scopedAtom: Atom<T> = Object.create(atomProto, propDesc)
-  ;(scopedAtom as any).__originalAtom = baseAtom
+  const scopedAtom: ScopedAtom<T> = Object.create(atomProto, propDesc)
+  scopedAtom.__originalAtom = baseAtom
+  // Store the scope level for fast lookup
+  if (implicitScope) {
+    scopedAtom.__scopeLevel = implicitScope[9]
+  }
 
   if (isDerived(scopedAtom)) {
     scopedAtom.read = createScopedRead<typeof scopedAtom>(scope, baseAtom.read.bind(baseAtom), implicitScope)
@@ -76,11 +81,11 @@ function cloneAtom<T>(
   return scopedAtom
 }
 
-type ProxyState<T> = {
+type ProxyState = {
   prevDeps: Set<AnyAtom>
   isScoped: boolean
-  toAtom: Atom<T>
-  fromAtom: Atom<T>
+  toAtom: AnyAtom
+  fromAtom: AnyAtom
   store: Store
   isInitialized: boolean
 }
@@ -95,7 +100,7 @@ function createMultiStableAtom<T>(
   inheritedAtom: Atom<T>,
   implicitScope: Scope | undefined,
   baseAtom: Atom<T>
-): ProxyState<T> {
+): ProxyState {
   const explicitMap = scope[0]
   const dependentMap = scope[2]
   const inheritedSource = scope[3]
@@ -119,7 +124,7 @@ function createMultiStableAtom<T>(
   const mountAtom = buildingBlocks[18]
   const unmountAtom = buildingBlocks[19]
 
-  const proxyState = {
+  const proxyState: ProxyState = {
     prevDeps: new Set<AnyAtom>(),
     isScoped: false,
     toAtom: inheritedAtom,
@@ -128,15 +133,17 @@ function createMultiStableAtom<T>(
     isInitialized: false,
   }
 
-  function setIsScoped(v: boolean) {
+  function setIsScoped(v: boolean, maxDepLevel = 0) {
     proxyState.isScoped = v
     const currentInheritedMap = inheritedSource.get(source)
     if (v) {
       proxyState.fromAtom = inheritedAtom
       proxyState.toAtom = scopedAtom
       proxyState.store = scopedStore
+      // Update the scoped atom's level to the max dependency level
+      scopedAtom.__scopeLevel = maxDepLevel
       // scoped: add to dependentMap, remove from inheritedMap
-      dependentMap.set(baseAtom, [scopedAtom, scope])
+      dependentMap.set(baseAtom, [scopedAtom, implicitScope])
       currentInheritedMap?.delete(inheritedAtom)
     } else {
       proxyState.fromAtom = scopedAtom
@@ -202,18 +209,28 @@ function createMultiStableAtom<T>(
     }
   }
 
-  function getIsDependentScoped(): boolean {
+  /**
+   * Gets the scoped atom for a given atom by walking the scope chain.
+   * @returns the scoped atom if found, undefined otherwise
+   */
+  function getScopedAtom(atom: AnyAtom): ScopedAtom | undefined {
+    const originalAtom = (atom as ScopedAtom).__originalAtom ?? atom
+    if (isDerived(originalAtom)) {
+      return findAtomScope(scope, (s) => s[0].get(originalAtom) || s[2].get(originalAtom))?.[0]
+    }
+    return findAtomScope(scope, (s) => s[0].get(originalAtom) || s[2].get(originalAtom))?.[0]
+  }
+
+  /**
+   * Computes the maximum scope level of the atom's dependencies.
+   * @returns maxDepLevel - the highest scope level among all dependencies (0 if none are scoped)
+   */
+  function getMaxDepLevel(): number {
     let atomState = atomStateMap.get(scopedAtom) ?? atomStateMap.get(inheritedAtom)
     if (!atomState) {
       atomState = readAtomState(scopedStore, inheritedAtom)
     }
-    const dependencies = Array.from(atomState.d.keys())
-    // if there are scoped dependencies AFTER the implicit scope, it is scoped
-    if (dependencies.some((a) => isExplictOrDependentScoped(scope, a, implicitScope))) {
-      return true
-    }
-    // if dependencies are the same, it is unscoped
-    return false
+    return Math.max(0, ...Array.from(atomState.d.keys()).map((dep) => getScopedAtom(dep)?.__scopeLevel ?? 0))
   }
 
   /**
@@ -224,12 +241,15 @@ function createMultiStableAtom<T>(
    *   2. atomState dependencies are different from inheritedAtomState dependencies
    */
   function processScopeClassification(): boolean {
-    const isScoped = getIsDependentScoped()
+    const maxDepLevel = getMaxDepLevel()
+    // Atom is scoped if max dependency level is AFTER the implicit scope level
+    const implicitLevel = implicitScope?.[9] ?? 0
+    const isScoped = maxDepLevel > implicitLevel
     const scopeChanged = isScoped !== proxyState.isScoped
 
     // if there is a scope change, or proxyState is not yet initialized, process classification change
     if (scopeChanged || !proxyState.isInitialized) {
-      setIsScoped(isScoped)
+      setIsScoped(isScoped, maxDepLevel)
       // Transfer listeners when classification changes
       transferListeners(proxyState.fromAtom, proxyState.toAtom)
 
@@ -366,12 +386,18 @@ function collectListeners(scope: Scope, toAtom: AnyAtom, inheritedAtom: AnyAtom)
   return listeners
 }
 
+function findAtomScope(scope: Scope, check: (scope: Scope) => boolean): Scope | undefined
+function findAtomScope<T>(scope: Scope, check: (scope: Scope) => T): T
 /** Iterates up the scope chain and returns the first scope matching the predicate. */
-function findAtomScope(scope: Scope, check: (scope: Scope) => boolean): Scope | undefined {
+function findAtomScope<T>(scope: Scope, check: (scope: Scope) => T): unknown {
   let currentScope: Scope | undefined = scope
   while (currentScope) {
-    if (check(currentScope)) {
+    const result = check(currentScope)
+    if (result === true) {
       return currentScope
+    }
+    if (result) {
+      return result
     }
     currentScope = currentScope[5]
   }
@@ -381,22 +407,6 @@ function findAtomScope(scope: Scope, check: (scope: Scope) => boolean): Scope | 
 /** Returns the scope where the atom is explicitly or dependently scoped. */
 function getExplicitOrDependentAtomScope(scope: Scope, atom: AnyAtom): Scope | undefined {
   return findAtomScope(scope, (s) => s[0].has(atom) || s[2].has(atom))
-}
-
-/**
- * Returns true if the atom is scoped after the given afterScope.
- * If afterScope is undefined, returns true if the atom is scoped anywhere.
- * @param scope - The scope to search from
- * @param atom - The atom to check
- * @param afterScope - Only return true if the atom is scoped strictly after this scope
- */
-function isExplictOrDependentScoped(scope: Scope, atom: AnyAtom, afterScope?: Scope): boolean {
-  const originalAtom = (atom as any).__originalAtom ?? atom
-  const atomScope = getExplicitOrDependentAtomScope(scope, originalAtom)
-  if (!atomScope) return false
-  if (!afterScope) return true
-  // Check if atomScope is strictly deeper than afterScope using level comparison
-  return atomScope[9] > afterScope[9]
 }
 
 function createScopedGet(scope: Scope, get: Getter, implicitScope?: Scope): Getter {

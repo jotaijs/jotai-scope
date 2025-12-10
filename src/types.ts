@@ -8,6 +8,21 @@ export type AnyAtomFamily = AtomFamily<any, AnyAtom>
 
 export type AnyWritableAtom = WritableAtom<any, any[], any>
 
+/** A scoped copy of an atom with scope metadata */
+export type ScopedAtom<T extends AnyAtom = AnyAtom> = T & {
+  /**
+   * The scope level of this atom for O(1) lookup when computing dependent scoping.
+   * - Explicitly scoped atoms: equals the scope's level (scope[9])
+   * - Dependently scoped atoms: equals the max scope level of their scoped dependencies
+   */
+  __scopeLevel: number
+  /**
+   * Reference to the original unscoped atom. Used to look up the scoped version
+   * in explicit/dependent maps when computing max dependency level.
+   */
+  __originalAtom: AnyAtom
+}
+
 /** WeakMap-like, but each value must be [same A as key, Scope?] */
 export type AtomPairMap = {
   set<A extends AnyAtom>(key: A, value: [A, Scope?]): AtomPairMap
@@ -16,13 +31,20 @@ export type AtomPairMap = {
   delete(key: AnyAtom): boolean
 }
 
-export interface ExplicitMap extends AtomPairMap {}
+export type AtomPairScopedMap = {
+  set<A extends AnyAtom>(key: A, value: [ScopedAtom<A>, Scope?]): AtomPairMap
+  get<A extends AnyAtom>(key: A): [ScopedAtom<A>, Scope?] | undefined
+  has(key: AnyAtom): boolean
+  delete(key: AnyAtom): boolean
+}
 
-export interface ImplicitMap extends AtomPairMap {}
+export interface ExplicitMap extends AtomPairScopedMap {}
+
+export interface ImplicitMap extends AtomPairScopedMap {}
 
 export type InheritedSource = WeakMap<Scope | object, AtomPairMap>
 
-export interface DependentMap extends AtomPairMap {}
+export interface DependentMap extends AtomPairScopedMap {}
 
 /** Map of proxy atoms to the set of listeners subscribed in this scope */
 export type ScopeListenersMap = WeakMap<AnyAtom, Set<() => void>>
