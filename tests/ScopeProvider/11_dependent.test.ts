@@ -977,14 +977,8 @@ describe('open issues', () => {
     /*
       S0[_]: a0, b0
       S1[b]: a0, b1, d1(b1), c1(d1)
-
-      When c is read first (before d has been processed):
-      - getMaxDepLevel() for c iterates its deps → finds d
-      - d doesn't have __scopeLevel yet, so we recursively compute from d's deps
-      - d's deps include b1 which has __scopeLevel = 1
-      - Returns 1 for d, so maxDepLevel = 1 for c
     */
-    it.only('recursively computes scope level for derived dependencies without __scopeLevel', () => {
+    it('recursively computes scope level for derived dependencies without __scopeLevel', () => {
       const a = atom(0)
       a.debugLabel = 'a'
       const b = atom(0)

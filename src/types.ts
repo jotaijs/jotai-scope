@@ -15,7 +15,7 @@ export type ScopedAtom<T extends AnyAtom = AnyAtom> = T & {
    * - Explicitly scoped atoms: equals the scope's level (scope[9])
    * - Dependently scoped atoms: equals the max scope level of their scoped dependencies
    */
-  __scopeLevel: number
+  __scope: Scope | undefined
   /**
    * Reference to the original unscoped atom. Used to look up the scoped version
    * in explicit/dependent maps when computing max dependency level.
@@ -68,7 +68,6 @@ export type Scope = [
   scopedStore: Store, //                   7
   scopeListenersMap: ScopeListenersMap, // 8
   level: number, //                        9
-  multiStableMap: MultiStableMap, //       10
 ] & {
   /** @debug */
   name?: string
