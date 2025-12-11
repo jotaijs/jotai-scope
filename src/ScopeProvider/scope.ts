@@ -1,9 +1,8 @@
-import { atom, type Atom, type Getter, type Setter, type WritableAtom } from 'jotai'
+import { type Atom, type Getter, type Setter, type WritableAtom } from 'jotai'
 import {
   INTERNAL_buildStoreRev2 as buildStore,
   INTERNAL_getBuildingBlocksRev2 as getBuildingBlocks,
   INTERNAL_initializeStoreHooksRev2 as initializeStoreHooks,
-  INTERNAL_isAtomStateInitialized as isAtomStateInitialized,
 } from 'jotai/vanilla/internals'
 import type {
   INTERNAL_AtomState as AtomState,
@@ -99,15 +98,15 @@ function createMultiStableAtom<T>(
   baseAtom: Atom<T>
 ): ProxyState {
   let inheritedAtom = initialInheritedAtom
-  const explicitMap = scope[0]
   const dependentMap = scope[2]
   const inheritedSource = scope[3]
   const baseStore = scope[4]
   const scopedStore = scope[7]
+  const multiStableMap = scope[10]
   // TODO: understand why findAtomScope is needed
   const isExplicitScoped = findAtomScope(scope, (s) => s[0].has(baseAtom)) !== undefined
   const scopedAtom = cloneAtom(scope, baseAtom, isExplicitScoped ? implicitScope : undefined)
-  explicitMap.set(scopedAtom, [scopedAtom, scope])
+  multiStableMap.set(baseAtom, scopedAtom)
 
   // Key for inheritedSource map
   const source = implicitScope ?? globalScopeKey
@@ -210,74 +209,70 @@ function createMultiStableAtom<T>(
   }
 
   /**
-   * Gets the scoped atom for a given atom by walking the scope chain.
-   * @returns the scoped atom if found, undefined otherwise
-   */
-  function getScopedAtom(atom: AnyAtom): ScopedAtom | undefined {
-    const originalAtom = (atom as ScopedAtom).__originalAtom ?? atom
-    if (isDerived(originalAtom)) {
-      return findAtomScope(scope, (s) => s[0].get(originalAtom) || s[2].get(originalAtom))?.[0]
-    }
-    return findAtomScope(scope, (s) => s[0].get(originalAtom))?.[0]
-  }
-
-  /**
-   * Computes the scope level of a dependency atom.
-   * For derived atoms without a scopeLevel, recursively computes it from their dependencies.
-   */
-  function getDepScopeLevel(dep: AnyAtom): number {
-    const scopedDep = getScopedAtom(dep)
-    if (scopedDep?.__scopeLevel !== undefined) {
-      return scopedDep.__scopeLevel
-    }
-
-    if (!isDerived(dep)) {
-      return 0
-    }
-
-    // Derived atom without scopeLevel - compute from its dependencies
-    const depAtomState = atomStateMap.get(dep)
-    if (!depAtomState || !isAtomStateInitialized(depAtomState)) {
-      // atomState doesn't exist or hasn't been read yet - cannot compute level
-      // This shouldn't happen in normal flow since deps are read before we iterate them
-      throw new Error(`atomState not initialized for dependency ${dep.debugLabel}`)
-    }
-
-    return Math.max(0, ...Array.from(depAtomState.d.keys()).map(getDepScopeLevel))
-  }
-
-  /**
    * Computes the maximum scope level of the atom's dependencies and finds the inherited atom at that level.
    * @returns { maxDepLevel, inheritedAtomAtLevel }
    *   - maxDepLevel: the highest scope level among all dependencies (0 if none are scoped)
    *   - inheritedAtomAtLevel: the scoped atom at that level, or baseAtom if level is 0
    */
-  function getMaxDepLevelAndInheritedAtom(): { maxDepLevel: number; inheritedAtomAtLevel: Atom<T> } {
-    let atomState = atomStateMap.get(scopedAtom) ?? atomStateMap.get(inheritedAtom)
-    if (!atomState) {
-      atomState = readAtomState(scopedStore, inheritedAtom)
-    }
-    const maxDepLevel = Math.max(0, ...Array.from(atomState.d.keys()).map((dep) => getDepScopeLevel(dep)))
-
-    if (maxDepLevel === 0) {
-      return { maxDepLevel, inheritedAtomAtLevel: baseAtom }
-    }
-
-    // Walk up the scope chain to find the scope at maxDepLevel
+  function getMaxDepLevelAndInheritedAtom(): [maxDepLevel: number, inheritedAtom: Atom<T>] {
+    const atomsToCheck = new Set([scopedAtom])
+    scopedAtom.__scopeLevel = 0
+    // const parentMap = new Map()
+    // let targetAtom: ScopedAtom | undefined
     let currentScope: Scope | undefined = scope
-    while (currentScope) {
-      const scopeLevel = currentScope[9]
-      if (scopeLevel === maxDepLevel) {
-        // Found the scope at the target level, look for the scoped atom
-        const entry = currentScope[0].get(baseAtom) || currentScope[2].get(baseAtom)
-        if (entry) {
-          return { maxDepLevel, inheritedAtomAtLevel: entry[0] }
+    let currentLevel = currentScope[9]
+    outer: while (currentScope !== undefined) {
+      const currentStore = currentScope[4]
+      for (const targetAtom of atomsToCheck) {
+        if (targetAtom.__scopeLevel === currentLevel) {
+          break outer
+        }
+        if (isDerived(targetAtom)) {
+          const atomState = readAtomState(currentStore, targetAtom)
+          for (const dep of atomState.d.keys()) {
+            atomsToCheck.add(dep as ScopedAtom)
+            // parentMap.set(dep, targetAtom)
+          }
         }
       }
       currentScope = currentScope[5]
+      currentLevel = currentScope?.[9] ?? 0
     }
+    // let currAtom = parentMap.get(targetAtom)
+    // while (currAtom) {
+    //   // Look up inherited atom once per original atom
+    //   const originalAtom = currAtom.__originalAtom
+    //   const currentInheritedAtom = currentScope?.[10].get(originalAtom) ?? originalAtom
 
-    return { maxDepLevel, inheritedAtomAtLevel: baseAtom }
+    //   // Walk scopes and assign to all scoped versions of this atom
+    //   let walkScope: Scope | undefined = scope
+    //   while (walkScope && walkScope[9] >= currentLevel) {
+    //     const derivedScopedAtom = walkScope[10].get(originalAtom)
+    //     if (derivedScopedAtom) {
+    //       assignScopeLevel(derivedScopedAtom, currentLevel, currentInheritedAtom)
+    //     }
+    //     walkScope = walkScope[5]
+    //   }
+    //   currAtom = parentMap.get(currAtom)
+    // }
+    const inheritedAtom = currentScope?.[10].get(baseAtom) ?? baseAtom
+    assignScopeLevel(scopedAtom, currentLevel, inheritedAtom)
+    return [currentLevel, inheritedAtom as Atom<T>]
+  }
+
+  /**
+   * Assigns a scope level to an atom and handles any side effects.
+   */
+  function assignScopeLevel(atom: ScopedAtom, level: number, inheritedAtom: Atom<T>): void {
+    atom.__inheritedAtom = inheritedAtom
+    if (atom.__scopeLevel === level) return
+    const oldLevel = atom.__scopeLevel
+    atom.__scopeLevel = level
+    // If this is our scopedAtom and level changed, handle inherited atom reassignment
+    if (atom === scopedAtom && oldLevel !== undefined && proxyState.isInitialized) {
+      reassignInheritedAtom(inheritedAtom)
+      proxyState.maxDepLevel = level
+    }
   }
 
   /**
@@ -341,18 +336,14 @@ function createMultiStableAtom<T>(
    *   2. atomState dependencies are different from inheritedAtomState dependencies
    */
   function processScopeClassification(): boolean {
-    const { maxDepLevel, inheritedAtomAtLevel } = getMaxDepLevelAndInheritedAtom()
+    const [maxDepLevel] = getMaxDepLevelAndInheritedAtom()
     // Atom is scoped if max dependency level is AFTER the implicit scope level
     const implicitLevel = implicitScope?.[9] ?? 0
     const isScoped = maxDepLevel > implicitLevel
     const scopeChanged = isScoped !== proxyState.isScoped
-    const levelChanged = maxDepLevel !== proxyState.maxDepLevel
 
-    // If maxDepLevel changed, reassign inheritedAtom
-    if (levelChanged && proxyState.isInitialized) {
-      reassignInheritedAtom(inheritedAtomAtLevel)
-      proxyState.maxDepLevel = maxDepLevel
-    }
+    // Note: assignScopeLevel (called in getMaxDepLevelAndInheritedAtom) handles
+    // inherited atom reassignment when level changes
 
     // if there is a scope change, or proxyState is not yet initialized, process classification change
     if (scopeChanged || !proxyState.isInitialized) {
@@ -585,6 +576,7 @@ export function createScope(props: CreateScopeProps): Store {
     undefined!, //                                         7: scopedStore
     new WeakMap(), //                                      8: scopeListenersMap
     level, //                                              9: level
+    new WeakMap(), //                                      10: multiStableMap
   ] as Scope
 
   if (scopeName && __DEV__) {
