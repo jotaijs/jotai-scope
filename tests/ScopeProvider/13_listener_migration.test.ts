@@ -1,15 +1,7 @@
 import dedent from 'dedent'
 import { atom } from 'jotai'
 import { describe, expect, it, vi } from 'vitest'
-import {
-  createScopes,
-  printAtomState,
-  printAtomStateDiff,
-  printHeader,
-  printMountedDiff,
-  printMountedMap,
-  subscribeAll,
-} from '../utils'
+import { createScopes, printAtomState, printMountedMap, subscribeAll } from '../utils'
 
 describe('listener migration', () => {
   /**
@@ -47,10 +39,7 @@ describe('listener migration', () => {
     const s = createScopes([b])
     const [s0, s1] = s
 
-    printHeader('subscribeAll(s, [a, b, c])')
     subscribeAll(s, [a, b, c])
-    printAtomStateDiff(s)
-    printMountedDiff(s)
     expect(printAtomState(s0)).toBe(dedent`
       a: v=false
       b: v=0
@@ -65,11 +54,8 @@ describe('listener migration', () => {
       b1: l=b$S1 d=[] t=[]
     `)
 
-    printHeader('subscribe to c in S1')
     const listener = vi.fn()
     const unsub = s1.sub(c, listener)
-    printAtomStateDiff(s)
-    printMountedDiff(s)
     listener.mockClear()
     cReadCount.mockClear()
     expect(printAtomState(s0)).toBe(dedent`
@@ -86,10 +72,7 @@ describe('listener migration', () => {
       b1: l=b$S1 d=[] t=[]
     `)
 
-    printHeader('s1.set(b, 1)', 'set b1 while unscoped')
     s1.set(b, 1)
-    printAtomStateDiff(s)
-    printMountedDiff(s)
     expect(listener).not.toHaveBeenCalled() // c doesn't depend on b yet
     listener.mockClear()
     expect(printAtomState(s0)).toBe(dedent`
@@ -106,10 +89,7 @@ describe('listener migration', () => {
       b1: l=b$S1 d=[] t=[]
     `)
 
-    printHeader('s0.set(a, true)', 'c becomes scoped because it now reads b')
     s0.set(a, true)
-    printAtomStateDiff(s)
-    printMountedDiff(s)
     expect(printAtomState(s0)).toBe(dedent`
       a: v=true
       b: v=0
@@ -136,10 +116,7 @@ describe('listener migration', () => {
     listener.mockClear()
 
     // Section 5: Set b=2 (c should be notified since listener is now on scopedAtom)
-    printHeader('s1.set(b, 2)', 'c should be notified')
     s1.set(b, 2)
-    printAtomStateDiff(s)
-    printMountedDiff(s)
     expect(printAtomState(s0)).toBe(dedent`
       a: v=true
       b: v=0

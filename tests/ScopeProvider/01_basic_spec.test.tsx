@@ -12,12 +12,8 @@ import {
   getTextContents,
   initializeAll,
   printAtomState,
-  printAtomStateDiff,
-  printHeader,
-  printMountedDiff,
   printMountedMap,
   subscribeAll,
-  trackAtomStateMap,
 } from '../utils'
 
 describe('Counter', () => {
@@ -316,12 +312,7 @@ describe('Counter', () => {
       S1[a]: a1, b0, c(a1 + b0)
     */
     const s = createScopes([a])
-    trackAtomStateMap(s)
-    printHeader('subscribeAll(s, [a, b, c])')
     subscribeAll(s, [a, b, c])
-
-    printAtomStateDiff(s)
-    printMountedDiff(s)
 
     expect(printAtomState(s[0])).toBe(dedent`
       a: v=0
@@ -670,7 +661,6 @@ describe('Counter', () => {
       S2[b  ]: a0, b2, c2(a1 + b2)
     */
     const s = createScopes([b, c], [b])
-    trackAtomStateMap(s)
     subscribeAll(s, [c])
 
     function getResults() {
