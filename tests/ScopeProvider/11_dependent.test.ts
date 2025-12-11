@@ -1031,8 +1031,6 @@ describe('open issues', () => {
       // Change b0 in S0 - c in S1 should NOT update (it uses b1)
       s[0].set(b, 100)
       expect(s[1].get(c)).toBe(42) // still 42, not 100
-
-      unsub()
     })
   })
 })

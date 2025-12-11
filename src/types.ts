@@ -21,6 +21,11 @@ export type ScopedAtom<T extends AnyAtom = AnyAtom> = T & {
    * in explicit/dependent maps when computing max dependency level.
    */
   __originalAtom: AnyAtom
+  /**
+   * Reference to the inherited atom at the current scope level.
+   * Updated when scope level changes.
+   */
+  __inheritedAtom?: AnyAtom
 }
 
 /** WeakMap-like, but each value must be [same A as key, Scope?] */
@@ -49,6 +54,9 @@ export interface DependentMap extends AtomPairScopedMap {}
 /** Map of proxy atoms to the set of listeners subscribed in this scope */
 export type ScopeListenersMap = WeakMap<AnyAtom, Set<() => void>>
 
+/** Map of base atoms to their multi-stable scoped atoms */
+export type MultiStableMap = WeakMap<AnyAtom, ScopedAtom>
+
 export type Scope = [
   explicitMap: ExplicitMap, //             0
   implicitMap: ImplicitMap, //             1
@@ -60,6 +68,7 @@ export type Scope = [
   scopedStore: Store, //                   7
   scopeListenersMap: ScopeListenersMap, // 8
   level: number, //                        9
+  multiStableMap: MultiStableMap, //       10
 ] & {
   /** @debug */
   name?: string
