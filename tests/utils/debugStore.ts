@@ -4,7 +4,8 @@ import {
   INTERNAL_initializeStoreHooksRev2 as initializeStoreHooks,
 } from 'jotai/vanilla/internals'
 import { createScope } from 'jotai-scope'
-import { AnyAtom } from 'src/types'
+import { AnyAtom, AnyWritableAtom } from 'src/types'
+import { cross } from './index'
 
 type Mutable<T> = { -readonly [P in keyof T]: T[P] }
 
@@ -62,6 +63,14 @@ export function createScopes<T extends AnyAtom[][]>(
     },
     [store] as Store[]
   ) as any
+}
+
+export function hydrateScopes<T extends [AnyAtom, ...unknown[]][][]>(scopes: Store[], ...scopesAtomTuples: T) {
+  cross(scopes, scopesAtomTuples, (scope, scopeAtomTuples) =>
+    scopeAtomTuples.forEach(([atom, value]) =>
+      scope.set(atom as AnyWritableAtom, ...(Array.isArray(value) ? value : [value]))
+    )
+  )
 }
 
 export function namePrototype(obj: object, name: string) {

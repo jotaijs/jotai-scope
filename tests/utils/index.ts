@@ -7,7 +7,7 @@ import { getAtomLabel } from './debugStore'
 import { leftpad } from './leftpad'
 import { printMountedMap } from './mounted'
 
-export { createDebugStore, createScopes, getAtomLabel } from './debugStore'
+export { createDebugStore, createScopes, getAtomLabel, hydrateScopes } from './debugStore'
 export { printAtomState, printSortedAtomState, trackAtomStateMap } from './atomState'
 export { printMountedMap, trackMountedMap } from './mounted'
 export { createDiffer } from './diff'

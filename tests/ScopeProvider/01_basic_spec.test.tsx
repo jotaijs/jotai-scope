@@ -267,6 +267,10 @@ describe('Counter', () => {
     })
 
     test('04.3 Writing through S1 (unsubscribed) should write to a1 (not a)', () => {
+      /**```
+        S0[a]: b0(a0)
+        S1[a]: b1(a1)
+      */
       const s = createScopes([a])
 
       s[1].set(b)
@@ -274,6 +278,7 @@ describe('Counter', () => {
       // because we're calling through S1, so set should be scope-aware
       expect(s[0].get(a)).toBe(0) // a should NOT be modified
       expect(s[1].get(a)).toBe(1) // a1 SHOULD be incremented
+      // TODO: we should not read b when writing to b
       expect(printAtomState(s[0])).toBe(dedent`
         b: v=0
           a: v=0
@@ -543,6 +548,7 @@ describe('Counter', () => {
       (_, set) => [set(b, (v) => v + 1), set(c, (v) => v + 1)]
     )
     d.debugLabel = 'd'
+
     function getScopes() {
       const s = createScopes([b])
       subscribeAll(s, [b, c, d])
@@ -639,8 +645,8 @@ describe('Counter', () => {
 
   /**
     S0[   ]: a0, b0, c0(a0 + b0)
-    S1[b,c]: c1(a1 + b1)
-    S2[b  ]: c2(a1 + b2)
+    S1[b,c]: a0, b1, c1(a1 + b1)
+    S2[b  ]: a0, b2, c2(a1 + b2)
   */
   test('11. inherited scoped derived atoms can read and write to scoped primitive atoms at every nested level', () => {
     const a = atom(0)
@@ -659,8 +665,9 @@ describe('Counter', () => {
     c.debugLabel = 'c'
 
     /**```
-      S1[b,c]: c1(a1 + b1)
-      S2[b]: c2(a1 + b2)
+      S0[   ]: a0, b0, c0(a0 + b0)
+      S1[b,c]: a0, b1, c1(a1 + b1)
+      S2[b  ]: a0, b2, c2(a1 + b2)
     */
     const s = createScopes([b, c], [b])
     trackAtomStateMap(s)
@@ -755,5 +762,47 @@ describe('Counter', () => {
       c2: l=c$S2 d=a1,b2 t=[]
     `)
     expect(getResults()).toBe('2122')
+  })
+})
+
+describe('topology 1', () => {
+  const a = atom('-')
+  a.debugLabel = 'a'
+  const b = atom('-')
+  b.debugLabel = 'b'
+  const c = atom(
+    (get) => get(a) + get(b),
+    (_get, set, [va, vb]: [string?, string?]) => [va && set(a, va), vb && set(b, vb)]
+  )
+  c.debugLabel = 'c'
+  const d = atom(
+    (get) => get(a) + get(b),
+    (_get, set, [va, vb]: [string?, string?]) => [va && set(a, va), vb && set(b, vb)]
+  )
+  d.debugLabel = 'd'
+  const e = atom(
+    (get) => get(c),
+    (_get, set, [va, vb]: [string?, string?]) => set(c, [va, vb])
+  )
+  e.debugLabel = 'e'
+
+  test(`
+    S0[_]: a0, b0, c0(a0 + b0)
+    S1[a]: a1, b0, c1(a1 + b0)
+    S2[_]: a1, b0, c1(a1 + b0)
+  `, () => {
+    const s = createScopes([a], [])
+    subscribeAll(s, [a, b, c])
+    expect(printAtomState(s[0])).toBe(dedent`
+      a: v=-
+      b: v=-
+      c: v=--
+        a: v=-
+        b: v=-
+      a1: v=-
+      c1: v=--
+        a1: v=-
+        b: v=-
+    `)
   })
 })
