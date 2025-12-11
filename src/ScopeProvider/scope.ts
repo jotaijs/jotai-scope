@@ -17,6 +17,8 @@ import type {
   AnyAtomFamily,
   AnyWritableAtom,
   AtomPairMap,
+  ProxyAtom,
+  ProxyState,
   Scope,
   ScopedAtom,
   SetLike,
@@ -76,16 +78,6 @@ function cloneAtom<T extends Atom<any>>(scope: Scope, baseAtom: T, implicitScope
   return scopedAtom
 }
 
-type ProxyState = {
-  prevDeps: Set<AnyAtom>
-  isScoped: boolean
-  toAtom: AnyAtom
-  fromAtom: AnyAtom
-  store: Store
-  isInitialized: boolean
-  implicitScope: Scope | undefined
-}
-
 /**
  * Creates a multi-stable atom that can transition between unscoped and scoped states.
  * It is effectively one of two atoms depending on its dependencies.
@@ -114,6 +106,10 @@ function createMultiStableAtom<T>(
   }
 
   const scopedAtom = cloneAtom(scope, baseAtom, implicitScope)
+  if (__DEV__) {
+    // For testing purposes
+    Object.assign(scopedAtom, { proxyState })
+  }
   proxyState.fromAtom = scopedAtom
 
   const buildingBlocks = getBuildingBlocks(baseStore)
@@ -124,6 +120,7 @@ function createMultiStableAtom<T>(
   const storeHooks = initializeStoreHooks(buildingBlocks[6])
   const ensureAtomState = buildingBlocks[11]
   const readAtomState = buildingBlocks[14]
+  const mountDependencies = buildingBlocks[17]
   const mountAtom = buildingBlocks[18]
   const unmountAtom = buildingBlocks[19]
 
@@ -152,10 +149,6 @@ function createMultiStableAtom<T>(
       dependentMap.delete(baseAtom)
     }
   }
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // Hook to re-check classification when toAtom is read
-  // ─────────────────────────────────────────────────────────────────────────────
 
   const cleanupToAtomHook = storeHookWithOnce()
 
@@ -196,6 +189,7 @@ function createMultiStableAtom<T>(
     if (fromMounted.l.size === 0) {
       const fromAtomState = atomStateMap.get(fromAtom)
       if (fromAtomState) {
+        mountDependencies(store, fromAtom)
         for (const a of fromMounted.d) {
           const aMounted = mountedMap.get(a)
           if (aMounted) {
@@ -212,22 +206,17 @@ function createMultiStableAtom<T>(
    * @returns {boolean} isScoped
    */
   function processScopeClassification(): boolean {
-    const atomState = atomStateMap.get(scopedAtom)
+    const inheritedAtomState = readAtomState(implicitScope?.[4] ?? baseStore, inheritedAtom)
+    const allDeps = new Set(inheritedAtomState.d.keys())
     let isScoped = false
-    if (atomState) {
-      isScoped = Array.from(atomState.d.keys()).some((dep) => (dep as ScopedAtom).__scope === scope)
-    } else {
-      const inheritedAtomState = readAtomState(implicitScope?.[4] ?? baseStore, inheritedAtom)
-      const allDeps = new Set(inheritedAtomState.d.keys())
-      for (const dep of allDeps) {
-        const depAtom = (dep as ScopedAtom).__originalAtom ?? dep
-        if (explicitMap.has(depAtom) || dependentMap.has(depAtom)) {
-          isScoped = true
-          break
-        }
-        for (const [d] of atomStateMap.get(dep)!.d) {
-          allDeps.add(d)
-        }
+    for (const dep of allDeps) {
+      const depAtom = (dep as ScopedAtom).__originalAtom ?? dep
+      if (explicitMap.has(depAtom) || dependentMap.has(depAtom)) {
+        isScoped = true
+        break
+      }
+      for (const [d] of atomStateMap.get(dep)!.d) {
+        allDeps.add(d)
       }
     }
     const scopeChanged = isScoped !== proxyState.isScoped
@@ -253,9 +242,11 @@ function createMultiStableAtom<T>(
 
       // Notify listeners if value changed
       const toAtomState = ensureAtomState(proxyState.store, proxyState.toAtom)
-      invalidatedAtoms.set(proxyState.toAtom, toAtomState.n)
-      changedAtoms.add(proxyState.toAtom)
-      storeHooks.c?.(proxyState.toAtom)
+      if (!changedAtoms.has(proxyState.toAtom)) {
+        invalidatedAtoms.set(proxyState.toAtom, toAtomState.n)
+        changedAtoms.add(proxyState.toAtom)
+        storeHooks.c?.(proxyState.toAtom)
+      }
 
       // Set up hook on new toAtom to re-check classification when it's read
       setupToAtomReadHook(proxyState.toAtom)

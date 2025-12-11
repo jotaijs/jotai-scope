@@ -1,6 +1,10 @@
 import { fireEvent } from '@testing-library/react'
 import chalk from 'chalk'
-import type { INTERNAL_Store as Store } from 'jotai/vanilla/internals'
+import {
+  INTERNAL_getBuildingBlocksRev2 as getBuildingBlocks,
+  INTERNAL_AtomState as AtomState,
+  type INTERNAL_Store as Store,
+} from 'jotai/vanilla/internals'
 import { AnyAtom } from 'src/types'
 import { printAtomState } from './atomState'
 import { getAtomLabel } from './debugStore'
@@ -91,4 +95,10 @@ export function printAtomStateDiff([store]: [Store, ...Store[]]) {
 export function printMountedDiff([store]: Store[]) {
   console.log(`MountedMap`)
   console.log(leftpad(printMountedMap.diff(store)))
+}
+
+export function getAtomByLabel([store]: [Store, ...Store[]], label: string) {
+  const buildingBlocks = getBuildingBlocks(store)
+  const atomStateMap = buildingBlocks[0] as Map<AnyAtom, AtomState>
+  return Array.from(atomStateMap.keys()).find((a) => a.debugLabel === label)!
 }

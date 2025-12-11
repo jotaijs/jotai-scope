@@ -5,18 +5,9 @@ import {
   INTERNAL_getBuildingBlocksRev2 as getBuildingBlocks,
 } from 'jotai/vanilla/internals'
 import { describe, expect, it, vi } from 'vitest'
-import { AnyAtom } from 'src/types'
+import { AnyAtom, ProxyAtom } from 'src/types'
 import { storeScopeMap } from '../../src/ScopeProvider/scope'
-import {
-  createScopes,
-  printAtomState,
-  printAtomStateDiff,
-  printHeader,
-  printMountedDiff,
-  printMountedMap,
-  subscribeAll,
-  trackAtomStateMap,
-} from '../utils'
+import { createScopes, getAtomByLabel, printAtomState, printMountedMap, subscribeAll } from '../utils'
 
 describe('open issues', () => {
   it('unscoped derived atom should not be recomputed when subscribed to in a child scope', () => {
@@ -30,8 +21,8 @@ describe('open issues', () => {
   })
 
   /*
-    S0[_]: a0, b0, c0(a0 & b0)
-    S1[b]: a0, b1, c_(a0 & b1)
+    S0[_]: a0, b0, c0(a0 && b0)
+    S1[b]: a0, b1, c_(a0 ? c1(a0 && b1) : c0(a0))
   */
   it('unscoped derived can change to dependent scoped and back', () => {
     const a = atom('unscoped_0')
@@ -53,17 +44,10 @@ describe('open issues', () => {
     c.debugLabel = 'c'
     /**```
       S0[_]: a0, b0, c0(a0 && b0)
-      S1[b]: a0, b1, c_(a0 && b0)
+      S1[b]: a0, b1, c_(a0 ? c1(a0 && b1) : c0(a0))
     */
     const s = createScopes([b])
-
-    trackAtomStateMap(s)
-    printHeader('subscribeAll(s, [a, b, c])')
-
     subscribeAll(s, [a, b, c])
-
-    printAtomStateDiff(s)
-    printMountedDiff(s)
 
     // c_1 (proxyAtom) is no longer in atomStateMap or mountedMap - only toAtom is visible
     expect(printAtomState(s[0])).toBe(dedent`
@@ -82,9 +66,7 @@ describe('open issues', () => {
     expect(cReadCount).toHaveBeenCalledTimes(1)
     cReadCount.mockClear()
 
-    printHeader("s[0].set(a, 'unscoped_1')", 'c recomputes but is still unscoped')
     s[0].set(a, 'unscoped_1') // c recomputes but is still unscoped
-    printMountedDiff(s)
     expect(printAtomState(s[0])).toBe(dedent`
       a: v=unscoped_1
       b: v=0
@@ -101,9 +83,7 @@ describe('open issues', () => {
     expect(cReadCount).toHaveBeenCalledTimes(1)
     cReadCount.mockClear()
 
-    printHeader("s[0].set(a, 'scoped_2')", 'c1 changes to dependent scoped')
     s[0].set(a, 'scoped_2') // c1 changes to dependent scoped
-    printMountedDiff(s)
     // c recomputes with new deps (a,b), c1 is created with deps (a,b1)
     expect(printAtomState(s[0])).toBe(dedent`
       a: v=scoped_2
@@ -127,9 +107,7 @@ describe('open issues', () => {
     expect(cReadCount).toHaveBeenCalledTimes(2) // called for c0 and c1
     cReadCount.mockClear()
 
-    printHeader('s[0].set(c, 1)', 'c0 writes to b0')
     s[0].set(c, 1) // c0 writes to b0
-    printMountedDiff(s)
     expect(printAtomState(s[0])).toBe(dedent`
       a: v=scoped_2
       b: v=1
@@ -151,9 +129,7 @@ describe('open issues', () => {
     expect(cReadCount).toHaveBeenCalledTimes(1) // called for c0
     cReadCount.mockClear()
 
-    printHeader('s[1].set(c, 2)', 'c1 is dependent scoped - so it writes to b1')
     s[1].set(c, 2) // c1 is dependent scoped - so it writes to b1
-    printMountedDiff(s)
     expect(printAtomState(s[0])).toBe(dedent`
       a: v=scoped_2
       b: v=1
@@ -175,9 +151,7 @@ describe('open issues', () => {
     expect(cReadCount).toHaveBeenCalledTimes(1) // called for c1
     cReadCount.mockClear()
 
-    printHeader("s[1].set(a, 'unscoped_3')", 'changes c1 back to unscoped')
     s[1].set(a, 'unscoped_3') // changes c1 back to unscoped
-    printMountedDiff(s)
     // When unscoped again, c has both S0 and S1 listeners
     expect(printMountedMap(s[0])).toBe(dedent`
       a: l=a$S0,a$S1 d=[] t=c
@@ -199,9 +173,7 @@ describe('open issues', () => {
     expect(cReadCount).toHaveBeenCalledTimes(2) // called for c0 and c1
     cReadCount.mockClear()
 
-    printHeader('s[1].set(b, 3)', 'set b1 while unscoped')
     s[1].set(b, 3)
-    printMountedDiff(s)
     expect(s[1].get(b)).toBe(3)
     expect(printAtomState(s[0])).toBe(dedent`
       a: v=unscoped_3
@@ -213,9 +185,7 @@ describe('open issues', () => {
         a: v=unscoped_3
     `)
 
-    printHeader("s[1].set(a, 'scoped_4')", 'transition back to scoped - c1 should read b1=3')
     s[1].set(a, 'scoped_4') // changes c1 back to scoped
-    printMountedDiff(s)
     // c1 should now be mounted again and read b1=3
     expect(printMountedMap(s[0])).toBe(dedent`
       a: l=a$S0,a$S1 d=[] t=c,c1
@@ -241,6 +211,90 @@ describe('open issues', () => {
 
     expect(cReadCount).toHaveBeenCalledTimes(2) // called for c0 and c1
     cReadCount.mockClear()
+  })
+
+  /**
+    S0[_]: a0, b0, c0(a0 + b0)
+    S1[c]: a0, b0, c1(a1 + b1)
+    S2[a]: a2, b1, c2(a2 + b1)
+    S3[_]: a1, b1, c2(a2 + b1)
+
+    c2 in S3 is the atom we are testing.
+    It should inherit its atom from c2 in S2, not c1 in S1,
+    but its implicit scope should come from S1.
+   */
+  it('inherits dependent scoped below explicit scoped', () => {
+    const a = atom(0)
+    a.debugLabel = 'a'
+    const b = atom(0)
+    b.debugLabel = 'b'
+    const c = atom((get) => get(a) + get(b))
+    c.debugLabel = 'c'
+
+    /**```
+      S0[_]: a0, b0, c0(a0 + b0)
+      S1[c]: a0, b0, c1(a1 + b1)
+      S2[a]: a2, b0, c2(a2 + b1)
+      S3[_]: a2, b0, c2(a2 + b1)
+    */
+    const s = createScopes([c], [a], [])
+    subscribeAll(s, [c])
+    expect(printAtomState(s[0])).toBe(dedent`
+      c: v=0
+        a: v=0
+        b: v=0
+      a: v=0
+      b: v=0
+      c1: v=0
+        a1: v=0
+        b1: v=0
+      a1: v=0
+      b1: v=0
+      c2: v=0
+        a2: v=0
+        b1: v=0
+      a2: v=0
+    `)
+  })
+
+  /**
+    S0[_]: a0, b0, c0(a0 + b0)
+    S1[c]: a0, b0, c1(a1 + b1)
+    S2[_]: a1, b1, c2(a1 + b1)
+    S3[_]: a1, b1, c2(a1 + b1)
+
+    c1 in S3 is the atom we are testing.
+    It should inherit its atom from c1 in S1, not c1 in S2,
+    and its implicit scope should come from S1.
+   */
+  it('inherits explicit scoped two levels up', () => {
+    const a = atom(0)
+    a.debugLabel = 'a'
+    const b = atom(0)
+    b.debugLabel = 'b'
+    const c = atom((get) => get(a) + get(b))
+    c.debugLabel = 'c'
+
+    /**```
+      S0[_]: a0, b0, c0(a0 + b0)
+      S1[c]: a0, b0, c1(a1 + b1)
+      S2[_]: a1, b1, c1(a1 + b1)
+      S3[_]: a1, b1, c1(a1 + b1)
+    */
+    const s = createScopes([c], [], [])
+    subscribeAll(s, [c])
+    expect(printAtomState(s[0])).toBe(dedent`
+      c: v=0
+        a: v=0
+        b: v=0
+      a: v=0
+      b: v=0
+      c1: v=0
+        a1: v=0
+        b1: v=0
+      a1: v=0
+      b1: v=0
+    `)
   })
 
   // it.todo('dependents of unscoped derived atoms work correctly', () => {})
@@ -382,17 +436,6 @@ describe('open issues', () => {
       When a=true: c is dependent scoped, c_ points to c1
     */
 
-    // Helper to get mounted map and scope info
-    function getTestContext(s: ReturnType<typeof createScopes>) {
-      const buildingBlocks = getBuildingBlocks(s[0])
-      const atomStateMap = buildingBlocks[0] as Map<AnyAtom, any>
-      const mountedMap = buildingBlocks[1] as Map<AnyAtom, Mounted>
-      const storeHooks = buildingBlocks[6]
-      const scope = storeScopeMap.get(s[1])!
-      const scopeListenersMap = scope[8]
-      return { atomStateMap, mountedMap, storeHooks, scope, scopeListenersMap }
-    }
-
     describe('hook teardown on classification change', () => {
       it('listener notifications work after classification change', () => {
         const a = atom(false)
@@ -474,6 +517,10 @@ describe('open issues', () => {
     })
 
     describe('classification change direction', () => {
+      /**
+        S0[_]: a0, b0, c0(a0 & b0)
+        S1[b]: a0, b1, c_(a0 ? c1(a0 + b1) : c0(a0))
+      */
       it('scoped → unscoped: moves S1 listeners from c1 to c0', () => {
         const a = atom(true) // Start scoped
         a.debugLabel = 'a'
@@ -483,22 +530,26 @@ describe('open issues', () => {
         c.debugLabel = 'c'
 
         /**```
-          S0[_]: a0, b0, c0(a0 && b0)
-          S1[b]: a0, b1, c(a0 ? c1(a0 + b1) : c0(a0))
+          S0[_]: a0, b0, c0(a0 & b0)
+          S1[b]: a0, b1, c_(a0 ? c1(a0 + b1) : c0(a0))
          */
         const s = createScopes([b])
-        const { scopeListenersMap } = getTestContext(s)
-
+        const scope1 = storeScopeMap.get(s[1])!
+        const scopeListenersMap = scope1[8]
         const listener1 = vi.fn()
         const unsub1 = s[1].sub(c, listener1)
-
-        // Initially: c reads a=true, then reads b (scoped), so c is classified as scoped
-        // Subscription goes directly to c1
+        const c1 = getAtomByLabel(s, 'c1') as ProxyAtom
+        // readAtomState(c0) reads a=true, then reads b (scoped), so c1 is initially scoped
+        // c1 is mounted and subscription goes directly to c1
         expect(printAtomState(s[0])).toBe(dedent`
+          c: v=0
+            a: v=true
+            b: v=0
+          a: v=true
+          b: v=0
           c1: v=0
             a: v=true
             b1: v=0
-          a: v=true
           b1: v=0
         `)
         expect(printMountedMap(s[0])).toBe(dedent`
@@ -509,22 +560,27 @@ describe('open issues', () => {
         expect(scopeListenersMap.get(c)?.size).toBe(1)
 
         // Transition to unscoped
+        listener1.mockClear()
         s[0].set(a, false)
+        expect(listener1).toHaveBeenCalledTimes(1)
+        expect(c1.proxyState.isScoped).toBe(false)
 
         // After transition: listener moves from c1 to c
         expect(printAtomState(s[0])).toBe(dedent`
-          c1: v=unscoped
+          c: v=unscoped
             a: v=false
           a: v=false
+          b: v=0
+          c1: v=unscoped
+            a: v=false
           b1: v=0
         `)
-        // FIXME: c1 is not unmounted and is still in mountedMap
+
         expect(printMountedMap(s[0])).toBe(dedent`
           a: l=[] d=[] t=c
           c: l=spy d=a t=[]
         `)
         expect(scopeListenersMap.get(c)?.size).toBe(1)
-
         unsub1()
       })
     })
@@ -560,7 +616,8 @@ describe('open issues', () => {
         c.debugLabel = 'c'
 
         const s = createScopes([b])
-        const { mountedMap } = getTestContext(s)
+        const buildingBlocks = getBuildingBlocks(s[0])
+        const mountedMap = buildingBlocks[1] as Map<AnyAtom, Mounted>
 
         const listener0 = vi.fn()
         const unsub0 = s[0].sub(c, listener0)
@@ -589,7 +646,8 @@ describe('open issues', () => {
         c.debugLabel = 'c'
 
         const s = createScopes([b])
-        const { mountedMap } = getTestContext(s)
+        const buildingBlocks = getBuildingBlocks(s[0])
+        const mountedMap = buildingBlocks[1] as Map<AnyAtom, Mounted>
 
         const listener1 = vi.fn()
         const unsub1 = s[1].sub(c, listener1)
@@ -620,7 +678,8 @@ describe('open issues', () => {
         c.debugLabel = 'c'
 
         const s = createScopes([b])
-        const { mountedMap } = getTestContext(s)
+        const buildingBlocks = getBuildingBlocks(s[0])
+        const mountedMap = buildingBlocks[1] as Map<AnyAtom, Mounted>
 
         const listener0 = vi.fn()
         const listener1 = vi.fn()
@@ -657,7 +716,9 @@ describe('open issues', () => {
         c.debugLabel = 'c'
 
         const s = createScopes([b])
-        const { mountedMap, storeHooks } = getTestContext(s)
+        const buildingBlocks = getBuildingBlocks(s[0])
+        const mountedMap = buildingBlocks[1] as Map<AnyAtom, Mounted>
+        const storeHooks = buildingBlocks[6]
 
         const mountListener = vi.fn()
         storeHooks.m!.add(undefined, mountListener)
@@ -685,7 +746,9 @@ describe('open issues', () => {
         c.debugLabel = 'c'
 
         const s = createScopes([b])
-        const { mountedMap, storeHooks } = getTestContext(s)
+        const buildingBlocks = getBuildingBlocks(s[0])
+        const mountedMap = buildingBlocks[1] as Map<AnyAtom, Mounted>
+        const storeHooks = buildingBlocks[6]
 
         const unmountListener = vi.fn()
         storeHooks.u!.add(undefined, unmountListener)
@@ -714,7 +777,8 @@ describe('open issues', () => {
         c.debugLabel = 'c'
 
         const s = createScopes([b])
-        const { storeHooks } = getTestContext(s)
+        const buildingBlocks = getBuildingBlocks(s[0])
+        const storeHooks = buildingBlocks[6]
 
         const unmountListener = vi.fn()
         storeHooks.u!.add(undefined, unmountListener)
@@ -740,7 +804,9 @@ describe('open issues', () => {
         c.debugLabel = 'c'
 
         const s = createScopes([b])
-        const { mountedMap, storeHooks } = getTestContext(s)
+        const buildingBlocks = getBuildingBlocks(s[0])
+        const mountedMap = buildingBlocks[1] as Map<AnyAtom, Mounted>
+        const storeHooks = buildingBlocks[6]
 
         const unmountListener = vi.fn()
         storeHooks.u!.add(undefined, unmountListener)
@@ -833,7 +899,8 @@ describe('open issues', () => {
         c.debugLabel = 'c'
 
         const s = createScopes([b])
-        const { mountedMap } = getTestContext(s)
+        const buildingBlocks = getBuildingBlocks(s[0])
+        const mountedMap = buildingBlocks[1] as Map<AnyAtom, Mounted>
 
         const listener1a = vi.fn()
         const listener1b = vi.fn()
@@ -866,8 +933,8 @@ describe('open issues', () => {
         c.debugLabel = 'c'
 
         const s = createScopes([b])
-        const { mountedMap } = getTestContext(s)
-
+        const buildingBlocks = getBuildingBlocks(s[0])
+        const mountedMap = buildingBlocks[1] as Map<AnyAtom, Mounted>
         const listener0 = vi.fn()
         const listener1 = vi.fn()
         const unsub0 = s[0].sub(c, listener0)
@@ -1011,7 +1078,6 @@ describe('open issues', () => {
         d1: v=0
           b1: v=0
         b1: v=0
-        c3: v=undefined
       `)
 
       // c should be scoped because it depends on d which depends on b1

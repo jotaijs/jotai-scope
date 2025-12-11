@@ -21,11 +21,20 @@ export type ScopedAtom<T extends AnyAtom = AnyAtom> = T & {
    * in explicit/dependent maps when computing max dependency level.
    */
   __originalAtom: AnyAtom
-  /**
-   * Reference to the inherited atom at the current scope level.
-   * Updated when scope level changes.
-   */
-  __inheritedAtom?: AnyAtom
+}
+
+export type ProxyState = {
+  prevDeps: Set<AnyAtom>
+  isScoped: boolean
+  toAtom: AnyAtom
+  fromAtom: AnyAtom
+  store: Store
+  isInitialized: boolean
+  implicitScope: Scope | undefined
+}
+
+export type ProxyAtom<T extends AnyAtom = AnyAtom> = T & {
+  proxyState: ProxyState
 }
 
 /** WeakMap-like, but each value must be [same A as key, Scope?] */
