@@ -7,15 +7,19 @@ import {
 } from 'jotai/vanilla/internals'
 import { AnyAtom } from 'src/types'
 import { printAtomState } from './atomState'
-import { getAtomLabel } from './debugStore'
 import { leftpad } from './leftpad'
 import { printMountedMap } from './mounted'
+import { getAtomLabel } from '../../src/utils'
 
-export { createDebugStore, createScopes, getAtomLabel, hydrateScopes } from './debugStore'
+export { createDebugStore, createScopes, hydrateScopes } from './debugStore'
 export { printAtomState, printSortedAtomState, trackAtomStateMap } from './atomState'
 export { printMountedMap, trackMountedMap } from './mounted'
 export { createDiffer } from './diff'
 export { leftpad } from './leftpad'
+
+export function sanitizeLabel(label: string) {
+  return label.replace(/[^a-zA-Z0-9_]/g, '$')
+}
 
 function getElements(container: HTMLElement, querySelectors: string[]): Element[] {
   return querySelectors.map((querySelector) => {
@@ -72,7 +76,7 @@ export function subscribeAll(stores: ReadonlyArray<Store>, atoms: AnyAtom[]) {
       store.sub(
         atom,
         new Function(
-          `return function ${getAtomLabel(atom)}$${(store as { name?: string }).name ?? 'Sx'}(){}`
+          `return function ${sanitizeLabel(getAtomLabel(atom))}$${(store as { name?: string }).name ?? 'Sx'}(){}`
         )() as () => void
       )
     )
