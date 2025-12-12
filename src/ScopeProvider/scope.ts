@@ -25,7 +25,8 @@ import type {
   StoreHooks,
   WeakMapLike,
 } from '../types'
-import { isCustomWrite, isDerived, isWritableAtom, storeHookWithOnce, toNameString } from '../utils'
+import { getAtomLabel, isCustomWrite, isDerived, isWritableAtom, storeHookWithOnce, toNameString } from '../utils'
+import dedent from 'dedent'
 
 /** WeakMap to store the scope associated with each scoped store */
 export const storeScopeMap = new WeakMap<Store, Scope>()
@@ -140,6 +141,19 @@ function createMultiStableAtom<T>(
   const mountDependencies = buildingBlocks[17]
   const mountAtom = buildingBlocks[18]
   const unmountAtom = buildingBlocks[19]
+
+  if (__DEV__) {
+    ;(storeHooks as any).d?.add(inheritedAtom, (a: AnyAtom, isSync: boolean) => {
+      if (!isSync && proxyState.isInitialized && !proxyState.isScoped) {
+        const [scopedA] = getAtom(scope, a)
+        if ((scopedA as ScopedAtom).__scope === scope) {
+          throw new Error(dedent`[jotai-scope] Unscoped atom "${getAtomLabel(baseAtom)}" reads scoped atom "${getAtomLabel(a)}" after an await.
+            The dependency will be read from the wrong scope, returning an incorrect value.
+            Use markDependent(atom, [dependency]) to fix this.`)
+        }
+      }
+    })
+  }
 
   function setIsScoped(v: boolean) {
     proxyState.isScoped = v
