@@ -30,6 +30,23 @@ import { isCustomWrite, isDerived, isWritableAtom, storeHookWithOnce, toNameStri
 /** WeakMap to store the scope associated with each scoped store */
 export const storeScopeMap = new WeakMap<Store, Scope>()
 
+/** WeakMap to store explicitly marked dependencies for atoms */
+const markedDependentsMap = new WeakMap<AnyAtom, Set<AnyAtom>>()
+
+/**
+ * Marks explicit dependencies for an atom.
+ * This is useful for async atoms where dependencies accessed after `await`
+ * might not be detected during the initial synchronous read.
+ * @experimental This API might be removed in a future release.
+ */
+export function markDependent<T extends AnyAtom>(atom: T, dependencies: AnyAtom[]): T {
+  markedDependentsMap.set(atom, new Set(dependencies))
+  if (__DEV__) {
+    console.warn('markDependent is an experimental feature and might be removed in a future release.')
+  }
+  return atom
+}
+
 const globalScopeKey: { name?: string } = {}
 if (__DEV__) {
   globalScopeKey.name = 'unscoped'
@@ -209,6 +226,13 @@ function createMultiStableAtom<T>(
   function processScopeClassification(): boolean {
     const inheritedAtomState = readAtomState(implicitScope?.[4] ?? baseStore, inheritedAtom)
     const allDeps = new Set(inheritedAtomState.d.keys())
+    // Include explicitly marked dependencies for async atoms
+    const markedDeps = markedDependentsMap.get(baseAtom)
+    if (markedDeps) {
+      for (const dep of markedDeps) {
+        allDeps.add(dep)
+      }
+    }
     let isScoped = false
     for (const dep of allDeps) {
       const depAtom = (dep as ScopedAtom).__originalAtom ?? dep
@@ -216,8 +240,11 @@ function createMultiStableAtom<T>(
         isScoped = true
         break
       }
-      for (const [d] of atomStateMap.get(dep)!.d) {
-        allDeps.add(d)
+      const depState = atomStateMap.get(dep)
+      if (depState) {
+        for (const [d] of depState.d) {
+          allDeps.add(d)
+        }
       }
     }
     const scopeChanged = isScoped !== proxyState.isScoped

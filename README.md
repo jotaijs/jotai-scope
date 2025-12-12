@@ -1,8 +1,6 @@
 # jotai-scope
 
-👻🔭 *Isolate Jotai atoms with scope*
-
-### Install
+👻🔭 Primitives for nested Jotai scopes
 
 ```
 npm install jotai-scope
@@ -10,173 +8,169 @@ npm install jotai-scope
 
 ## ScopeProvider
 
-While Jotai's Provider allows to scope Jotai's store under a subtree, we can't use the store above the tree within the subtree.
+`<ScopeProvider>` creates isolated atom state within a React subtree. Components inside the provider get their own copy of the specified atoms, while still accessing unscoped atoms from the parent.
 
-A workaround is to use `store` option in useAtom and other hooks.
+### Key behaviors
 
-Instead of specifying the `store` option, `<ScopeProvider>` lets you reuse the *same* atoms in different parts of the React tree **without sharing state** while still being able to read other atoms from the parent store.
+- **Opt-in scoping** — only atoms in `atoms` or `atomFamilies` are scoped
+- **Derived atoms follow their dependencies** — scope a derived atom and its dependencies become scoped too (within that atom's reads)
+- **Nested lookup** — unscoped atoms inherit from the nearest parent scope or store
+- **Read and write** — scoping applies to both getting and setting atoms
 
-### At‑a‑glance
-
-* Scopes are opt‑in. Only atoms listed in `atoms` or `atomFamilies` are explicitly scoped.
-* **Unscoped derived** atoms can read both unscoped and scoped atoms.
-* **Scoped derived** atoms implicitly scope their atom dependencies. When you scope a derived atom, every atom it touches (recursively) is scoped automatically, but only when read by the derived atom. Outside the derived atom, it continues to be unscoped.
-* **Nested lookup.** If a scope can’t find the atom in the current scope, it inherits from the nearest parent scope, up to the nearest store.
-* Scoping works for both reading from atoms *and* writing to atoms.
-
-### Quick Start
+### Quick start
 
 ```tsx
-import { Provider, atom, useAtom, useAtomValue } from 'jotai'
+import { atom, useAtom } from 'jotai'
 import { ScopeProvider } from 'jotai-scope'
-```
 
-**1 · Isolating a counter**
-
-```tsx
 const countAtom = atom(0)
-const doubledAtom = atom((get) => get(countAtom) * 2)
 
 function Counter() {
   const [count, setCount] = useAtom(countAtom)
-  const doubled = useAtomValue(doubledAtom)
-  return (
-    <>
-      <button onClick={() => setCount((c) => c + 1)}>+1</button>
-      <span>{count} → {doubled}</span>
-    </>
-  )
+  return <button onClick={() => setCount((c) => c + 1)}>{count}</button>
 }
 
-export default function App() {
+function App() {
   return (
-    <Provider>
-      <Counter /> {/* doubledAtom uses the parent store */}
-      <ScopeProvider atoms={[doubledAtom]}>
-        <Counter /> {/* doubledAtom is scoped */}
+    <>
+      <Counter />                              {/* global countAtom */}
+      <ScopeProvider atoms={[countAtom]}>
+        <Counter />                            {/* scoped countAtom */}
       </ScopeProvider>
-    </Provider>
+    </>
   )
 }
 ```
 
-The second counter owns a private `doubledAtom` *and* a private `countAtom` because `doubledAtom` is scoped.
+### Examples
 
-**2 · Nested scopes**
+**Nested scopes**
 
 ```tsx
-<ScopeProvider atoms={[countAtom]} name="S1">
-  <Counter />         {/* countAtom is read from S1 */}
-  <ScopeProvider atoms={[nameAtom]} name="S2">
-    <Counter />       {/* countAtom is read from S1 & nameAtom is read from S2 */}
+<ScopeProvider atoms={[countAtom]}>
+  <Counter />                          {/* countAtom from outer scope */}
+  <ScopeProvider atoms={[nameAtom]}>
+    <Counter />                        {/* countAtom inherited, nameAtom scoped */}
   </ScopeProvider>
 </ScopeProvider>
 ```
 
-* Outer scope (S1) isolates `countAtom`.
-* Inner scope (S2) isolates `nameAtom`, then looks up the tree and finds `countAtom` in S1.
-
-**3 · Providing default values**
+**Default values**
 
 ```tsx
 <ScopeProvider atoms={[[countAtom, 42]]}>
-  <Counter />   {/* starts at 42 inside this scope */}
+  <Counter />                          {/* starts at 42 */}
 </ScopeProvider>
 ```
 
-Mix tuples and plain atoms as needed: `atoms={[[countAtom, 1], anotherAtom]}`.
-
-**4 · Scoping an atomFamily**
+**Atom families**
 
 ```tsx
-import { atom, atomFamily, useAtom } from 'jotai'
-import { ScopeProvider } from 'jotai-scope'
-
 const itemFamily = atomFamily((id: number) => atom(id))
 
-<Component />     {/* Unscoped items */}
 <ScopeProvider atomFamilies={[itemFamily]}>
-  <Component />   {/* Isolated items */}
+  <Items />                            {/* isolated item state */}
 </ScopeProvider>
-
 ```
-
-Inside the `<ScopeProvider>` every `itemFamily(id)` call resolves to a scoped copy, so items rendered inside the provider are independent from the global ones and from any sibling scopes.
-
-**A helpful syntax for describing nested scopes**
-
-```
-a, b, c(a + b), d(a + c)
-S1[a]:    a1, b0, c0(a1 + b0), d0(a1 + c0(a1 + b0))
-S2[c, d]: a1, b0, c2(a2 + b2), d2(a2 + c2(a2 + b2))
-```
-Above:
-- Scope **S1** is the first scope under the store provider (**S0**). **S1** scopes **a**, so **a1** refers to the scoped **a** in **S1**.
-- **c** is a derived atom. **c** reads **a** and **b**. In **S1**, **c** is not scoped so it reads **a1** and **b0** from **S1**.
-- **c** is scoped in **S2**, so it reads **a** from **S2** and **b** from **S2**. This is because atom dependencies of scoped atoms are _implicitly scoped_.
-- Outside **c** and **d** in **S2**, **a** and **b** still inherit from **S1**.
-- **c** and **d** are both scoped in **S2**, so they both read **a2**. Implicit dependencies are shared across scoped atoms in the same scope so **a2** in **c2** and **a2** in **d2** are the same atom.
 
 ### API
 
 ```ts
-interface ScopeProviderProps {
-  atoms?: (Atom<any> | [WritableAtom<any, any[], any>, any])[]
-  atomFamilies?: AtomFamily<any, any>[]
-  children: React.ReactNode
-  name?: string
+type ScopeProviderProps = {
+  atoms?: (Atom | [WritableAtom, initialValue])[]
+  atomFamilies?: AtomFamily[]
+  children: ReactNode
+  name?: string  // for debugging
 } | {
-  scope: Store
-  children: React.ReactNode
+  scope: Store   // use a pre-created scope
+  children: ReactNode
 }
 ```
 
+<Stackblitz id="vitejs-vite-ctcuhj" file="src%2FApp.tsx" />
+
 ### Caveats
 
-* Avoid side effects inside atom read—it may run multiple times per scope. For async atoms, use an abort controller. The extra renders are a known limitation and solutions are being researched. If you are interested in helping, please [join the discussion](https://github.com/jotaijs/jotai-scope/issues/25).
+* Avoid side effects inside atom read—it may run multiple times per scope. For async atoms, use an abort controller. The extra renders are a known limitation and an active area of research.
+
+**Async atoms and dependency detection**
+
+Scoping decisions are based on synchronous `get` calls only. Dependencies accessed after `await` are not detected for classification purposes.
+
+```tsx
+// ❌ scopedAtom may not be detected as a dependency
+const asyncAtom = atom(async (get) => {
+  await delay(100)
+  return get(scopedAtom) // too late for classification
+})
+
+// ✅ touch dependencies synchronously first
+const asyncAtom = atom(async (get) => {
+  const value = get(scopedAtom) // detected
+  await delay(100)
+  return value
+})
+```
+
+If you must read atoms after `await`, use `markDependent` to declare dependencies upfront:
+
+```tsx
+import { markDependent } from 'jotai-scope'
+
+const asyncAtom = atom(async (get) => {
+  await delay(100)
+  return get(scopedAtom)
+})
+markDependent(asyncAtom, [scopedAtom])
+```
+
+**Atoms with `INTERNAL_onInit`**
+
+Atom utilities like `atomEffect` that use `INTERNAL_onInit` are always cloned per scope since the store is not known at initialization time.
 
 
-<Stackblitz id="vitejs-vite-ctcuhj" file="src%2FApp.tsx" />
+## markDependent
+
+Declares explicit dependencies for atoms where automatic detection fails (e.g., async atoms with dependencies after `await`).
+
+MarkDependent is an experimental feature and might be removed in a future release.
+
+```tsx
+import { atom } from 'jotai'
+import { markDependent } from 'jotai-scope'
+
+const asyncAtom = atom(async (get) => {
+  await someAsyncOperation()
+  return get(a) + get(b)
+})
+markDependent(asyncAtom, [a, b])
+```
 
 ## createScope
 
-`createScope` is a low-level API that allows you to create a scoped store
-from a parent store. It is useful when you want to create a scope
-outside of React.
+Low-level API to create a scoped store outside of React.
 
 ```tsx
+import { createStore } from 'jotai'
 import { createScope, ScopeProvider } from 'jotai-scope'
 
 const parentStore = createStore()
 const scopedStore = createScope({
   parentStore,
-  atomSet: new Set([atomA, atomB]),
-  atomFamilySet: new Set([atomFamilyA, atomFamilyB]),
+  atoms: [atomA, atomB],
+  atomFamilies: [itemFamily],
+  name: 'myScope',  // optional, for debugging
 })
 
-function Component() {
-  return (
-    <ScopeProvider scope={scopedStore}>
-      <YourComponent />
-    </ScopeProvider>
-  )
-}
-```
+// Use with ScopeProvider
+<ScopeProvider scope={scopedStore}>
+  <App />
+</ScopeProvider>
 
-### Nesting Scopes
-You can create a scope from another scope.
-```tsx
-const parentStore = createStore()
-const scope1 = createScope({
-  parentStore,
-  atomSet: new Set([atomA, atomB]),
-  atomFamilySet: new Set([atomFamilyA, atomFamilyB]),
-  scopeName: 'level1',
-})
-const scope2 = createScope({
-  parentStore: scope1,
-  atomSet: new Set([atomC, atomD]),
-  scopeName: 'level2',
+// Or nest scopes
+const nestedScope = createScope({
+  parentStore: scopedStore,
+  atoms: [atomC],
 })
 ```
 
@@ -195,8 +189,14 @@ To avoid conflicting the contexts, a utility function called `createIsolation` i
 ```tsx
 import { createIsolation } from 'jotai-scope'
 
-const { Provider, ScopeProvider, useStore, useAtom, useAtomValue, useSetAtom } =
+// Use these instead of jotai's exports in your library
+const { Provider, ScopeProvider, useStore,useAtom, useAtomValue, useSetAtom } =
   createIsolation()
+
+function LibraryComponent() {
+  const [value, setValue] = useAtom(myLibraryAtom)
+  // ...
+}
 
 function Library() {
   return (
