@@ -17,7 +17,6 @@ import type {
   AnyAtomFamily,
   AnyWritableAtom,
   AtomPairMap,
-  ProxyAtom,
   ProxyState,
   Scope,
   ScopedAtom,
@@ -38,10 +37,6 @@ if (__DEV__) {
 }
 
 type GlobalScopeKey = typeof globalScopeKey
-
-// ---------------------------------------------------------------------------------
-// Pure functions operating on Scope
-// ---------------------------------------------------------------------------------
 
 /** @returns a scoped copy of the atom */
 function cloneAtom<T extends Atom<any>>(scope: Scope, baseAtom: T, implicitScope: Scope | undefined): ScopedAtom<T> {
@@ -104,8 +99,13 @@ function createMultiStableAtom<T>(
     isInitialized: false,
     implicitScope: undefined,
   }
-
   const scopedAtom = cloneAtom(scope, baseAtom, implicitScope)
+  if ('INTERNAL_onInit' in baseAtom || 'unstable_onInit' in baseAtom) {
+    // atoms with INTERNAL_onInit must be cloned per scope
+    // otherwise, the onInit callback will be called multiple times for the same atom
+    setIsScoped(true)
+    return proxyState
+  }
   if (__DEV__) {
     // For testing purposes
     Object.assign(scopedAtom, { proxyState })
@@ -152,6 +152,7 @@ function createMultiStableAtom<T>(
 
   const cleanupToAtomHook = storeHookWithOnce()
 
+  /** Sets up a read hook on the toAtom to re-check classification when it's read */
   function setupToAtomReadHook(toAtom: AnyAtom): void {
     const cleanupListeners = scope[6]
     cleanupToAtomHook()
@@ -415,8 +416,6 @@ function createScopedWrite<T extends AnyWritableAtom>(
   }
 }
 
-// ---------------------------------------------------------------------------------
-
 type CreateScopeProps = {
   atoms?: Iterable<AnyAtom>
   atomFamilies?: Iterable<AnyAtomFamily>
@@ -547,8 +546,6 @@ function createPatchedStore(scope: Scope): Store {
     Object.assign(scopedStore, { name: scope.name })
   }
   return scopedStore
-
-  // ---------------------------------------------------------------------------------
 
   function getAtomForScope<T>(atom: Atom<T>): Atom<T> {
     return getAtom(scope, atom)[0]

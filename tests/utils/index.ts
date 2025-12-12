@@ -1,9 +1,9 @@
 import { fireEvent } from '@testing-library/react'
 import chalk from 'chalk'
 import {
-  INTERNAL_getBuildingBlocksRev2 as getBuildingBlocks,
   INTERNAL_AtomState as AtomState,
   type INTERNAL_Store as Store,
+  INTERNAL_getBuildingBlocksRev2 as getBuildingBlocks,
 } from 'jotai/vanilla/internals'
 import { AnyAtom } from 'src/types'
 import { printAtomState } from './atomState'
@@ -101,4 +101,8 @@ export function getAtomByLabel([store]: [Store, ...Store[]], label: string) {
   const buildingBlocks = getBuildingBlocks(store)
   const atomStateMap = buildingBlocks[0] as Map<AnyAtom, AtomState>
   return Array.from(atomStateMap.keys()).find((a) => a.debugLabel === label)!
+}
+
+export function getStoreName(store: Store) {
+  return (store as { name?: string }).name ?? 'S0'
 }
