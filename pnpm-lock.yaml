@@ -67,8 +67,8 @@ importers:
         specifier: 2.16.0
         version: 2.16.0(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3)
       jotai-effect:
-        specifier: 2.1.2
-        version: 2.1.2(jotai@2.16.0(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3))
+        specifier: 2.1.7
+        version: 2.1.7(jotai@2.16.0(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3))
       jotai-family:
         specifier: ^1.0.0
         version: 1.0.1(jotai@2.16.0(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3))
@@ -1423,9 +1423,10 @@ packages:
     resolution: {integrity: sha512-ekilCSN1jwRvIbgeg/57YFh8qQDNbwDb9xT/qu2DAHbFFZUicIl4ygVaAvzveMhMVr3LnpSKTNnwt8PoOfmKhQ==}
     hasBin: true
 
-  jotai-effect@2.1.2:
-    resolution: {integrity: sha512-TDofNDeRENGVM0KzW6fgqvshFCkkXliaiWE7MvbfysEJqVJKW20P3LZ0BoqqqpA2mPvgHylac6V5O26l4ib/jg==}
+  jotai-effect@2.1.7:
+    resolution: {integrity: sha512-uk9bSEEqVExtGa5Y7MMvd/uTcuGB9fobqNziFd4KkSmcGYEFokwMf9y+hXhVyslcflF2I63k0Lpx99Zib8VAWg==}
     engines: {node: '>=12.20.0'}
+    deprecated: Incorrect jotai peer dependency (requires >=2.14.0 but should be >=2.16.0). Please downgrade to jotai-effect@2.1.6 or upgrade jotai to >=2.16.0 to use jotai-effect@2.2.0+
     peerDependencies:
       jotai: '>=2.14.0'
 
@@ -3395,7 +3396,7 @@ snapshots:
 
   jiti@2.6.1: {}
 
-  jotai-effect@2.1.2(jotai@2.16.0(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3)):
+  jotai-effect@2.1.7(jotai@2.16.0(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3)):
     dependencies:
       jotai: 2.16.0(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3)
 

@@ -657,7 +657,7 @@ describe('open issues', () => {
 
         // Transition to scoped - moves to c1
         s[0].set(a, true)
-        const c1 = [...mountedMap.keys()].find((a: AnyAtom) => a.debugLabel === 'c1')
+        const c1 = getAtomByLabel(s, 'c1')
         expect(mountedMap.get(c1!)?.l.size).toBe(1)
         expect(mountedMap.get(c)?.l).toBeUndefined() // c0 unmounted
 
@@ -691,7 +691,7 @@ describe('open issues', () => {
 
         // Transition: S0 stays on c0, S1 moves to c1
         s[0].set(a, true)
-        const c1 = [...mountedMap.keys()].find((a: AnyAtom) => a.debugLabel === 'c1')
+        const c1 = getAtomByLabel(s, 'c1')
         expect(mountedMap.get(c)?.l.size).toBe(1)
         expect(mountedMap.get(c1!)?.l.size).toBe(1)
 
@@ -717,7 +717,6 @@ describe('open issues', () => {
 
         const s = createScopes([b])
         const buildingBlocks = getBuildingBlocks(s[0])
-        const mountedMap = buildingBlocks[1] as Map<AnyAtom, Mounted>
         const storeHooks = buildingBlocks[6]
 
         const mountListener = vi.fn()
@@ -730,8 +729,9 @@ describe('open issues', () => {
         // Transition to scoped - c1 should be mounted
         s[0].set(a, true)
 
-        const c1 = [...mountedMap.keys()].find((a: AnyAtom) => a.debugLabel === 'c1')
-        expect(mountListener).toHaveBeenCalledWith(c1)
+        const b1 = getAtomByLabel(s, 'b1')
+        const c1 = getAtomByLabel(s, 'c1')
+        expect(mountListener.mock.calls).toEqual([[b1], [c1], [b]])
 
         unsub1()
       })
@@ -747,7 +747,6 @@ describe('open issues', () => {
 
         const s = createScopes([b])
         const buildingBlocks = getBuildingBlocks(s[0])
-        const mountedMap = buildingBlocks[1] as Map<AnyAtom, Mounted>
         const storeHooks = buildingBlocks[6]
 
         const unmountListener = vi.fn()
@@ -756,7 +755,7 @@ describe('open issues', () => {
         const listener1 = vi.fn()
         const unsub1 = s[1].sub(c, listener1)
 
-        const c1 = [...mountedMap.keys()].find((a: AnyAtom) => a.debugLabel === 'c1')
+        const c1 = getAtomByLabel(s, 'c1')
         unmountListener.mockClear()
 
         // Transition to unscoped - c1 should be unmounted
@@ -914,7 +913,7 @@ describe('open issues', () => {
 
         // Transition - all 3 move to c1
         s[0].set(a, true)
-        const c1 = [...mountedMap.keys()].find((a: AnyAtom) => a.debugLabel === 'c1')
+        const c1 = getAtomByLabel(s, 'c1')
         expect(mountedMap.get(c1!)?.l.size).toBe(3)
 
         unsub1a()
@@ -944,7 +943,7 @@ describe('open issues', () => {
         for (let i = 0; i < 5; i++) {
           // To scoped
           s[0].set(a, true)
-          const c1 = [...mountedMap.keys()].find((a: AnyAtom) => a.debugLabel === 'c1')
+          const c1 = getAtomByLabel(s, 'c1')
           expect(mountedMap.get(c)?.l.size).toBe(1)
           expect(mountedMap.get(c1!)?.l.size).toBe(1)
 

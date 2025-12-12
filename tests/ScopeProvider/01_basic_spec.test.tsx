@@ -395,7 +395,7 @@ describe('Counter', () => {
   })
 
   /*
-    S0[ ]: a0, b0(a0)
+    S0[_]: a0, b0(a0)
     S1[b]: a0, b1(a1)
   */
   test('06. dependencies of scoped derived are implicitly scoped', () => {
@@ -635,7 +635,7 @@ describe('Counter', () => {
   })
 
   /**
-    S0[   ]: a0, b0, c0(a0 + b0)
+    S0[___]: a0, b0, c0(a0 + b0)
     S1[b,c]: a0, b1, c1(a1 + b1)
     S2[b  ]: a0, b2, c2(a1 + b2)
   */
@@ -656,7 +656,7 @@ describe('Counter', () => {
     c.debugLabel = 'c'
 
     /**```
-      S0[   ]: a0, b0, c0(a0 + b0)
+      S0[___]: a0, b0, c0(a0 + b0)
       S1[b,c]: a0, b1, c1(a1 + b1)
       S2[b  ]: a0, b2, c2(a1 + b2)
     */
