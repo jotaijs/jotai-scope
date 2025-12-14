@@ -107,6 +107,9 @@ function createMultiStableAtom<T>(
   const baseStore = scope[4]
   const parentScope = scope[5]
   const scopedStore = scope[7]
+  const source = implicitScope ?? globalScopeKey
+  let currentInheritedMap = inheritedSource.get(source)
+
   const proxyState: ProxyState = {
     prevDeps: new Set<AnyAtom>(),
     isScoped: false,
@@ -144,8 +147,6 @@ function createMultiStableAtom<T>(
   function setIsScoped(v: boolean) {
     proxyState.isScoped = v
     // Key for inheritedSource map
-    const source = implicitScope ?? globalScopeKey
-    const currentInheritedMap = inheritedSource.get(source)
     if (v) {
       proxyState.fromAtom = inheritedAtom
       proxyState.toAtom = scopedAtom
@@ -162,7 +163,11 @@ function createMultiStableAtom<T>(
       proxyState.store = implicitScope?.[4] ?? baseStore
       proxyState.implicitScope = implicitScope
       // unscoped: add to inheritedMap, remove from dependentMap
-      currentInheritedMap?.set(inheritedAtom, [inheritedAtom, undefined])
+      if (!currentInheritedMap) {
+        currentInheritedMap = new WeakMap() as AtomPairMap
+        inheritedSource.set(source, currentInheritedMap)
+      }
+      currentInheritedMap.set(inheritedAtom, [inheritedAtom, undefined])
       dependentMap.delete(baseAtom)
     }
   }
@@ -321,12 +326,7 @@ function getAtom<T>(scope: Scope, atom: Atom<T>, implicitScope?: Scope | undefin
 
   const source = implicitScope ?? globalScopeKey
   let inheritedMap = inheritedSource.get(source)
-  if (!inheritedMap) {
-    inheritedMap = new WeakMap() as AtomPairMap
-    inheritedSource.set(source, inheritedMap)
-  }
-
-  let inheritedEntry = inheritedMap.get(atom)
+  let inheritedEntry = inheritedMap?.get(atom)
   if (inheritedEntry) {
     return inheritedEntry
   }
@@ -339,7 +339,11 @@ function getAtom<T>(scope: Scope, atom: Atom<T>, implicitScope?: Scope | undefin
   }
 
   inheritedEntry = [ancestorAtom, ancestorScope]
-  inheritedMap.set(atom, inheritedEntry)
+  if (!inheritedMap) {
+    inheritedMap = new WeakMap() as AtomPairMap
+    inheritedSource.set(source, inheritedMap)
+  }
+  inheritedMap?.set(atom, inheritedEntry)
   return inheritedEntry
 }
 
