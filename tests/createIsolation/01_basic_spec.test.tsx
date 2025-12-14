@@ -1,6 +1,6 @@
 import { act } from 'react'
 import { render } from '@testing-library/react'
-import { atom, useAtom, useAtomValue } from 'jotai'
+import { atom, useAtom } from 'jotai'
 import { describe, expect, it } from 'vitest'
 import { createIsolation } from '../../src/index'
 import { clickButton } from '../utils'

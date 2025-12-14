@@ -66,7 +66,7 @@ function renderTest(targetAtom: WritableNumberAtom) {
 
 /*
 writable=w(,w + s), base=b
-S0[ ]: b0, w0(,w0 + b0)
+S0[_]: b0, w0(,w0 + b0)
 S1[b]: b1, w0(,w0 + b1)
 */
 describe('Self', () => {
