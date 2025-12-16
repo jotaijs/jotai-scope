@@ -30,6 +30,26 @@ describe('async', () => {
     expect(await s[1].get(c)).toBe('11')
   })
 
+  test('should throw when unscoped atom reads scoped atom after await', async () => {
+    const a = atom(0)
+    a.debugLabel = 'a'
+    const b = atom(0)
+    b.debugLabel = 'b'
+    const c = atom(async (get) => {
+      const aValue = get(a)
+      await delay(0)
+      const bValue = get(b)
+      return '' + aValue + bValue
+    })
+    c.debugLabel = 'c'
+    const s = createScopes([b])
+    try {
+      s[1].get(c)
+    } catch (e) {}
+    await expect(s[0].get(c)).rejects.not.toThrow()
+    await expect(s[1].get(c)).rejects.not.toThrow()
+  })
+
   test('should work with async atoms and markDependent', async () => {
     const a = atom(0)
     a.debugLabel = 'a'

@@ -39,3 +39,7 @@ function withOnce(fn: Omit<StoreHookWithOnce, 'once'>): StoreHookWithOnce {
 export function storeHookWithOnce(): StoreHookWithOnce {
   return withOnce(initializeStoreHooks({}).f)
 }
+
+export function getAtomLabel(atom: AnyAtom) {
+  return atom.debugLabel ?? String(atom)
+}

@@ -5,17 +5,14 @@ import {
 } from 'jotai/vanilla/internals'
 import { createScope } from 'jotai-scope'
 import { AnyAtom, AnyWritableAtom } from 'src/types'
-import { cross } from './index'
+import { cross, sanitizeLabel } from './index'
+import { getAtomLabel } from '../../src/utils'
 
 type Mutable<T> = { -readonly [P in keyof T]: T[P] }
 
 type BuildingBlocks = Mutable<INTERNAL_BuildingBlocks>
 
 type DebugStore = Store & { name: string }
-
-export function getAtomLabel(atom: AnyAtom) {
-  return (atom.debugLabel ?? String(atom)).replace(/@S(\d+)(->\S+)?$/, '$1').replace(/[^a-zA-Z0-9_]/g, '$')
-}
 
 export function createDebugStore(name: string = `S0`): DebugStore {
   const buildingBlocks: Partial<BuildingBlocks> = []
@@ -24,7 +21,7 @@ export function createDebugStore(name: string = `S0`): DebugStore {
   const storeHooks = (buildingBlocks[6] = initializeStoreHooks({}))
 
   storeHooks.i.add(undefined, (atom) => {
-    const label = getAtomLabel(atom)
+    const label = sanitizeLabel(getAtomLabel(atom))
     atom.toString = function toString() {
       return label
     }
@@ -33,7 +30,7 @@ export function createDebugStore(name: string = `S0`): DebugStore {
     Object.assign(atomState, { label })
   })
   storeHooks.m.add(undefined, (atom) => {
-    const label = getAtomLabel(atom)
+    const label = sanitizeLabel(getAtomLabel(atom))
     const mounted = mountedMap.get(atom)!
     Object.assign(mounted, { label })
   })
