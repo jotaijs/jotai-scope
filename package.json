@@ -30,6 +30,7 @@
   "files": [
     "dist"
   ],
+  "packageManager": "pnpm@9.15.0",
   "scripts": {
     "setup": "pnpm run '/^setup:.*/'",
     "setup:jotai": "git clone https://github.com/pmndrs/jotai.git && $(cd jotai && pnpm install && pnpm build)",
