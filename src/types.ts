@@ -8,6 +8,35 @@ export type AnyAtomFamily = AtomFamily<any, AnyAtom>
 
 export type AnyWritableAtom = WritableAtom<any, any[], any>
 
+/** A scoped copy of an atom with scope metadata */
+export type ScopedAtom<T extends AnyAtom = AnyAtom> = T & {
+  /**
+   * The scope level of this atom for O(1) lookup when computing dependent scoping.
+   * - Explicitly scoped atoms: equals the scope's level (scope[9])
+   * - Dependently scoped atoms: equals the max scope level of their scoped dependencies
+   */
+  __scope: Scope | undefined
+  /**
+   * Reference to the original unscoped atom. Used to look up the scoped version
+   * in explicit/dependent maps when computing max dependency level.
+   */
+  __originalAtom: AnyAtom
+}
+
+export type ProxyState = {
+  prevDeps: Set<AnyAtom>
+  isScoped: boolean
+  toAtom: AnyAtom
+  fromAtom: AnyAtom
+  store: Store
+  isInitialized: boolean
+  implicitScope: Scope | undefined
+}
+
+export type ProxyAtom<T extends AnyAtom = AnyAtom> = T & {
+  proxyState: ProxyState
+}
+
 /** WeakMap-like, but each value must be [same A as key, Scope?] */
 export type AtomPairMap = {
   set<A extends AnyAtom>(key: A, value: [A, Scope?]): AtomPairMap
@@ -16,22 +45,38 @@ export type AtomPairMap = {
   delete(key: AnyAtom): boolean
 }
 
-export interface ExplicitMap extends AtomPairMap {}
+export type AtomPairScopedMap = {
+  set<A extends AnyAtom>(key: A, value: [ScopedAtom<A>, Scope?]): AtomPairMap
+  get<A extends AnyAtom>(key: A): [ScopedAtom<A>, Scope?] | undefined
+  has(key: AnyAtom): boolean
+  delete(key: AnyAtom): boolean
+}
 
-export interface ImplicitMap extends AtomPairMap {}
+export interface ExplicitMap extends AtomPairScopedMap {}
+
+export interface ImplicitMap extends AtomPairScopedMap {}
 
 export type InheritedSource = WeakMap<Scope | object, AtomPairMap>
 
-export type CleanupFamiliesSet = Set<() => void>
+export interface DependentMap extends AtomPairScopedMap {}
+
+/** Map of proxy atoms to the set of listeners subscribed in this scope */
+export type ScopeListenersMap = WeakMap<AnyAtom, Set<() => void>>
+
+/** Map of base atoms to their multi-stable scoped atoms */
+export type MultiStableMap = WeakMap<AnyAtom, ScopedAtom>
 
 export type Scope = [
-  explicitMap: ExplicitMap,
-  implicitMap: ImplicitMap,
-  inheritedSource: InheritedSource,
-  baseStore: Store,
-  parentScope: Scope | undefined,
-  cleanupFamiliesSet: CleanupFamiliesSet,
-  scopedStore: Store,
+  explicitMap: ExplicitMap, //             0
+  implicitMap: ImplicitMap, //             1
+  dependentMap: DependentMap, //           2
+  inheritedSource: InheritedSource, //     3
+  baseStore: Store, //                     4
+  parentScope: Scope | undefined, //       5
+  cleanupListeners: StoreHookWithOnce, //  6
+  scopedStore: Store, //                   7
+  scopeListenersMap: ScopeListenersMap, // 8
+  level: number, //                        9
 ] & {
   /** @debug */
   name?: string
@@ -44,6 +89,8 @@ export type AtomDefault = readonly [AnyWritableAtom, unknown]
 type Mutable<T> = { -readonly [P in keyof T]: T[P] }
 
 export type StoreHooks = Mutable<INTERNAL_StoreHooks>
+
+type StoreHook = NonNullable<StoreHooks['f']>
 
 export type StoreHookForAtoms = NonNullable<StoreHooks['c']>
 
@@ -61,4 +108,8 @@ export type SetLike<T> = {
   clear(): void
   forEach(callback: (value: T) => void): void
   [Symbol.iterator](): IterableIterator<T>
+}
+
+export type StoreHookWithOnce = StoreHook & {
+  once: (callback: () => void) => void
 }

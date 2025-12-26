@@ -51,6 +51,9 @@ export default defineConfig(({ mode }) => {
       environment: 'happy-dom',
       globals: true,
       include: ['tests/**/*.test.{ts,tsx}'],
+      env: {
+        FORCE_COLOR: '1',
+      },
     },
   }
 })
