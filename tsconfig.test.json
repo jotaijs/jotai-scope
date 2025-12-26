@@ -5,11 +5,13 @@
     "isolatedModules": true,
     "allowImportingTsExtensions": true,
     "paths": {
-      "jotai": ["./jotai/src/index.ts"],
-      "jotai/*": ["./jotai/src/*"],
+      "jotai": ["../jotai/src/index.ts"],
+      "jotai/*": ["../jotai/src/*"],
+      "jotai-effect": ["../jotai-effect/src/index.ts"],
+      "jotai-effect/*": ["../jotai-effect/src/*"],
       "jotai-scope": ["./src"]
     },
     "types": ["vitest/globals"]
   },
-  "include": ["src", "jotai/src", "jotai-effect/src", "tests"]
+  "include": ["src", "../jotai/src", "../jotai-effect/src", "tests"]
 }
