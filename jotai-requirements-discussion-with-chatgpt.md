@@ -41,7 +41,6 @@ This issue stems from Jotai-scope’s current implementation, which **clones** d
 - **Explicitly Scoped Atoms:** Only atoms listed in the `ScopeProvider`’s `atoms` (or `atomFamilies`) prop are given a new, isolated instance in that scope[github.com](https://github.com/jotaijs/jotai-scope#:~:text=,up%20to%20the%20nearest%20store). We’ll call these **explicit atoms**.
 - **Unscoped Atoms:** All other atoms (not listed) remain _unscoped_ in that context, meaning they are not duplicated – they will be resolved from an ancestor store if available. Unscoped atoms inside a scope are effectively **inherited** from the nearest parent scope or the global store[github.com](https://github.com/jotaijs/jotai-scope#:~:text=scope%20a%20derived%20atom%2C%20every,up%20to%20the%20nearest%20store).
 - **Derived Atoms Behavior:**
-
   - An **unscoped derived atom** (a computed atom not explicitly listed in the scope) _can read from both_ unscoped and scoped atoms[github.com](https://github.com/jotaijs/jotai-scope#:~:text=,up%20to%20the%20nearest%20store). In other words, if a derived atom’s formula calls `get` on some atoms that happen to be scoped in the current context, it should pick up the scoped values; for other dependencies, it will use the global values.
   - A **scoped derived atom** (one explicitly listed in the scope) will **implicitly scope all atoms it touches** during its evaluation[github.com](https://github.com/jotaijs/jotai-scope#:~:text=,up%20to%20the%20nearest%20store). This means when you mark a derived atom as scoped, every dependency it reads (recursively) is given a scoped instance **within the context of that derived atom’s evaluation**. Outside of that evaluation, those dependencies are still unscoped/inherited as usual[github.com](https://github.com/jotaijs/jotai-scope#:~:text=,up%20to%20the%20nearest%20store).
 
@@ -106,13 +105,11 @@ Before proposing a solution, it’s important to clarify the expected behavior t
 1.  **Isolated State for Explicit Atoms:** If an atom is explicitly scoped, a component inside the `ScopeProvider` should see a state independent of the outside. E.g., incrementing a scoped `countAtom` inside should not affect the count outside, and vice versa[github.com](https://github.com/jotaijs/jotai-scope#:~:text=2%20%C2%B7%20Nested%20scopes). Tests likely ensure that.
 2.  **Inherited State for Unscoped Atoms:** If an atom is not scoped, components inside and outside should refer to the same state. Updating it in one place reflects in the other. For example, if `anotherAtom` is not listed in the scope, the inner and outer components share it[jotai.org](https://jotai.org/docs/extensions/scope#:~:text=jotai)[jotai.org](https://jotai.org/docs/extensions/scope#:~:text=return%20) (implied by docs).
 3.  **Mixed Dependencies in Derived Atoms:** A derived atom should always compute based on the correct values of its dependencies in the current context:
-
     - If none of its dependencies are scoped (i.e., all are inherited/global), it should compute to the same result as it would globally, ideally without recomputation.
     - If some dependencies are scoped, it must compute using those scoped values (yielding possibly different result than globally). The outcome should be correct and consistent.
     - The mechanism should avoid computing anything twice unnecessarily. Ideally, a derived atom with identical inputs in parent and child should not recompute in the child.
 
 4.  **Writing in Scoped vs Unscoped:** Setting an atom inside a scope should update the correct store:
-
     - Writing to an explicit atom only affects that scope’s copy.
     - Writing to an inherited atom should propagate to parent (and thus affect siblings or the parent component). Tests might verify, for instance, that calling `useSetAtom(globalAtom)` inside a scope updates the outer component’s state.
 
@@ -128,24 +125,20 @@ We propose to **achieve the same functional behavior as current Jotai-scope, but
 
 1.  **Track Dependencies of Derived Atoms:** Use Jotai’s internal dependency graph to know what each derived atom depends on. For a given derived atom `D`, we can obtain the set of atoms it reads (directly). Many of those might themselves be derived; we can traverse to find primitive dependencies as needed. We will use the _transitive closure_ of dependencies or simply rely on Jotai’s existing tracking (Jotai likely already tracks transitive updates: if a primitive changes, it knows which derived atoms to invalidate).
 2.  **Determine Scope Impact:** When an atom `D` is accessed in a given scope, check if any of its dependencies are overridden in that scope. Concretely:
-
     - Let `scopeAtomSet` be the set of explicit atoms in this scope (and any implicit ones already created).
     - If `D`’s dependency list includes any atom in `scopeAtomSet` (or we find via recursion that it ultimately depends on one), then `D`’s value in this scope could differ from the global value. It **needs a separate evaluation in this scope**.
     - If none of `D`’s deps are scoped here, then all inputs are inherited from parent. In that case, the child scope’s `D` will always equal the parent’s `D`. We do **not** need a new computation; we can use the parent store’s value.
 
 3.  **Lazy or On-Demand Cloning:** Instead of cloning all derived atoms by default, we can adopt a lazy strategy:
-
     - When a component in a scope tries to read a derived atom `D`, our custom store’s `get` will perform the check above.
     - **Case A: No scoped deps:** Simply forward the read to the parent store’s `D`. We don’t even create a local entry for `D` in the child store. Essentially, the scope will behave as if `D` was not found locally and fallback to parent (inheritance). This means the parent’s cached value and subscription mechanism is used. The inner component can subscribe to `D` on the child store, which under the hood subscribes to `D` on the parent (we might forward subscriptions upward for such inherited usage). Because it’s the same `D` state, no duplicate computation occurs. In the example from the issue, since `AtomA` had no scoped inputs, the inner child would simply use the outer `AtomA` value and no second “Computing AtomA” log would happen[github.com](https://github.com/jotaijs/jotai-scope/issues/25#:~:text=Note%20that%20I%20purposely%20do,as%20for%20the%20parent%20component).
     - **Case B: Scoped dep(s) present:** We need to evaluate `D` with the new dependencies. Here we have two sub-cases:
-
       1.  If `D` is **explicitly** scoped (the user listed it), we already intend to create a local copy. Ensure that as we compute it, we implicitly scope its deps (this we keep from current behavior). The improvement might be minimal here, because explicit derived atoms are already handled but it will benefit from not double reading parent values accidentally.
       2.  If `D` is **unscoped but has scoped inputs** (the tricky case of an unlisted derived depending on an explicit atom), then we will **promote** it to be scoped implicitly. In other words, we create a local state for `D` in this scope (effectively clone it on demand). This is necessary for correctness: the parent’s `D` uses the parent’s version of the dependency, which is different. So we allocate a new atom state for `D` in the child store and compute it with our store’s context (which will pull the scoped dep’s value). This one-time creation replaces the current approach of always cloning; we do it only when needed.
 
     - We should cache the result of this decision. For instance, once we determine that an unscoped `D` does not need a local instance (Case A), we consistently treat it as inherited. If somehow later a dependency becomes scoped (which could happen if, say, a parent scope was providing something and later we add a new nested scope that changes an upstream dependency – though that scenario is complex), we might need to re-evaluate. However, typically the set of explicit atoms in a given scope is fixed at creation, so `D`’s status won’t change during its lifetime in that scope.
 
 4.  **Use Store Composition Instead of Atom Clones Whenever Possible:** We will prefer to handle this at the **store level** (the mapping of atoms to states) rather than by creating new atom objects. That means reusing the same atom identity and just directing reads/writes to the correct state. Jotai’s design (store per Provider) inherently supports one atom having different states in different stores. Our scoped store can maintain an internal map for “overridden atoms” and consult the parent for others. We can extend this such that for certain derived atoms, we deliberately do _not_ override them in the child store (so they remain using the parent’s value). And for others, we do.
-
     - The mention _“route to a different atomState for these atoms inside a scope than outside a scope”_ aligns with this. We want the ability for an atom to have either the parent’s atomState or a separate one, depending on context.
     - By doing this in the store, we reduce duplications. The React components in a scope will subscribe to the scope’s store. If that store is simply forwarding a particular atom to the parent, the effect is they subscribe to parent’s changes. This should yield no extra re-renders beyond what’s necessary.
 
@@ -197,12 +190,10 @@ I’ll go point-by-point, then propose an overall algorithm.
 
 - **Atom configs remain the keys**, and the **store is the same** (the closest Jotai Provider or the default store). [Jotai+1](https://jotai.org/docs/core/store?utm_source=chatgpt.com)
 - Scoping is implemented by **creating copy atoms** (clones) and using those as keys into the same store:
-
   - Original: `a`
   - Scoped copy in some scope `S`: `a@S`
 
 - `ScopeProvider` just swaps what atom you pass to the store:
-
   - Outside scope: `useAtom(a)`
   - In scope S: `useAtom(a@S)` if `a` is explicitly scoped there; otherwise `useAtom(a)` (inherited).
 
@@ -219,7 +210,6 @@ Let’s define this more precisely in terms of “depth”:
 
 - Treat each `ScopeProvider` as a **scope level** `L = 1, 2, 3, …` going down the tree.
 - For each atom `X`, we can talk about a **“influence depth”** of `X` in a particular evaluation:
-
   - Look at all _explicitly scoped atoms_ in its _transitive dependency closure_ for that evaluation.
   - Let `depth(X)` = **max scope level where any explicit dependency lives**, or `0` if there are none (purely global / inherited).
 
@@ -227,7 +217,6 @@ Then:
 
 - If `depth(X) = 0` → `X` is **purely unscoped**. It never needs a scoped copy.
 - If `depth(X) = k > 0`:
-
   - That means: _“To compute `X` correctly, you need to see the explicit scoped atoms at level `k`.”_
   - So `X` belongs to level `k` and should have a clone `X@k` whose state is keyed at that level.
   - Any scope **at or below** `k` should inherit `X@k` (they share the same scoped dependent).
@@ -268,7 +257,6 @@ You’re saying: **let that be real.** So:
 
 - We **do not “pin”** `D` forever as “scope-influenced” after its first read.
 - Instead, on each evaluation we:
-
   1.  Compute the new dependency set.
   2.  Compute the new `depth(D)`.
   3.  Decide whether to treat this run as updating `D`’s **global state** or its **scoped clone state**.
@@ -288,14 +276,12 @@ We can use that like this (conceptually):
 ### A. Setup
 
 - From the Jotai store in the nearest Provider, call `INTERNAL_getBuildingBlocks(store)` to get:
-
   - `getAtomState(atom)`
   - `setAtomState(atom, atomState)`
   - `readAtomState(atom, options)` (or equivalent)
   - plus any helpers we need.
 
 - For each original atom `A`, we may maintain multiple logical `atomState`s:
-
   - `state(A@0)` for the global/unscoped version.
   - `state(A@k)` for the “scoped influenced” version at depth `k`.
 
@@ -310,28 +296,23 @@ But remember: **the store’s internal map is keyed only by the atom object**, s
 When a derived atom `D` is read via some copy `D*` (e.g. `D` or `D@k`), we:
 
 1.  **Determine the initial target** we think we’re reading:
-
     - If we’re in scope `L`, we start by assuming `D@L` and calling `readAtomState(D@L)` via buildingBlocks.
     - But for “unscoped usage” we may want `D@0` – see below.
 
 2.  Inside the `readAtomState` call, Jotai will:
-
     - Clear the dependency list for `D*`.
     - Run the `read` function with a `get` that we may wrap to apply scoping behavior. (We can intercept this at the buildingBlocks layer by providing a custom `get` that honors our atom-copy mapping in this scope.)
     - Record deps on `D*`’s `atomState`.
 
 3.  **After** `readAtomState` returns, we inspect `D*`’s dependency set to compute `depth(D)` based on which of those dependencies are explicit (or depend on explicit, see 2/3).
 4.  If our initial guess (`D*`) doesn’t match `depth(D)`:
-
     - Example: we read `D@L`, but `depth(D)` turned out to be `0` (no scoped deps).
     - Then:
-
       - Snapshot `state(D@0)` before evaluation (we can pre-snapshot or lazy-snapshot).
       - Move the new value and deps into `D@0` (or rerun the read directly into `D@0`).
       - **Revert** `D@L` to its pre-eval state (so we don’t corrupt the scoped copy with an evaluation that should belong to the global version).
 
 5.  For subsequent reads, we may skip the wrong-target path by consulting a cache:
-
     - e.g. store the last known `depth(D)` per scope level and call `readAtomState` on the right copy first.
     - Still, we must be prepared for the bi-stable flip and fallback to snapshot+revert when `depth(D)` changes.
 
@@ -346,7 +327,6 @@ Key point from Jotai’s **effect** docs (and the same principle applies to deri
 That gives us a clean way to reason about scoping:
 
 - For dependency tracking and deciding `depth(D)`, we only care about the **sync phase** of `D`’s read function:
-
   - The `get` calls before the first `await`.
   - Those are the ones Jotai’s `readAtomState` sees and stores in `deps`.
 
@@ -355,7 +335,6 @@ That gives us a clean way to reason about scoping:
 Implementation-wise:
 
 - Our scoping wrapper around `get` needs to:
-
   - Always return the right _value_ for a scoped atom in the current scope, regardless of sync/async.
   - But since dependency collection only happens for sync calls, we don’t have to worry about async calls altering the deps that we later inspect.
 
@@ -376,10 +355,8 @@ This fits a **simpler model** than what the original jotai-scope docs describe (
 
 - Only **explicit** atoms are truly scoped (i.e., get actual clones like `a@S` keyed in the store).
 - Derived atoms that depend on explicit atoms become **implicit dependents**, but:
-
   - We only clone **the derived** itself (`D@k`), not its primitive dependencies.
   - Those clones read the **inherited/unscoped versions** of the primitives:
-
     - If a dependency `a` is explicit at level `k`, that means the “inherited/unscoped version at level `k`” is `a@k`.
     - If `a` is not explicit at level `k`, we just use the original `a` (or whatever level it’s explicitly scoped at).
 
@@ -387,7 +364,6 @@ In other words:
 
 - We do **not** create new “implicit a@k’2” just because `c` and `d` are scoped in S2 and both touch `a`.
 - `c@2` and `d@2` both just read whichever `a` is visible at their level:
-
   - If `a` was explicit in S1 only, they both read `a@1` (inherited from S1).
   - If `a` is explicit in S2, they both read `a@2`.
   - If `a` is never explicit, they both read `a`.
@@ -411,7 +387,6 @@ Per Jotai Provider store:
 
 - `explicitScopes: Map<ScopeId, Set<Atom>>`
 - `clones: Map<Atom, Map<number /* depth */, AtomClone>>`
-
   - `clones[D].get(0)` is the original `D`.
   - `clones[D].get(k)` is `D@k` (a clone atom) for `k>0`.
 
@@ -423,7 +398,6 @@ Each `ScopeProvider`:
 
 - Gets a `scopeId` and a depth `L`.
 - Receives `atoms` to explicitly scope at this level:
-
   - For each explicit atom `A`, ensure `clones[A].get(L)` exists (`A@L`).
   - The scope context contains a resolver:
 
@@ -447,7 +421,6 @@ When React renders and calls `useAtom(D)` inside scope `L`:
 1.  `resolveAtom(D)` initially returns the **unscoped** clone: `D0 = clones[D].get(0)` (unless D is explicitly scoped, in which case we start with `D@L`).
 2.  We call `store.get(D0)` which internally calls `readAtomState(D0)` via buildingBlocks.
 3.  We override the `get` that `readAtomState` uses so that when `D0` calls `get(someAtom)`:
-
     - If `someAtom` is explicit at some level `k ≤ L`, we actually call `get(clones[someAtom].get(k))`.
     - Otherwise we call `get(clones[someAtom].get(0))`.
 
@@ -458,29 +431,23 @@ When React renders and calls `useAtom(D)` inside scope `L`:
     ```
 
 5.  Two cases:
-
     - **Case A – depth(D) = 0**
-
       - The value belongs to the **global/unscoped** version.
       - Good: we already wrote into `D0`.
       - If we had started with `D@L` instead, we’d now:
-
         - Snapshot `D0` state.
         - Move `D@L`’s new value+deps into `D0`.
         - Restore old `D@L` state (revert).
 
     - **Case B – depth(D) = k > 0**
-
       - We need a **scoped clone** for `D` at level `k`.
       - Ensure `Dk = clones[D].get(k)` exists.
       - If we computed the value into `D0` by mistake:
-
         - Snapshot `Dk` state.
         - Move the new value+deps into `Dk`.
         - Restore old `D0` state.
 
       - Now, we must ensure that from this scope (and any descendant scope) we use `Dk` instead of `D0`:
-
         - Update some per-scope mapping so that future `resolveAtom(D)` at scopes `≥k` returns `Dk` instead of `D0`.
 
     Either way, the component gets the right value; future reads will tend to start from the right clone.
@@ -524,19 +491,16 @@ Let’s name things:
 
 - Root (L0): `A0`, `B0`, `C0` – original atoms.
 - Scope S1 (L1):
-
   - Explicit: `B` → `B1` (we’ve cloned B for S1).
   - `A` _depends_ on B. When evaluated in S1, `get(B)` resolves to `B1`, so “A1” is effectively `A` + “dependent scoped at level 1”.
 
 - Scope S2 (L2), nested under S1:
-
   - Explicit: `B` → `B2` (clone for S2).
   - `C0` depends on “inherited A” (you do **not** explicitly scope A in S2).
 
 What we want:
 
 - When `C0` runs in S2 and calls `get(A)`:
-
   - That read of A should see B2, not B1, even though A is “inherited”.
   - I.e. A’s _body_ is evaluated in the **context of S2**, so its `get(B)` should resolve to the B that’s explicit in S2.
 
@@ -544,7 +508,6 @@ So under the “no cloning dependent atoms” rule, A has:
 
 - A **single atom config** (no `A2` clone).
 - Multiple **atomState variants**, keyed by some notion of “scope context”:
-
   - Global/unscoped: `A_state@L0` (uses B0).
   - Dependent scoped for S1: `A_state@S1` (uses B1).
   - Dependent scoped for S2: `A_state@S2` (uses B2).
@@ -578,15 +541,12 @@ So the sequence for a derived `D` (sync or async):
 
 1.  Run the **sync phase** of `readAtomState(D)` under scope S, using scope-aware `get`.
 2.  Collect sync dependencies → compute classification:
-
     - `D` is:
-
       - **unscoped** (no explicit deps in chain), or
       - **dependent scoped at scope Sx** (nearest explicit level in its chain), or
       - (explicit/implicit scoped – separate category)
 
 3.  Decide **target state map** _before_ committing any changes:
-
     - unscoped → global/unscoped state map.
     - dependent scoped → `dependentStateMap[Sx][D]`.
     - explicit/implicit → scoped state map (keyed by copied atom).
@@ -595,7 +555,6 @@ Once we’ve chosen a target, **everything** for this evaluation goes there:
 
 - For a _sync_ derived: the final value and deps are written there.
 - For an _async_ derived:
-
   - The pending promise, its status, and any eventual resolved value/error are all held in that same map.
   - When the promise resolves and Jotai re-runs or finalizes the atom, that continuation needs to run with the same target-state choice we made in step 3.
 
@@ -619,7 +578,6 @@ You have two options:
 Instead of “write then revert”, treat each `readAtomState` as a **transaction**:
 
 - Wrap the buildingBlocks for:
-
   - atomState writes (set value/error/promise, deps, etc.),
   - mount/unmount updates,
   - invalidatedAtoms / changedAtoms bookkeeping.
@@ -641,21 +599,17 @@ type Transaction = {
 Algorithm:
 
 1.  When `readAtomState(atom, scopeCtx)` begins:
-
     - Start a new Transaction with a _provisional_ target (e.g. `"unscoped"`).
     - Wrap buildingBlocks so all writes go into `transaction.atomStateChanges` etc, not into real store structures.
 
 2.  Run the read:
-
     - All `setAtomState`, “mark invalidated”, “mark changed”, and “mount” operations only modify the transaction’s buffers.
 
 3.  After evaluation:
-
     - Inspect deps → compute classification (unscoped vs dependent(Sx) vs explicit/implicit).
     - Update `transaction.target` accordingly.
 
 4.  **Commit**:
-
     - For unscoped: apply all transaction changes to the global Jotai store maps.
     - For dependent(Sx): apply them to your `dependentStateMap[Sx]` and any auxiliary sets you maintain for dependent atoms.
     - For explicit/implicit: commit into the scoped copied-atom map.
@@ -673,13 +627,11 @@ Advantages:
 If you _don’t_ want the transaction layer, you can:
 
 - Before evaluation, snapshot:
-
   - atomState for that atom,
   - global “mountedAtoms” flags for that atom,
   - invalidatedAtoms / changedAtoms entries for that atom.
 
 - After classification:
-
   - If the evaluation belongs to a different region than the one you wrote into, copy the new state into the correct map, then restore all the snapshots in the original map.
 
 Problems:
@@ -703,7 +655,6 @@ On _every_ evaluation:
 
 - You recompute deps from scratch.
 - You re-classify:
-
   - `D` is unscoped this time if it didn’t touch any scoped deps.
   - `D` is dependent scoped if it did.
 
@@ -731,7 +682,6 @@ Once you discover `D` is dependent scoped in Sx:
 
 - For that scope, mark `D` as “sticky dependent”.
 - All future evaluations of `D` in Sx:
-
   - Are **always written** to `dependentStateMap[Sx][D]`, even if the next evaluation’s deps are purely unscoped.
 
 You can still use the full dependency graph for invalidation, but the _placement_ of state is sticky.
@@ -768,20 +718,16 @@ Given your note _“I believe it would be most intuitive for this bi-stable case
 So we effectively have **three categories**:
 
 1.  **Explicit scoped atoms**
-
     - Listed in `ScopeProvider`.
     - Implemented as **copied atoms** with scoped atomState.
 
 2.  **Implicit scoped atoms**
-
     - Created when evaluating an explicit scoped atom (or an implicit that chains).
     - Also implemented as **copied atoms** (those copies are the keys to their scoped state).
     - Shared _only_ among explicit/implicit scoped atoms in that scope tree.
 
 3.  **Dependent scoped atoms**
-
     - Original atoms whose evaluations discover scoped deps, but:
-
       - We **do not clone** them.
       - We don’t treat them as “scoped” for the implicit-scoping rules.
       - Instead, we give them per-scope atomState overlays (dependent maps).
@@ -790,7 +736,6 @@ Then:
 
 - Explicit & implicit scoped atoms can see each other’s implicit versions.
 - Dependent scoped atoms **always** resolve primitives via the usual scope resolution:
-
   - If `B` is explicit somewhere, they see that explicit.
   - But they never create new “implicit B” just because they exist.
 
@@ -807,17 +752,14 @@ So the final picture is:
 ### Data structures (per Provider store)
 
 - **Core Jotai internals** (unchanged):
-
   - `atomStateMap: Map<Atom, AtomState>` – the _unscoped_ global map.
   - `mountedAtoms`, `pendingAtoms`, `changedAtoms` etc.
 
 - **Scoped-state maps** (for explicit & implicit):
-
   - Each scoped atom is a **cloned atom object**, so its state lives in `atomStateMap` with that cloned key.
   - No extra structure required: Jotai just sees more atoms.
 
 - **Dependent-state maps** (new):
-
   - `dependentStateMap: Map<ScopeId, Map<Atom, AtomState>>`
   - Optionally plus some per-scope bookkeeping (e.g. to know which dependent atoms exist in that scope).
 
@@ -826,13 +768,10 @@ So the final picture is:
 When any atom `X` is read in a scope S:
 
 1.  If `X` is a **copied scoped atom** (explicit or implicit):
-
     - You use Jotai’s normal `atomStateMap.get(XCopy)`.
 
 2.  Else if `X` is an **original atom**:
-
     - First look into `dependentStateMap[S].get(X)`:
-
       - If present → use that as `X`’s current atomState in this context.
 
     - Otherwise → fall back to the global `atomStateMap.get(X)`.
@@ -841,7 +780,6 @@ When you evaluate a derived `D` as an original atom in S:
 
 - You run the transactional `readAtomState(D)` under scope context S.
 - After evaluation, classify D:
-
   - If unscoped → commit transaction changes into global `atomStateMap` for D.
   - If dependent scoped at S → commit into `dependentStateMap[S][D]`.
 
@@ -853,7 +791,6 @@ When an atom’s value actually changes (after commit):
 
 - You still use Jotai’s existing subscription mechanism keyed by **atom identity**.
 - The difference is: when dependents or components call `get(D)` in scope S, the `getAtomState` wrapper will pick:
-
   - `dependentStateMap[S][D]` if it exists,
   - otherwise `atomStateMap[D]`.
 
@@ -925,23 +862,19 @@ S3[A]: A3, B0, C3(A3 + B1), D3(C3)
 You can read as:
 
 - **S0\[ \]**: No explicit atoms.
-
   - `A0`, `B0` – global.
   - `C0(A0 + B0)` – global `C` depending on global `A`, `B`.
   - `D0(C1)` – global `D`, but logically “classified at depth 1” because it depends (somewhere) on `C1` (scope 1’s C). So even in S0, it’s _influenced_ by S1’s scoping.
 
 - **S1\[C\]**:
-
   - `C` is explicit here, so `C1(A1 + B1)` – “C at depth 1 reads A1 & B1”.
   - `A1`/`B1` might be _implicit_ (or dependent) at depth 1.
   - `D1(C1)` – `D` evaluated at depth 1 (S1) and now depends on `C1`.
 
 - **S2\[ \]**:
-
   - No explicit atoms, but it sits under S1, so it inherits `C1(A1 + B1)`, `D1(C1)`.
 
 - **S3\[A\]**:
-
   - `A` is explicit here → `A3`.
   - `C3(A3 + B1)` – `C` evaluated at depth 3 now depends on `A3` and `B1`.
   - `D3(C3)` – `D` at depth 3, depending on that new `C3`.
@@ -965,7 +898,6 @@ If we try a pure “dependent overlay map” with _no cloned atom identities_:
 - `changedAtoms` will only ever contain the _original_ `C`.
 - Every dependent atom (including any scoped variant) is also just `C` as far as the store is concerned.
 - You can route **values** per-scope (via a scoped `get`), but:
-
   - Jotai’s internals are not scope-aware.
   - There is exactly one `dependents` set for `C`, exactly one `atomState` entry for `C` in the core store.
 
@@ -973,7 +905,6 @@ This is where it gets ugly:
 
 - Different scopes need _different_ `atomState` for the same `C`, but the core store only has one `atomState(C)`.
 - If we push “per-scope state” out into a side map (`dependentStateMap`), `recomputeDependents` still only ever sees the **global** `atomState(C)`, so it will:
-
   - Recompute dependents as if there’s only one `C`.
   - Have no idea which scope’s variant changed.
 
@@ -984,7 +915,6 @@ You _can_ try to patch this by writing a fat shim around `readAtomState` that kn
 That’s exactly what you already do for explicit/implicit scoped atoms (copy atoms so the copy is the key to scoped state). So for dependent scoped atoms, the most internally-compatible path is:
 
 - **Yes, we _do_ clone dependent scoped atoms**, but:
-
   - Only when we actually detect they are dependent-scoped in a scope.
   - We do it lazily and transactionally.
   - We “hot-swap” the evaluation to that clone while preserving user-facing semantics.
@@ -1002,7 +932,6 @@ Where:
 
 - `C0`, `C1`, `C3` are **distinct atom objects**.
 - The user just writes `useAtom(C)`; jotai-scope resolves that to:
-
   - `C0` in S0,
   - `C1` in S1/S2,
   - `C3` in S3.
@@ -1018,7 +947,6 @@ So your “maybe we do clone dependent scoped atoms” instinct is, in my view, 
 The “hot-swap” story then becomes:
 
 - On the first read where we learn “oh, C is actually dependent-scoped in S3”, we:
-
   1.  Create `C3` (clone of `C`) if it doesn’t exist.
   2.  Evaluate into `C3`’s `atomState` (transactionally) instead of `C0`’s.
   3.  Ensure that for scope S3, `ScopeProvider` now resolves `C` → `C3` for `get`, `set`, and `sub`.
@@ -1037,7 +965,6 @@ The rough order in modern Jotai internals is (simplified):
 
 1.  A write / dependency invalidation happens.
 2.  Internals update `atomState` and collect:
-
     - which atoms are invalidated,
     - which atoms changed.
 
@@ -1056,14 +983,11 @@ So the “transaction” has to be **inside** Jotai’s evaluation steps, not ou
 When Jotai calls `readAtomState(C0)`:
 
 1.  Our building-blocks wrapper starts a _local_ transaction for this **single atom evaluation**:
-
     - Writes go to a buffer.
 
 2.  We run the `read` function (which may read B, A, etc.).
 3.  Once we know the classification (unscoped vs explicit vs dependent-scoped Sx), we **immediately commit**:
-
     - The buffered state to the correct `atomStateMap`:
-
       - `C0` (unscoped),
       - or `C1`, `C3` clone (scoped / dependent).
 
@@ -1095,13 +1019,11 @@ So:
 There are two separate “lateness” axes here:
 
 1.  **Late in time within the same evaluation:**
-
     - Dependency tracking in Jotai happens during the sync part of the read function (before the first `await`). [GitHub+1](https://github.com/pmndrs/jotai/discussions/1776?utm_source=chatgpt.com)
     - That means classification (unscoped vs dependent) must be decided **as soon as the sync part finishes**, _before_ we commit any state or mark the atom changed.
     - Async continuations (after the `await`) will run later, but they already know which atom identity they belong to (C0 vs C3) because that was fixed when the pending promise was first registered.
 
 2.  **Late in the lifecycle:**
-
     - A scope might initially read `C` in a purely unscoped way (`depth(C)=0`), causing `C0` to be used.
     - Later, some code path in that same scope reads `C` and now touches a scoped dependency, discovering `depth(C)=3` and forcing us to promote to `C3`.
     - Meanwhile, React may already have re-rendered components using the unscoped version earlier.
@@ -1113,7 +1035,6 @@ You can’t retroactively stop those earlier rerenders from having happened. But
 Because Jotai only notifies subscribers at the end of a batch (`flushCallbacks`/`storeHooks`), and classification + commit happens **inside `readAtomState`**, we can guarantee:
 
 - Whenever React is told “C changed”, we have already:
-
   - Picked the correct atom identity (C0 vs C3).
   - Written the value into that identity’s `atomState`.
   - Marked that identity in `changedAtoms`.
@@ -1132,7 +1053,6 @@ That’s okay: it’s just the app’s logic changing which dependencies are use
 This is where the sticky vs bi-stable choice bites again. If you allow **full bi-stability**, then:
 
 - In S3, C could flip:
-
   - Eval 1: touches scoped A3 → classified as C3, stored under C3.
   - Eval 2: control flow changes, doesn’t touch A3 → classified as depth 0; now we’d want to “pull it back” to C0.
 
@@ -1140,14 +1060,12 @@ In practice:
 
 - Pulling it back to C0 after React has been rendering based on C3 is semantically weird: you’re effectively saying “this scope no longer has a special view of C” _mid-lifecycle_.
 - For async atoms, this is particularly nasty:
-
   - The initial pending state might be stored under C3.
   - Later, when `await` resolves, if you flip classification back to C0, you need to migrate the resolved value back and forth while some components are subscribed to one identity and others to the other.
 
 So for **mitigating weird “late” reclassification with async**, I would recommend:
 
 - **Promote-to-dependent is sticky per scope:**
-
   - Once a scope has ever seen `depth(C)>0`, mark that `(scope, C)` pair as “sticky dependent”.
   - All future evaluations in that scope target the dependent clone (`C3`), even if a particular evaluation’s deps happen to be purely unscoped.
 
@@ -1172,17 +1090,14 @@ Using your notes 14–17 and folding in the latest adjustments:
 
 - We **do** keep using copies of atoms (clones) for any scoped variant (explicit, implicit, and now dependent scoped), with the store’s `atomStateMap` keyed by those clones. [Daishi Kato's Read the Code](https://newsletter.daishikato.com/p/learn-how-jotai-uses-a-symbol-for-internal-api)
 - We treat each `readAtomState` as a **tiny transaction**:
-
   - Collect deps → classify (unscoped vs scoped vs dependent).
   - Commit to the correct clone’s `atomState` (C0 vs C1 vs C3) _before_ `recomputeDependents`.
 
 - For dependent scoped atoms:
-
   - We lazily create clones (e.g. `C3`) when we first discover scope-influenced dependencies in a given scope.
   - We hot-swap the **internal identity** used in that scope (so ScopeProvider’s `useAtom` resolves `C` to `C3` for S3).
 
 - We mitigate late async classification issues by:
-
   - Ensuring classification/commit happens before notifications.
   - Making “promotion to dependent scoped in this scope” **sticky** for that `(scope, atom)` pair.
 
@@ -1219,23 +1134,19 @@ S3[A]:  A3, B0, C3(A3 + B1), D3(C3)
 Key changes vs the previous version:
 
 - In **S0**:
-
   - `D0(C0)` now depends on the _global_ `C0`, not some magically “C1 from the future scope”.
   - So `D0` is purely depth-0 in S0. No weird cross-scope dependency.
 
 - In **S1\[C\]**:
-
   - We introduce `C1(A1 + B1)` (explicit/implicit scoped C at depth 1).
   - `D1(C1)` is the first time D becomes scope-influenced: in S1, `D` is now a depth-1 dependent scoped atom.
   - In terms of clones: `C1`, `D1` are new atom identities; `A1` / `B1` are whatever scoped/implicit/dependent story we end up with for that level.
 
 - In **S2\[ \]**:
-
   - No new explicits; it just **inherits** `C1`, `D1` from S1.
   - Reads of `C`/`D` in S2 resolve to `C1` / `D1`.
 
 - In **S3\[A\]**:
-
   - `A` is explicit → `A3`.
   - `C3(A3 + B1)` becomes a new depth-3 dependent/implicit clone of `C`.
   - `D3(C3)` becomes a depth-3 dependent clone of `D`, tied to `C3`.
@@ -1244,7 +1155,6 @@ So with the corrected `D0(C0)`:
 
 - There’s **no** depth-1 influence on `D` at S0 anymore.
 - All promotion of `D` to “dependent scoped” happens _per scope_ where it actually sees scoped inputs:
-
   - `D1` in S1/S2 (through `C1`),
   - `D3` in S3 (through `C3`).
 
@@ -1253,7 +1163,6 @@ The algorithm we were sketching (classify per read, create dependent clone like 
 If you want, next we can:
 
 - Step through this exact topography and show:
-
   - which clones get created when,
   - what `depth(C)` / `depth(D)` we compute in each scope, and
   - how `useAtom(D)` resolves in S0/S1/S2/S3 under the “lazy dependent clone + sticky promotion” plan.
@@ -1320,7 +1229,6 @@ First, it’s helpful to separate _kinds_ of “async” use of `get`:
     ```
 
     In _actual_ Jotai internals, the dependency graph is built from the `get` calls that happen **during the synchronous part of the read**. Once the read has returned (a value or a promise), any subsequent `get` calls (after the first `await`, or inside `setTimeout`) **do not participate** in dependency tracking. They’re just side-effect reads.
-
     - Jotai can’t retroactively say, “Oh, this atom actually depends on `explicitA`; let’s go back and reclassify it and rewire dependents.”
     - React has already been scheduled for whatever value/promise we returned on the first pass.
 
@@ -1335,13 +1243,11 @@ Given that, my recommendation is:
 
 1.  **Classification is based only on sync `get`s inside the read.**  
     That is: whether an atom is treated as unscoped vs dependent scoped is decided from the `get` calls that happen:
-
     - before the first `await` in the read, and
     - within the synchronous transaction that `readAtomState` runs.
 
 2.  **Asynchronous `get`s must not be relied on to change classification.**  
     You should assume they will:
-
     - read the correct _value_ for the current scope (our `get` wrapper always routes to the right explicit/dependent clone), but
     - **not** cause the atom to be reclassified or re-keyed.
 
@@ -1361,13 +1267,11 @@ Given that, my recommendation is:
 
 4.  **Alternatively: don’t do late `get`s inside the read at all.**  
     Instead, split logic:
-
     - Have one atom that performs the async business logic **based on sync deps**.
     - Have side-effectful callbacks or React effects outside the atom that do follow-on async reads if needed.
 
 5.  **Dev-mode warning (nice-to-have):**  
     In jotai-scope’s dev build, you could wrap `get` so that if it’s invoked:
-
     - outside a known `readAtomState` transaction, and
     - with an atom that’s explicit in some scope,  
       you log a warning: “This atom is reading an explicit scoped atom asynchronously; scoping classification, caching, and reactivity may not behave as you expect. Touch the explicit atom synchronously at the top of the read.”
@@ -1401,7 +1305,6 @@ Given Jotai’s model, there are only three realistic lines you can draw here:
 Then the guidance:
 
 - If you _care_ about scoping semantics for an async atom that might read explicit atoms:
-
   - Make sure you touch those explicit atoms synchronously at the top, or
   - Treat that atom as **explicit** in the relevant scopes.
 
@@ -1508,15 +1411,12 @@ const doubleAtom = atom(
 ### At runtime:
 
 - In S0, `useAtom(doubleAtom)` resolves to `double0` (C0 clone), with `get`/`set` that:
-
   - `get(countAtom)` → resolves to the S0-visible count (probably the global count).
   - `set(countAtom, x)` → writes to the S0-visible count.
 
 - In S3, with `countAtom` explicit or scoped somewhere up the tree:
-
   - `useAtom(doubleAtom)` resolves to `double3` (dependent scoped clone).
   - Its `get`/`set` use the **same logic**, but:
-
     - `get(countAtom)` resolves to the scoped `count` appropriate for S3.
     - `set(countAtom, x)` writes to that scoped `count`.
 
@@ -1524,7 +1424,6 @@ We don’t need a separate “value cell” for `double3`; Jotai still caches it
 
 - The `write` function runs with scope-aware `get`/`set`.
 - It writes to `countAtom` (which might be explicit or unscoped), and then:
-
   - Jotai’s internals mark `countAtom` as changed,
   - `recomputeDependents` re-runs `double3`, `double0`, etc. as appropriate.
 
@@ -1547,7 +1446,6 @@ The only implementation nuance is:
   We can’t let _late_ async `get` calls rewire the dependency graph after React has rendered. Classification must be based on synchronous `get`s in the read. Async `get`s still see correct values, but they don’t affect classification. Recommendation: ensure any atom that cares about scoped deps in async code touches those deps synchronously at the start (or factor that logic into an explicitly-scoped helper atom).
 - **19:**  
   Sticky classification prevents oscillating between unscoped and dependent after first promotion, but doesn’t solve the initial ambiguity. The clean story is: “dependent-ness is sync-only.” If you need more, either:
-
   - declare the atom as effectively scope-tied (explicit or via a helper), or
   - introduce an opt-in mechanism that preemptively treats certain atoms as dependent when used in scopes with specific explicit atoms.
 
@@ -1573,14 +1471,12 @@ Short answer: **we shouldn’t allow async to change classification at all**, so
 If we ever let “late” async `get` change classification:
 
 - You’d have already:
-
   - written a **promise** into the wrong atom (say `C0`),
   - updated `dependents` for `C0`,
   - marked `C0` as changed,
   - possibly already recomputed more derived atoms based on that state.
 
 - “Reverting” then means:
-
   - moving the promise and deps from `C0` → `C3`,
   - cleaning up `C0`’s dependents and invalidation,
   - fixing `changedAtoms` and anything that already reacted to the wrong one.
@@ -1609,15 +1505,12 @@ So: **no async-driven reclassification → no need to revert**. If someone write
 I’d do exactly what you’re suggesting:
 
 - **Dev mode:**
-
   - We keep a per-evaluation context:
-
     - `phase: "collectingDeps" | "afterClassify"`
     - `syncDeps: Set<Atom>` (atoms seen synchronously)
 
   - When `readAtomState` finishes the sync part, we compute classification and flip to `phase: "afterClassify"`.
   - Any `get` after that which:
-
     - reads an **explicit** atom in this scope that was **not** in `syncDeps`
     - and we know that would have changed depth (i.e., it’s an explicit atom at this scope)
 
@@ -1626,7 +1519,6 @@ I’d do exactly what you’re suggesting:
     > “Late get of scoped atom X inside read of Y after dependency collection. Scoping/classification is sync-only; make sure you touch scoped atoms synchronously at the top of Y’s read or mark Y as dependent.”
 
 - **Prod mode:**
-
   - Same classification rule (sync-only).
   - Late `get` just reads the right value (scope-aware), but does not change deps or classification.
   - No throw for perf; maybe optional flag if you want.
@@ -1646,7 +1538,6 @@ With derived-only dependents:
 
 - There’s no user “source of truth” stored in, say, `C3` that could diverge from `C0`.
 - The only impact of flipping `depth(C)` between 0 and k across evaluations is:
-
   - which clone (`C0` or `Ck`) caches the computed value,
   - which clone shows up in `changedAtoms` / `dependents` for that evaluation,
   - which one components in that scope subscribe to on that render (since `useAtom(C)` will resolve differently as the scope mapping changes).
@@ -1662,7 +1553,6 @@ So we can relax:
 
 - Sticky promotion is **not required for correctness** if dependent atoms are always derived-only.
 - It’s a potential optimization / simplification:
-
   - Sticky: fewer clone transitions and clearer mental model (“S3 owns C3 now”).
   - Non-sticky: more faithful to your “bi-stable classification” idea, at the cost of a little more churn and some extra complexity in implementation.
 
@@ -1712,18 +1602,15 @@ When we classify an evaluation of `asyncScopeSensitiveAtom` in a scope S:
 
 1.  We do the **normal** sync-based dependency analysis.
 2.  Then we look at the hint list:
-
     - If any hinted atom is **explicit** in S (or in an ancestor scope you consider relevant), we **force** `depth(atom) > 0` for this scope.
     - Even if the sync pass didn’t actually `get` that atom this time.
 
 Effectively:
 
 - In scopes that touch any of the hinted atoms:
-
   - the atom is treated as **dependent scoped by construction** (gets its own clone/state for that scope).
 
 - In scopes that do **not** scope any of the hinted atoms:
-
   - it behaves exactly like an unmarked atom (normal classification).
 
 This gives you a nice “escape hatch” for tricky async cases:
