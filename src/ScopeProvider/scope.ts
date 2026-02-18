@@ -285,6 +285,7 @@ function createPatchedStore(scope: Scope): Store {
       patchStoreFn(buildingBlocks[22]), //                    setAtom
       patchStoreFn(buildingBlocks[23]), //                    subAtom
       () => buildingBlocks, //                                enhanceBuildingBlocks (raw)
+      ...(buildingBlocks.slice(25) as never), //              rest of building blocks
     ]
     return patchedBuildingBlocks
   }
