@@ -251,7 +251,13 @@ function createPatchedStore(scope: Scope): Store {
   const atomOnInit = storeState[9]
   const alreadyPatched: StoreHooks = {}
 
-  storeState[9] = (_, atom) => atomOnInit(scopedStore, atom)
+  storeState[9] = (_, atom) => {
+    atomOnInit(scopedStore, atom)
+    // backward compat: call unstable_onInit if INTERNAL_onInit is not present
+    if (!(atom as any).INTERNAL_onInit && (atom as any).unstable_onInit) {
+      ;(atom as any).unstable_onInit(scopedStore)
+    }
+  }
   storeState[21] = patchStoreFn(storeGet)
   storeState[22] = scopedSet
   storeState[23] = patchStoreFn(storeSub)
