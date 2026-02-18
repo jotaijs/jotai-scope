@@ -248,10 +248,19 @@ function createPatchedStore(scope: Scope): Store {
   const storeGet = storeState[21]
   const storeSet = storeState[22]
   const storeSub = storeState[23]
-  const atomOnInit = storeState[9]
+  // const atomOnInit = storeState[9]
   const alreadyPatched: StoreHooks = {}
 
-  storeState[9] = (_, atom) => atomOnInit(scopedStore, atom)
+  // storeState[9] = (_, atom) => atomOnInit(scopedStore, atom)
+  // FIXME: revert to the above
+  storeState[9] = (_, atom) => {
+    // backwards compatibility for older versions of jotai
+    if ((atom as any).INTERNAL_onInit) {
+      ;(atom as any).INTERNAL_onInit(scopedStore)
+    } else if ((atom as any).unstable_onInit) {
+      ;(atom as any).unstable_onInit(scopedStore)
+    }
+  }
   storeState[21] = patchStoreFn(storeGet)
   storeState[22] = scopedSet
   storeState[23] = patchStoreFn(storeSub)
