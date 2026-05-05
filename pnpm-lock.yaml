@@ -61,14 +61,14 @@ importers:
         specifier: ^2.4.2
         version: 2.6.1
       jotai:
-        specifier: 2.16.0
-        version: 2.16.0(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3)
+        specifier: https://pkg.csb.dev/pmndrs/jotai/commit/ac38969c/jotai
+        version: https://pkg.csb.dev/pmndrs/jotai/commit/ac38969c/jotai(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3)
       jotai-effect:
-        specifier: 2.1.2
-        version: 2.1.2(jotai@2.16.0(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3))
+        specifier: https://pkg.csb.dev/jotaijs/jotai-effect/commit/6828183e/jotai-effect
+        version: https://pkg.csb.dev/jotaijs/jotai-effect/commit/6828183e/jotai-effect(jotai@https://pkg.csb.dev/pmndrs/jotai/commit/ac38969c/jotai(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3))
       jotai-family:
         specifier: ^1.0.0
-        version: 1.0.1(jotai@2.16.0(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3))
+        version: 1.0.1(jotai@https://pkg.csb.dev/pmndrs/jotai/commit/ac38969c/jotai(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3))
       prettier:
         specifier: ^3.4.2
         version: 3.7.4
@@ -1416,20 +1416,23 @@ packages:
     resolution: {integrity: sha512-ekilCSN1jwRvIbgeg/57YFh8qQDNbwDb9xT/qu2DAHbFFZUicIl4ygVaAvzveMhMVr3LnpSKTNnwt8PoOfmKhQ==}
     hasBin: true
 
-  jotai-effect@2.1.2:
-    resolution: {integrity: sha512-TDofNDeRENGVM0KzW6fgqvshFCkkXliaiWE7MvbfysEJqVJKW20P3LZ0BoqqqpA2mPvgHylac6V5O26l4ib/jg==}
+  jotai-effect@https://pkg.csb.dev/jotaijs/jotai-effect/commit/6828183e/jotai-effect:
+    resolution: {tarball: https://pkg.csb.dev/jotaijs/jotai-effect/commit/6828183e/jotai-effect}
+    version: 2.2.4
     engines: {node: '>=12.20.0'}
     peerDependencies:
-      jotai: '>=2.14.0'
+      jotai: '>=2.20.0'
 
   jotai-family@1.0.1:
     resolution: {integrity: sha512-Zb/79GNDhC/z82R+6qTTpeKW4l4H6ZCApfF5W8G4SH37E4mhbysU7r8DkP0KX94hWvjB/6lt/97nSr3wB+64Zg==}
+    version: 1.0.1
     engines: {node: '>=12.20.0'}
     peerDependencies:
       jotai: '>=2.9.0'
 
-  jotai@2.16.0:
-    resolution: {integrity: sha512-NmkwPBet0SHQ28GBfEb10sqnbVOYyn6DL4iazZgGRDUKxSWL0iqcm+IK4TqTSFC2ixGk+XX2e46Wbv364a3cKg==}
+  jotai@https://pkg.csb.dev/pmndrs/jotai/commit/ac38969c/jotai:
+    resolution: {tarball: https://pkg.csb.dev/pmndrs/jotai/commit/ac38969c/jotai}
+    version: 2.19.1
     engines: {node: '>=12.20.0'}
     peerDependencies:
       '@babel/core': '>=7.0.0'
@@ -3386,15 +3389,15 @@ snapshots:
 
   jiti@2.6.1: {}
 
-  jotai-effect@2.1.2(jotai@2.16.0(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3)):
+  jotai-effect@https://pkg.csb.dev/jotaijs/jotai-effect/commit/6828183e/jotai-effect(jotai@https://pkg.csb.dev/pmndrs/jotai/commit/ac38969c/jotai(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3)):
     dependencies:
-      jotai: 2.16.0(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3)
+      jotai: https://pkg.csb.dev/pmndrs/jotai/commit/ac38969c/jotai(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3)
 
-  jotai-family@1.0.1(jotai@2.16.0(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3)):
+  jotai-family@1.0.1(jotai@https://pkg.csb.dev/pmndrs/jotai/commit/ac38969c/jotai(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3)):
     dependencies:
-      jotai: 2.16.0(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3)
+      jotai: https://pkg.csb.dev/pmndrs/jotai/commit/ac38969c/jotai(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3)
 
-  jotai@2.16.0(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3):
+  jotai@https://pkg.csb.dev/pmndrs/jotai/commit/ac38969c/jotai(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3):
     optionalDependencies:
       '@babel/core': 7.28.5
       '@babel/template': 7.27.2
