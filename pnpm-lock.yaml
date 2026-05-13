@@ -61,14 +61,14 @@ importers:
         specifier: ^2.4.2
         version: 2.6.1
       jotai:
-        specifier: https://pkg.csb.dev/pmndrs/jotai/commit/ac38969c/jotai
-        version: https://pkg.csb.dev/pmndrs/jotai/commit/ac38969c/jotai(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3)
+        specifier: ^2.20.0
+        version: 2.20.0(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3)
       jotai-effect:
-        specifier: https://pkg.csb.dev/jotaijs/jotai-effect/commit/6828183e/jotai-effect
-        version: https://pkg.csb.dev/jotaijs/jotai-effect/commit/6828183e/jotai-effect(jotai@https://pkg.csb.dev/pmndrs/jotai/commit/ac38969c/jotai(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3))
+        specifier: ^2.3.0
+        version: 2.3.0(jotai@2.20.0(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3))
       jotai-family:
         specifier: ^1.0.0
-        version: 1.0.1(jotai@https://pkg.csb.dev/pmndrs/jotai/commit/ac38969c/jotai(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3))
+        version: 1.0.1(jotai@2.20.0(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3))
       prettier:
         specifier: ^3.4.2
         version: 3.7.4
@@ -1416,23 +1416,20 @@ packages:
     resolution: {integrity: sha512-ekilCSN1jwRvIbgeg/57YFh8qQDNbwDb9xT/qu2DAHbFFZUicIl4ygVaAvzveMhMVr3LnpSKTNnwt8PoOfmKhQ==}
     hasBin: true
 
-  jotai-effect@https://pkg.csb.dev/jotaijs/jotai-effect/commit/6828183e/jotai-effect:
-    resolution: {tarball: https://pkg.csb.dev/jotaijs/jotai-effect/commit/6828183e/jotai-effect}
-    version: 2.2.4
+  jotai-effect@2.3.0:
+    resolution: {integrity: sha512-Y2P+MnfB1aO5P/tIJrmM7nBFkseE43hichraah8fdft4/fgl4NQ3eMgufwX+9l1kdwaPz+hoqsFnNQ5jCKQ37A==}
     engines: {node: '>=12.20.0'}
     peerDependencies:
       jotai: '>=2.20.0'
 
   jotai-family@1.0.1:
     resolution: {integrity: sha512-Zb/79GNDhC/z82R+6qTTpeKW4l4H6ZCApfF5W8G4SH37E4mhbysU7r8DkP0KX94hWvjB/6lt/97nSr3wB+64Zg==}
-    version: 1.0.1
     engines: {node: '>=12.20.0'}
     peerDependencies:
       jotai: '>=2.9.0'
 
-  jotai@https://pkg.csb.dev/pmndrs/jotai/commit/ac38969c/jotai:
-    resolution: {tarball: https://pkg.csb.dev/pmndrs/jotai/commit/ac38969c/jotai}
-    version: 2.19.1
+  jotai@2.20.0:
+    resolution: {integrity: sha512-b5GAqgmXmXzB4WPaTH26ppk9Sl7AA9WSQX7yfdM+gJ1rFROiWcVbi97gFuN/yVCojOcbcvop2sfLL+fjxW0JVg==}
     engines: {node: '>=12.20.0'}
     peerDependencies:
       '@babel/core': '>=7.0.0'
@@ -3389,15 +3386,15 @@ snapshots:
 
   jiti@2.6.1: {}
 
-  jotai-effect@https://pkg.csb.dev/jotaijs/jotai-effect/commit/6828183e/jotai-effect(jotai@https://pkg.csb.dev/pmndrs/jotai/commit/ac38969c/jotai(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3)):
+  jotai-effect@2.3.0(jotai@2.20.0(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3)):
     dependencies:
-      jotai: https://pkg.csb.dev/pmndrs/jotai/commit/ac38969c/jotai(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3)
+      jotai: 2.20.0(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3)
 
-  jotai-family@1.0.1(jotai@https://pkg.csb.dev/pmndrs/jotai/commit/ac38969c/jotai(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3)):
+  jotai-family@1.0.1(jotai@2.20.0(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3)):
     dependencies:
-      jotai: https://pkg.csb.dev/pmndrs/jotai/commit/ac38969c/jotai(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3)
+      jotai: 2.20.0(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3)
 
-  jotai@https://pkg.csb.dev/pmndrs/jotai/commit/ac38969c/jotai(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3):
+  jotai@2.20.0(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.2.7)(react@19.2.3):
     optionalDependencies:
       '@babel/core': 7.28.5
       '@babel/template': 7.27.2
