@@ -1,6 +1,7 @@
 import { act, render } from '@testing-library/react'
 import { atom, useAtom, useSetAtom } from 'jotai'
-import { atomFamily, atomWithReducer } from 'jotai/utils'
+import { atomWithReducer } from 'jotai/utils'
+import { atomFamily } from 'jotai-family'
 import { describe, expect, test } from 'vitest'
 import { ScopeProvider } from '../../src/index'
 import { clickButton, getTextContents } from '../utils'
