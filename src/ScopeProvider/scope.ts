@@ -11,31 +11,8 @@ import type {
   INTERNAL_Store as Store,
 } from '../jotai-compat'
 import {
-  INTERNAL_KEY_atomOnInit,
-  INTERNAL_KEY_atomOnMount,
-  INTERNAL_KEY_atomRead,
-  INTERNAL_KEY_atomStateMap,
-  INTERNAL_KEY_atomWrite,
-  INTERNAL_KEY_changedAtoms,
-  INTERNAL_KEY_enhanceBuildingBlocks,
-  INTERNAL_KEY_ensureAtomState,
-  INTERNAL_KEY_flushCallbacks,
-  INTERNAL_KEY_invalidateDependents,
-  INTERNAL_KEY_invalidatedAtoms,
-  INTERNAL_KEY_mountAtom,
-  INTERNAL_KEY_mountCallbacks,
-  INTERNAL_KEY_mountDependencies,
-  INTERNAL_KEY_mountedMap,
-  INTERNAL_KEY_readAtomState,
-  INTERNAL_KEY_recomputeInvalidatedAtoms,
   INTERNAL_KEY_setAtomStateValueOrPromise,
-  INTERNAL_KEY_storeGet,
-  INTERNAL_KEY_storeHooks,
-  INTERNAL_KEY_storeSet,
-  INTERNAL_KEY_storeSub,
-  INTERNAL_KEY_unmountAtom,
-  INTERNAL_KEY_unmountCallbacks,
-  INTERNAL_KEY_writeAtomState,
+  K,
   INTERNAL_buildStore as buildStore,
   INTERNAL_getBuildingBlocks as getBuildingBlocks,
 } from '../jotai-compat'
@@ -276,45 +253,44 @@ function createPatchedStore(scope: Scope): Store {
   const baseStore = scope[3]
   const storeState = cloneBuildingBlocks(getBuildingBlocks(baseStore))
   const state = storeState as Record<PropertyKey, any>
-  const storeGet = state[INTERNAL_KEY_storeGet]
-  const storeSet = state[INTERNAL_KEY_storeSet]
-  const storeSub = state[INTERNAL_KEY_storeSub]
+  const storeGet = state[K.storeGet]
+  const storeSet = state[K.storeSet]
+  const storeSub = state[K.storeSub]
   const alreadyPatched: StoreHooks = {}
-  state[INTERNAL_KEY_storeGet] = patchStoreFn(storeGet)
-  state[INTERNAL_KEY_storeSet] = scopedSet
-  state[INTERNAL_KEY_storeSub] = patchStoreFn(storeSub)
+  state[K.storeGet] = patchStoreFn(storeGet)
+  state[K.storeSet] = scopedSet
+  state[K.storeSub] = patchStoreFn(storeSub)
   let patchedAtomStateMap: AtomStateMap | undefined
   let out: BuildingBlocks | undefined
-  storeState[INTERNAL_KEY_enhanceBuildingBlocks] = function enhanceScopedBuildingBlocks(source) {
-    patchedAtomStateMap ??= patchWeakMapLike(source[INTERNAL_KEY_atomStateMap] as AtomStateMap, patchGetAtomState)
+  storeState[K.enhanceBuildingBlocks] = function enhanceScopedBuildingBlocks(source) {
+    patchedAtomStateMap ??= patchWeakMapLike(source[K.atomStateMap] as AtomStateMap, patchGetAtomState)
     out ??= Object.assign(cloneBuildingBlocks(source), {
       ...source,
-      [INTERNAL_KEY_atomStateMap]: patchedAtomStateMap,
-      [INTERNAL_KEY_mountedMap]: patchWeakMapLike(source[INTERNAL_KEY_mountedMap], patchGetMounted),
-      [INTERNAL_KEY_invalidatedAtoms]: patchWeakMapLike(source[INTERNAL_KEY_invalidatedAtoms]),
-      [INTERNAL_KEY_changedAtoms]: patchSetLike(source[INTERNAL_KEY_changedAtoms]),
-      [INTERNAL_KEY_mountCallbacks]: source[INTERNAL_KEY_mountCallbacks],
-      [INTERNAL_KEY_unmountCallbacks]: source[INTERNAL_KEY_unmountCallbacks],
-      [INTERNAL_KEY_storeHooks]: patchStoreHooks(source[INTERNAL_KEY_storeHooks]),
-      [INTERNAL_KEY_atomRead]: patchStoreFn(source[INTERNAL_KEY_atomRead]),
-      [INTERNAL_KEY_atomWrite]: patchStoreFn(source[INTERNAL_KEY_atomWrite]),
-      [INTERNAL_KEY_atomOnInit]: patchStoreFn(source[INTERNAL_KEY_atomOnInit]),
-      [INTERNAL_KEY_atomOnMount]: patchStoreFn(source[INTERNAL_KEY_atomOnMount]),
-      [INTERNAL_KEY_ensureAtomState]: patchEnsureAtomState(patchedAtomStateMap, source[INTERNAL_KEY_ensureAtomState]),
-      [INTERNAL_KEY_flushCallbacks]: (_, ...args) => source[INTERNAL_KEY_flushCallbacks](storeState, ...args),
-      [INTERNAL_KEY_recomputeInvalidatedAtoms]: (_, ...args) =>
-        source[INTERNAL_KEY_recomputeInvalidatedAtoms](storeState, ...args),
-      [INTERNAL_KEY_readAtomState]: patchStoreFn(source[INTERNAL_KEY_readAtomState]),
-      [INTERNAL_KEY_invalidateDependents]: patchStoreFn(source[INTERNAL_KEY_invalidateDependents]),
-      [INTERNAL_KEY_writeAtomState]: patchStoreFn(source[INTERNAL_KEY_writeAtomState]),
-      [INTERNAL_KEY_mountDependencies]: patchStoreFn(source[INTERNAL_KEY_mountDependencies]),
-      [INTERNAL_KEY_mountAtom]: patchStoreFn(source[INTERNAL_KEY_mountAtom]),
-      [INTERNAL_KEY_unmountAtom]: patchStoreFn(source[INTERNAL_KEY_unmountAtom]),
+      [K.atomStateMap]: patchedAtomStateMap,
+      [K.mountedMap]: patchWeakMapLike(source[K.mountedMap], patchGetMounted),
+      [K.invalidatedAtoms]: patchWeakMapLike(source[K.invalidatedAtoms]),
+      [K.changedAtoms]: patchSetLike(source[K.changedAtoms]),
+      [K.mountCallbacks]: source[K.mountCallbacks],
+      [K.unmountCallbacks]: source[K.unmountCallbacks],
+      [K.storeHooks]: patchStoreHooks(source[K.storeHooks]),
+      [K.atomRead]: patchStoreFn(source[K.atomRead]),
+      [K.atomWrite]: patchStoreFn(source[K.atomWrite]),
+      [K.atomOnInit]: patchStoreFn(source[K.atomOnInit]),
+      [K.atomOnMount]: patchStoreFn(source[K.atomOnMount]),
+      [K.ensureAtomState]: patchEnsureAtomState(patchedAtomStateMap, source[K.ensureAtomState]),
+      [K.flushCallbacks]: (_, ...args) => source[K.flushCallbacks](storeState, ...args),
+      [K.recomputeInvalidatedAtoms]: (_, ...args) => source[K.recomputeInvalidatedAtoms](storeState, ...args),
+      [K.readAtomState]: patchStoreFn(source[K.readAtomState]),
+      [K.invalidateDependents]: patchStoreFn(source[K.invalidateDependents]),
+      [K.writeAtomState]: patchStoreFn(source[K.writeAtomState]),
+      [K.mountDependencies]: patchStoreFn(source[K.mountDependencies]),
+      [K.mountAtom]: patchStoreFn(source[K.mountAtom]),
+      [K.unmountAtom]: patchStoreFn(source[K.unmountAtom]),
       [INTERNAL_KEY_setAtomStateValueOrPromise]: patchStoreFn(source[INTERNAL_KEY_setAtomStateValueOrPromise]),
-      [INTERNAL_KEY_storeGet]: patchStoreFn(source[INTERNAL_KEY_storeGet]),
-      [INTERNAL_KEY_storeSet]: patchStoreFn(source[INTERNAL_KEY_storeSet]),
-      [INTERNAL_KEY_storeSub]: patchStoreFn(source[INTERNAL_KEY_storeSub]),
-      [INTERNAL_KEY_enhanceBuildingBlocks]: () => source,
+      [K.storeGet]: patchStoreFn(source[K.storeGet]),
+      [K.storeSet]: patchStoreFn(source[K.storeSet]),
+      [K.storeSub]: patchStoreFn(source[K.storeSub]),
+      [K.enhanceBuildingBlocks]: () => source,
     } satisfies BuildingBlocks)
     return out
   }

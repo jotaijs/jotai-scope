@@ -98,47 +98,51 @@ if (revision >= 4) {
 }
 
 type SlotKeys<S extends readonly (readonly [string, string])[]> = {
-  -readonly [I in keyof S as I extends `${number}`
-    ? `INTERNAL_KEY_${S[I][0]}`
-    : never]: I extends `${infer N extends number}` ? (S[I][1] extends keyof BuildingBlocks ? S[I][1] : N) : never
+  -readonly [I in keyof S as I extends `${number}` ? S[I][0] : never]: I extends `${infer N extends number}`
+    ? S[I][1] extends keyof BuildingBlocks
+      ? S[I][1]
+      : N
+    : never
 }
 
 const K = {} as SlotKeys<typeof slots>
 slots.forEach(([name, c], i) => {
-  K[`INTERNAL_KEY_${name}`] = (revision >= 4 ? c : i) as never
+  K[name] = (revision >= 4 ? c : i) as never
 })
 
 export const {
-  INTERNAL_KEY_atomStateMap,
-  INTERNAL_KEY_mountedMap,
-  INTERNAL_KEY_invalidatedAtoms,
-  INTERNAL_KEY_changedAtoms,
-  INTERNAL_KEY_mountCallbacks,
-  INTERNAL_KEY_unmountCallbacks,
-  INTERNAL_KEY_storeHooks,
-  INTERNAL_KEY_atomRead,
-  INTERNAL_KEY_atomWrite,
-  INTERNAL_KEY_atomOnInit,
-  INTERNAL_KEY_atomOnMount,
-  INTERNAL_KEY_ensureAtomState,
-  INTERNAL_KEY_flushCallbacks,
-  INTERNAL_KEY_recomputeInvalidatedAtoms,
-  INTERNAL_KEY_readAtomState,
-  INTERNAL_KEY_invalidateDependents,
-  INTERNAL_KEY_writeAtomState,
-  INTERNAL_KEY_mountDependencies,
-  INTERNAL_KEY_mountAtom,
-  INTERNAL_KEY_unmountAtom,
-  INTERNAL_KEY_setAtomStateValueOrPromise,
-  INTERNAL_KEY_storeGet,
-  INTERNAL_KEY_storeSet,
-  INTERNAL_KEY_storeSub,
-  INTERNAL_KEY_enhanceBuildingBlocks,
-  INTERNAL_KEY_abortHandlersMap,
-  INTERNAL_KEY_registerAbortHandler,
-  INTERNAL_KEY_abortPromise,
-  INTERNAL_KEY_storeEpochHolder,
+  atomStateMap: INTERNAL_KEY_atomStateMap,
+  mountedMap: INTERNAL_KEY_mountedMap,
+  invalidatedAtoms: INTERNAL_KEY_invalidatedAtoms,
+  changedAtoms: INTERNAL_KEY_changedAtoms,
+  mountCallbacks: INTERNAL_KEY_mountCallbacks,
+  unmountCallbacks: INTERNAL_KEY_unmountCallbacks,
+  storeHooks: INTERNAL_KEY_storeHooks,
+  atomRead: INTERNAL_KEY_atomRead,
+  atomWrite: INTERNAL_KEY_atomWrite,
+  atomOnInit: INTERNAL_KEY_atomOnInit,
+  atomOnMount: INTERNAL_KEY_atomOnMount,
+  ensureAtomState: INTERNAL_KEY_ensureAtomState,
+  flushCallbacks: INTERNAL_KEY_flushCallbacks,
+  recomputeInvalidatedAtoms: INTERNAL_KEY_recomputeInvalidatedAtoms,
+  readAtomState: INTERNAL_KEY_readAtomState,
+  invalidateDependents: INTERNAL_KEY_invalidateDependents,
+  writeAtomState: INTERNAL_KEY_writeAtomState,
+  mountDependencies: INTERNAL_KEY_mountDependencies,
+  mountAtom: INTERNAL_KEY_mountAtom,
+  unmountAtom: INTERNAL_KEY_unmountAtom,
+  setAtomStateValueOrPromise: INTERNAL_KEY_setAtomStateValueOrPromise,
+  storeGet: INTERNAL_KEY_storeGet,
+  storeSet: INTERNAL_KEY_storeSet,
+  storeSub: INTERNAL_KEY_storeSub,
+  enhanceBuildingBlocks: INTERNAL_KEY_enhanceBuildingBlocks,
+  abortHandlersMap: INTERNAL_KEY_abortHandlersMap,
+  registerAbortHandler: INTERNAL_KEY_registerAbortHandler,
+  abortPromise: INTERNAL_KEY_abortPromise,
+  storeEpochHolder: INTERNAL_KEY_storeEpochHolder,
 } = K
+
+export { K }
 
 const rawGetBuildingBlocks = api[getBBKey] as GetBuildingBlocks
 
