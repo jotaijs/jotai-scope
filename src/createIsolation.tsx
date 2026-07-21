@@ -8,7 +8,7 @@ import {
 } from 'jotai/react'
 import { useHydrateAtoms } from 'jotai/react/utils'
 import { createStore } from 'jotai/vanilla'
-import type { INTERNAL_Store as Store } from 'jotai/vanilla/internals'
+import type { INTERNAL_Store as Store } from './jotai-compat'
 import { createScopeProvider } from './ScopeProvider/ScopeProvider'
 import type { AnyWritableAtom } from './types'
 

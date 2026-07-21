@@ -1,18 +1,44 @@
 import type { Atom, WritableAtom } from 'jotai'
 import { atom as createAtom } from 'jotai'
-import {
-  INTERNAL_buildStoreRev3 as buildStore,
-  INTERNAL_getBuildingBlocksRev3 as getBuildingBlocks,
-} from 'jotai/vanilla/internals'
+import { __DEV__ } from '../env'
 import type {
   INTERNAL_AtomState as AtomState,
   INTERNAL_AtomStateMap as AtomStateMap,
   INTERNAL_BuildingBlocks as BuildingBlocks,
   INTERNAL_EnsureAtomState as EnsureAtomState,
   INTERNAL_Mounted as Mounted,
+  INTERNAL_MountedMap as MountedMap,
   INTERNAL_Store as Store,
-} from 'jotai/vanilla/internals'
-import { __DEV__ } from '../env'
+} from '../jotai-compat'
+import {
+  INTERNAL_KEY_atomOnInit,
+  INTERNAL_KEY_atomOnMount,
+  INTERNAL_KEY_atomRead,
+  INTERNAL_KEY_atomStateMap,
+  INTERNAL_KEY_atomWrite,
+  INTERNAL_KEY_changedAtoms,
+  INTERNAL_KEY_enhanceBuildingBlocks,
+  INTERNAL_KEY_ensureAtomState,
+  INTERNAL_KEY_flushCallbacks,
+  INTERNAL_KEY_invalidateDependents,
+  INTERNAL_KEY_invalidatedAtoms,
+  INTERNAL_KEY_mountAtom,
+  INTERNAL_KEY_mountCallbacks,
+  INTERNAL_KEY_mountDependencies,
+  INTERNAL_KEY_mountedMap,
+  INTERNAL_KEY_readAtomState,
+  INTERNAL_KEY_recomputeInvalidatedAtoms,
+  INTERNAL_KEY_setAtomStateValueOrPromise,
+  INTERNAL_KEY_storeGet,
+  INTERNAL_KEY_storeHooks,
+  INTERNAL_KEY_storeSet,
+  INTERNAL_KEY_storeSub,
+  INTERNAL_KEY_unmountAtom,
+  INTERNAL_KEY_unmountCallbacks,
+  INTERNAL_KEY_writeAtomState,
+  INTERNAL_buildStore as buildStore,
+  INTERNAL_getBuildingBlocks as getBuildingBlocks,
+} from '../jotai-compat'
 import type {
   AnyAtom,
   AnyAtomFamily,
@@ -228,7 +254,7 @@ export function createScope({ atoms = [], atomFamilies = [], parentStore, name: 
         explicitMap.set(atom, [cloneAtom(scope, atom, scope), scope])
       }
     }
-    const cleanupFamily = atomFamily.unstable_listen(({ type, atom }) => {
+    const cleanupFamily = atomFamily.unstable_listen(({ type, atom }: { type: 'CREATE' | 'REMOVE'; atom: AnyAtom }) => {
       if (type === 'CREATE' && !explicitMap.has(atom)) {
         explicitMap.set(atom, [cloneAtom(scope, atom, scope), scope])
       } else if (type === 'REMOVE' && !atomsSet.has(atom)) {
@@ -241,61 +267,63 @@ export function createScope({ atoms = [], atomFamilies = [], parentStore, name: 
   return scopedStore
 }
 
+function cloneBuildingBlocks(buildingBlocks: BuildingBlocks): BuildingBlocks {
+  return (Array.isArray(buildingBlocks) ? [...buildingBlocks] : { ...buildingBlocks }) as unknown as BuildingBlocks
+}
+
 /** @returns a patched store that intercepts atom access to apply the scope */
 function createPatchedStore(scope: Scope): Store {
   const baseStore = scope[3]
-  const storeState: BuildingBlocks = [...getBuildingBlocks(baseStore)]
-  const storeGet = storeState[21]
-  const storeSet = storeState[22]
-  const storeSub = storeState[23]
+  const storeState = cloneBuildingBlocks(getBuildingBlocks(baseStore))
+  const state = storeState as Record<PropertyKey, any>
+  const storeGet = state[INTERNAL_KEY_storeGet]
+  const storeSet = state[INTERNAL_KEY_storeSet]
+  const storeSub = state[INTERNAL_KEY_storeSub]
   const alreadyPatched: StoreHooks = {}
-  storeState[21] = patchStoreFn(storeGet)
-  storeState[22] = scopedSet
-  storeState[23] = patchStoreFn(storeSub)
+  state[INTERNAL_KEY_storeGet] = patchStoreFn(storeGet)
+  state[INTERNAL_KEY_storeSet] = scopedSet
+  state[INTERNAL_KEY_storeSub] = patchStoreFn(storeSub)
   let patchedAtomStateMap: AtomStateMap | undefined
-  let patchedBuildingBlocks: BuildingBlocks | undefined
-  storeState[24] = function enhanceScopedBuildingBlocks(buildingBlocks) {
-    patchedAtomStateMap ??= patchWeakMapLike(buildingBlocks[0], patchGetAtomState)
-    patchedBuildingBlocks ??= [
-      patchedAtomStateMap, //  atomStateMap
-      patchWeakMapLike(buildingBlocks[1], patchGetMounted), //          mountedMap
-      patchWeakMapLike(buildingBlocks[2]), //                           invalidatedAtoms
-      patchSetLike(buildingBlocks[3]), //                               changedAtoms
-      buildingBlocks[4], //                                             mountCallbacks
-      buildingBlocks[5], //                                             unmountCallbacks
-      patchStoreHooks(buildingBlocks[6]), //                            storeHooks
-      patchStoreFn(buildingBlocks[7]), //                               atomRead
-      patchStoreFn(buildingBlocks[8]), //                               atomWrite
-      patchStoreFn(buildingBlocks[9]), //                               atomOnInit
-      patchStoreFn(buildingBlocks[10]), //                              atomOnMount
-      patchEnsureAtomState(patchedAtomStateMap, buildingBlocks[11]), // ensureAtomState
-      (_, ...args) => buildingBlocks[12](storeState, ...args), //       flushCallbacks
-      (_, ...args) => buildingBlocks[13](storeState, ...args), //       recomputeInvalidatedAtoms
-      patchStoreFn(buildingBlocks[14]), //                              readAtomState
-      patchStoreFn(buildingBlocks[15]), //                              invalidateDependents
-      patchStoreFn(buildingBlocks[16]), //                              writeAtomState
-      patchStoreFn(buildingBlocks[17]), //                              mountDependencies
-      patchStoreFn(buildingBlocks[18]), //                              mountAtom
-      patchStoreFn(buildingBlocks[19]), //                              unmountAtom
-      patchStoreFn(buildingBlocks[20]), //                              setAtomStateValueOrPromise
-      patchStoreFn(buildingBlocks[21]), //                              getAtom
-      patchStoreFn(buildingBlocks[22]), //                              setAtom
-      patchStoreFn(buildingBlocks[23]), //                              subAtom
-      () => buildingBlocks, //                                          enhanceBuildingBlocks (raw)
-      buildingBlocks[25], // abortHandlersMap
-      (_, ...args) => buildingBlocks[26](storeState, ...args), // registerAbortHandler
-      (_, ...args) => buildingBlocks[27](storeState, ...args), // abortPromise
-      buildingBlocks[28], // storeEpochHolder
-      ...(buildingBlocks.slice(25) as never), //                        rest of building blocks
-    ]
-    return patchedBuildingBlocks
+  let out: BuildingBlocks | undefined
+  storeState[INTERNAL_KEY_enhanceBuildingBlocks] = function enhanceScopedBuildingBlocks(source) {
+    patchedAtomStateMap ??= patchWeakMapLike(source[INTERNAL_KEY_atomStateMap] as AtomStateMap, patchGetAtomState)
+    out ??= Object.assign(cloneBuildingBlocks(source), {
+      ...source,
+      [INTERNAL_KEY_atomStateMap]: patchedAtomStateMap,
+      [INTERNAL_KEY_mountedMap]: patchWeakMapLike(source[INTERNAL_KEY_mountedMap], patchGetMounted),
+      [INTERNAL_KEY_invalidatedAtoms]: patchWeakMapLike(source[INTERNAL_KEY_invalidatedAtoms]),
+      [INTERNAL_KEY_changedAtoms]: patchSetLike(source[INTERNAL_KEY_changedAtoms]),
+      [INTERNAL_KEY_mountCallbacks]: source[INTERNAL_KEY_mountCallbacks],
+      [INTERNAL_KEY_unmountCallbacks]: source[INTERNAL_KEY_unmountCallbacks],
+      [INTERNAL_KEY_storeHooks]: patchStoreHooks(source[INTERNAL_KEY_storeHooks]),
+      [INTERNAL_KEY_atomRead]: patchStoreFn(source[INTERNAL_KEY_atomRead]),
+      [INTERNAL_KEY_atomWrite]: patchStoreFn(source[INTERNAL_KEY_atomWrite]),
+      [INTERNAL_KEY_atomOnInit]: patchStoreFn(source[INTERNAL_KEY_atomOnInit]),
+      [INTERNAL_KEY_atomOnMount]: patchStoreFn(source[INTERNAL_KEY_atomOnMount]),
+      [INTERNAL_KEY_ensureAtomState]: patchEnsureAtomState(patchedAtomStateMap, source[INTERNAL_KEY_ensureAtomState]),
+      [INTERNAL_KEY_flushCallbacks]: (_, ...args) => source[INTERNAL_KEY_flushCallbacks](storeState, ...args),
+      [INTERNAL_KEY_recomputeInvalidatedAtoms]: (_, ...args) =>
+        source[INTERNAL_KEY_recomputeInvalidatedAtoms](storeState, ...args),
+      [INTERNAL_KEY_readAtomState]: patchStoreFn(source[INTERNAL_KEY_readAtomState]),
+      [INTERNAL_KEY_invalidateDependents]: patchStoreFn(source[INTERNAL_KEY_invalidateDependents]),
+      [INTERNAL_KEY_writeAtomState]: patchStoreFn(source[INTERNAL_KEY_writeAtomState]),
+      [INTERNAL_KEY_mountDependencies]: patchStoreFn(source[INTERNAL_KEY_mountDependencies]),
+      [INTERNAL_KEY_mountAtom]: patchStoreFn(source[INTERNAL_KEY_mountAtom]),
+      [INTERNAL_KEY_unmountAtom]: patchStoreFn(source[INTERNAL_KEY_unmountAtom]),
+      [INTERNAL_KEY_setAtomStateValueOrPromise]: patchStoreFn(source[INTERNAL_KEY_setAtomStateValueOrPromise]),
+      [INTERNAL_KEY_storeGet]: patchStoreFn(source[INTERNAL_KEY_storeGet]),
+      [INTERNAL_KEY_storeSet]: patchStoreFn(source[INTERNAL_KEY_storeSet]),
+      [INTERNAL_KEY_storeSub]: patchStoreFn(source[INTERNAL_KEY_storeSub]),
+      [INTERNAL_KEY_enhanceBuildingBlocks]: () => source,
+    } satisfies BuildingBlocks)
+    return out
   }
-  const scopedStore = buildStore(...storeState)
+  const scopedStore = buildStore(storeState)
   return scopedStore
 
   // ---------------------------------------------------------------------------------
 
-  function patchGetAtomState<T extends BuildingBlocks[0]['get']>(fn: T) {
+  function patchGetAtomState<T extends AtomStateMap['get']>(fn: T) {
     const patchedASM = new WeakMap<AnyAtom, AtomState>()
     return function patchedGetAtomState(atom) {
       let patchedAtomState = patchedASM.get(atom)
@@ -326,7 +354,7 @@ function createPatchedStore(scope: Scope): Store {
     } as T
   }
 
-  function patchGetMounted<T extends BuildingBlocks[1]['get']>(fn: T) {
+  function patchGetMounted<T extends MountedMap['get']>(fn: T) {
     const patchedMM = new WeakMap<AnyAtom, Mounted>()
     return function patchedGetMounted(atom: AnyAtom) {
       let patchedMounted = patchedMM.get(atom)

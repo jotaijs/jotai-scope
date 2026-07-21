@@ -1,6 +1,6 @@
 import { type Atom, type WritableAtom } from 'jotai'
-import type { INTERNAL_StoreHooks, INTERNAL_Store as Store } from 'jotai/vanilla/internals'
 import type { AtomFamily } from 'jotai-family'
+import type { INTERNAL_StoreHooks, INTERNAL_Store as Store } from './jotai-compat'
 
 export type AnyAtom = Atom<any> | AnyWritableAtom
 

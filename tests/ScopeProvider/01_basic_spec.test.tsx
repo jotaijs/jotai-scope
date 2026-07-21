@@ -1,10 +1,10 @@
 import { render } from '@testing-library/react'
 import dedent from 'dedent'
 import { atom, createStore, useAtom, useAtomValue, useSetAtom } from 'jotai'
-import { INTERNAL_Store as Store } from 'jotai/vanilla/internals'
 import { atomWithReducer } from 'jotai/vanilla/utils'
 import { describe, expect, test } from 'vitest'
 import { ScopeProvider } from 'jotai-scope'
+import type { INTERNAL_Store as Store } from '../../src/jotai-compat'
 import { createScope } from '../../src/ScopeProvider/scope'
 import { clickButton, createDebugStore, cross, getTextContents, printAtomState, storeGet } from '../utils'
 
