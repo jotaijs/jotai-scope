@@ -1,36 +1,38 @@
 import { fireEvent } from '@testing-library/react'
 import type {
   INTERNAL_AtomState as AtomState,
-  INTERNAL_BuildingBlocks,
+  INTERNAL_BuildingBlocks as BuildingBlocks,
   INTERNAL_Store as Store,
-} from 'jotai/vanilla/internals'
+} from '../src/jotai-compat'
 import {
-  INTERNAL_buildStoreRev3 as buildStore,
-  INTERNAL_getBuildingBlocksRev3 as getBuildingBlocks,
-  INTERNAL_initializeStoreHooksRev3 as initializeStoreHooks,
-} from 'jotai/vanilla/internals'
-import { AnyAtom } from 'src/types'
+  INTERNAL_KEY_atomStateMap,
+  INTERNAL_KEY_ensureAtomState,
+  INTERNAL_KEY_invalidatedAtoms,
+  INTERNAL_KEY_mountedMap,
+  INTERNAL_KEY_storeHooks,
+  INTERNAL_buildStore as buildStore,
+  INTERNAL_getBuildingBlocks as getBuildingBlocks,
+  INTERNAL_initializeStoreHooks as initializeStoreHooks,
+} from '../src/jotai-compat'
+import { AnyAtom } from '../src/types'
 
 //
 // Debug Store
 //
 
-type Mutable<T> = { -readonly [P in keyof T]: T[P] }
-
-type BuildingBlocks = Mutable<INTERNAL_BuildingBlocks>
-
 type DebugStore = Store & { name: string }
 
 export function createDebugStore(name: string = `S0`) {
-  const buildingBlocks: Partial<BuildingBlocks> = [
-    new Map(), // atomStateMap
-    new Map(), // mountedMap
-    new Map(), // invalidatedAtoms
-  ]
-  buildingBlocks[6] = initializeStoreHooks({})
-  const ensureAtomState = getBuildingBlocks(buildStore())[11]
-  buildingBlocks[11] = (bb, store, atom) => Object.assign(ensureAtomState(bb, store, atom), { label: atom.debugLabel })
-  const debugStore = buildStore(...buildingBlocks) as DebugStore
+  const partial = {
+    [INTERNAL_KEY_atomStateMap]: new Map(),
+    [INTERNAL_KEY_mountedMap]: new Map(),
+    [INTERNAL_KEY_invalidatedAtoms]: new Map(),
+    [INTERNAL_KEY_storeHooks]: initializeStoreHooks({}),
+    [INTERNAL_KEY_ensureAtomState]: (bb: BuildingBlocks, store: Store, atom: AnyAtom) =>
+      Object.assign(ensureAtomState(bb, store, atom), { label: atom.debugLabel }),
+  }
+  const ensureAtomState = getBuildingBlocks(buildStore())[INTERNAL_KEY_ensureAtomState]
+  const debugStore = buildStore(partial) as DebugStore
   debugStore.name = name
   return debugStore
 }
@@ -86,10 +88,11 @@ export function storeGet(store: Store, atom: AnyAtom) {
 
 export function printAtomState(store: Store) {
   const buildingBlocks = getBuildingBlocks(store)
-  if (buildingBlocks[0] instanceof WeakMap) {
+  const atomStateMapRaw = buildingBlocks[INTERNAL_KEY_atomStateMap]
+  if (atomStateMapRaw instanceof WeakMap) {
     throw new Error('Cannot print atomStateMap, store must be debug store')
   }
-  const atomStateMap = buildingBlocks[0] as Map<AnyAtom, AtomState>
+  const atomStateMap = atomStateMapRaw as Map<AnyAtom, AtomState>
   const result: string[] = []
   function printAtom(atom: AnyAtom, indent = 0) {
     const atomState = atomStateMap.get(atom)
@@ -111,10 +114,10 @@ export function printAtomState(store: Store) {
 
 export function trackAtomStateMap(store: Store) {
   const buildingBlocks = getBuildingBlocks(store)
-  if (buildingBlocks[0] instanceof WeakMap) {
+  if (buildingBlocks[INTERNAL_KEY_atomStateMap] instanceof WeakMap) {
     throw new Error('Cannot print atomStateMap, store must be debug store')
   }
-  const storeHooks = buildingBlocks[6]
+  const storeHooks = buildingBlocks[INTERNAL_KEY_storeHooks]
   storeHooks.c!.add(undefined, (atom) => {
     console.log('ATOM_CHANGED', atom.debugLabel)
     console.log(printAtomState(store))

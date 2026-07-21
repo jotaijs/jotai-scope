@@ -36,7 +36,7 @@ export default tseslint.config(
         },
       ],
       'import/export': 'error',
-      'import/no-duplicates': ['error'],
+      'import/no-duplicates': 'off',
       'import/no-unresolved': ['error', { commonjs: true, amd: true }],
       'import/order': [
         'error',

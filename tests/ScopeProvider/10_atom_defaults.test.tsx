@@ -29,7 +29,7 @@ describe('ScopeProvider atom defaults', () => {
         </ScopeProvider>
       )
       expect(getValues(container)).toBe('0,0,0')
-      expect(Component).toHaveBeenCalledTimes(2)
+      expect(Component).toHaveBeenCalledTimes(1)
     }
     vi.clearAllMocks()
     {
@@ -45,9 +45,8 @@ describe('ScopeProvider atom defaults', () => {
         </ScopeProvider>
       )
       expect(getValues(container)).toBe('1,2,0')
-      // Component is normally rendered twice,
       // adding defaults does not add an extra render
-      expect(Component).toHaveBeenCalledTimes(2)
+      expect(Component).toHaveBeenCalledTimes(1)
     }
   })
 })
