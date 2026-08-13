@@ -8,14 +8,14 @@ import {
 } from 'jotai/react'
 import { useHydrateAtoms } from 'jotai/react/utils'
 import { createStore } from 'jotai/vanilla'
+import type { WritableAtom } from 'jotai/vanilla'
 import type { INTERNAL_Store as Store } from './jotai-compat'
 import { createScopeProvider } from './ScopeProvider/ScopeProvider'
-import type { AnyWritableAtom } from './types'
 
 type CreateIsolationResult = {
   Provider: (props: {
     store?: Store
-    initialValues?: Iterable<readonly [AnyWritableAtom, unknown]>
+    initialValues?: Iterable<readonly [WritableAtom<any, any[], any>, unknown]>
     children: ReactNode
   }) => React.JSX.Element
   ScopeProvider: ReturnType<typeof createScopeProvider>
@@ -34,7 +34,7 @@ export function createIsolation(): CreateIsolationResult {
     children,
   }: {
     store?: Store
-    initialValues?: Iterable<readonly [AnyWritableAtom, unknown]>
+    initialValues?: Iterable<readonly [WritableAtom<any, any[], any>, unknown]>
     children: ReactNode
   }) {
     const storeRef = useRef(store)
