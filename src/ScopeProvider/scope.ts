@@ -261,6 +261,7 @@ function createPatchedStore(scope: Scope): Store {
   state[K.storeSet] = scopedSet
   state[K.storeSub] = patchStoreFn(storeSub)
   let patchedAtomStateMap: AtomStateMap | undefined
+  const patchedMountedCache = new WeakMap<Mounted, Mounted>()
   let out: BuildingBlocks | undefined
   storeState[K.enhanceBuildingBlocks] = function enhanceScopedBuildingBlocks(source) {
     patchedAtomStateMap ??= patchWeakMapLike(source[K.atomStateMap] as AtomStateMap, patchGetAtomState)
@@ -331,28 +332,32 @@ function createPatchedStore(scope: Scope): Store {
   }
 
   function patchGetMounted<T extends MountedMap['get']>(fn: T) {
-    const patchedMM = new WeakMap<AnyAtom, Mounted>()
     return function patchedGetMounted(atom: AnyAtom) {
-      let patchedMounted = patchedMM.get(atom)
-      if (patchedMounted) {
-        return patchedMounted
-      }
       const mounted = fn(atom)
       if (!mounted) {
         return undefined
       }
-      patchedMounted = {
-        ...mounted,
-        d: patchSetLike(mounted.d),
-        t: patchSetLike(mounted.t),
-        get u() {
-          return mounted.u
-        },
-        set u(v) {
-          mounted.u = v
-        },
-      } as Mounted
-      patchedMM.set(atom, patchedMounted)
+      let patchedMounted = patchedMountedCache.get(mounted)
+      if (!patchedMounted) {
+        patchedMounted = {
+          ...mounted,
+          d: patchSetLike(mounted.d),
+          t: patchSetLike(mounted.t),
+          get k() {
+            return mounted.k
+          },
+          set k(v) {
+            mounted.k = v
+          },
+          get u() {
+            return mounted.u
+          },
+          set u(v) {
+            mounted.u = v
+          },
+        } as Mounted
+        patchedMountedCache.set(mounted, patchedMounted)
+      }
       return patchedMounted
     } as T
   }
