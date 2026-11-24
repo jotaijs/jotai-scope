@@ -159,6 +159,12 @@ export const INTERNAL_getBuildingBlocks = (store: Store): BuildingBlocks => {
       Object.defineProperty(buildingBlocks, i, attributes)
       Object.defineProperty(buildingBlocks, c, attributes)
     })
+    // core functions also read building blocks that are not in `slots`
+    for (const key of Object.keys(raw)) {
+      if (!Object.prototype.hasOwnProperty.call(buildingBlocks, key)) {
+        Object.defineProperty(buildingBlocks, key, { value: raw[key], enumerable: true })
+      }
+    }
     processed.set(raw, buildingBlocks)
   }
   return buildingBlocks as BuildingBlocks
